@@ -3,8 +3,15 @@ import axios, {
   type AxiosInstance,
   type AxiosRequestConfig,
 } from 'axios';
-import type { ProblemDetails, CaseType, TemplateVersion } from '../types/api';
-import type { BackendDraftPayload } from '../features/templates/context/TemplateBuilderContext';
+import type {
+  ProblemDetails,
+  CaseType,
+  TemplateVersion,
+  BffWorkspaceSnapshot,
+  StepActionType,
+  WorkItemActionType,
+  BffCaseDocument,
+} from '../types/api';
 
 export class ApiError extends Error {
   public readonly status: number;
@@ -119,7 +126,7 @@ export async function getCaseType(caseTypeId: string): Promise<CaseType> {
 
 export async function saveCaseTypeDraft(
   caseTypeId: string,
-  payload: BackendDraftPayload,
+  payload: unknown,
 ): Promise<{ id: string; version: number }> {
   return apiPut<{ id: string; version: number }>(
     `/case-types/${caseTypeId}/draft`,
@@ -134,4 +141,58 @@ export async function publishCaseTypeDraft(
   return apiPost<TemplateVersion>(
     `/case-types/${caseTypeId}/drafts/${draftId}/publish`,
   );
+}
+
+/**
+ * BFF Snapshots & Mutation Actions (PAI-15, PAI-17)
+ */
+
+export async function fetchCaseWorkspace(
+  caseId: string,
+): Promise<BffWorkspaceSnapshot> {
+  return apiGet<BffWorkspaceSnapshot>(`/bff/case-workspace/${caseId}`);
+}
+
+export async function executeStepAction(
+  caseId: string,
+  stepId: string,
+  action: StepActionType,
+): Promise<{ success: boolean; resourceVersion?: number }> {
+  return apiPost<{ success: boolean; resourceVersion?: number }>(
+    `/cases/${caseId}/steps/${stepId}/action`,
+    { action },
+  );
+}
+
+export async function executeWorkItemAction(
+  caseId: string,
+  workItemId: string,
+  stepId: string,
+  action: WorkItemActionType,
+): Promise<{ success: boolean; resourceVersion?: number }> {
+  return apiPost<{ success: boolean; resourceVersion?: number }>(
+    `/cases/${caseId}/work-items/${workItemId}/action`,
+    { stepId, action },
+  );
+}
+
+export async function uploadCaseDocument(
+  caseId: string,
+  file: File,
+  category: string,
+): Promise<BffCaseDocument> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('category', category);
+
+  const response = await apiClient.post<BffCaseDocument>(
+    `/cases/${caseId}/documents`,
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    },
+  );
+  return response.data;
 }

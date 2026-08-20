@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Search,
   Filter,
@@ -102,6 +103,7 @@ const initialCases: CaseSummary[] = [
 ];
 
 export const CasesPage: React.FC = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
@@ -134,6 +136,7 @@ export const CasesPage: React.FC = () => {
           variant="primary"
           size="md"
           leftIcon={<Plus className="w-4 h-4" />}
+          onClick={() => navigate('/cases/case-oxford-101')}
         >
           Start New Case
         </Button>
@@ -198,7 +201,8 @@ export const CasesPage: React.FC = () => {
               {filteredCases.map((c) => (
                 <tr
                   key={c.id}
-                  className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                  onClick={() => navigate(`/cases/${c.id}`)}
+                  className="hover:bg-pink-50/40 transition-colors cursor-pointer group"
                 >
                   <td className="py-3.5 px-4">
                     <div className="font-bold text-slate-900">{c.title}</div>

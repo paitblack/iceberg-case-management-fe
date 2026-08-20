@@ -21,9 +21,13 @@ export type CompletionRuleType = 'ALL_REQUIRED' | 'ANY_REQUIRED' | 'MANUAL';
 export type WorkItemRequirement = 'required' | 'optional' | 'conditional';
 export type WorkItemTag =
   'Manual' | 'Key Date' | 'Email' | 'Document Upload' | 'Public Update';
-export type StepStatus =
-  'Completed' | 'In progress' | 'Waiting' | 'Not started' | 'Blocked';
+export type StepExecutionStatus =
+  'Pending' | 'Available' | 'InProgress' | 'Completed' | 'Skipped';
+export type WorkItemExecutionStatus = 'Pending' | 'Completed' | 'Waived';
 export type CaseLifecycleStatus = 'Open' | 'OnHold' | 'Completed' | 'Cancelled';
+
+export type StepActionType = 'COMPLETE_STEP' | 'SKIP_STEP';
+export type WorkItemActionType = 'COMPLETE' | 'WAIVE';
 
 export interface DueRule {
   type: 'none' | 'daysAfterPredecessor' | 'fixedDate';
@@ -75,8 +79,7 @@ export interface StepDefinition {
   dependencyJoinType?: DependencyJoinType;
   requirement?: WorkItemRequirement;
   workItems: WorkItemDefinition[];
-  // UI Presentation Meta
-  status?: StepStatus;
+  status?: StepExecutionStatus;
   completedTasks?: number;
   totalTasks?: number;
 }
@@ -123,7 +126,7 @@ export interface CaseType {
 }
 
 /**
- * BFF View Models & Snapshots (PAI-15, PAI-17, PAI-18)
+ * BFF Snapshots & View Models (PAI-15, PAI-17, PAI-18)
  */
 
 export interface BffCaseListItem {
@@ -133,7 +136,7 @@ export interface BffCaseListItem {
   propertyAddress: string;
   caseTypeId: string;
   caseTypeName: string;
-  status: 'Open' | 'OnHold' | 'Completed' | 'Cancelled';
+  status: CaseLifecycleStatus;
   executionStatus: 'active' | 'blocked' | 'completed';
   currentStepId: string;
   currentStepName: string;
@@ -147,38 +150,75 @@ export interface BffCaseListItem {
   updatedAt: string;
 }
 
+export interface BffWorkspaceWorkItem {
+  id: string;
+  stepId: string;
+  title: string;
+  description?: string;
+  status: WorkItemExecutionStatus;
+  tag: WorkItemTag;
+  requirement: WorkItemRequirement;
+  role: string;
+  isKeyDate?: boolean;
+  allowedActions: WorkItemActionType[];
+  completedAt?: string;
+  completedByUserName?: string;
+}
+
+export interface BffWorkspaceStep {
+  id: string;
+  stepDefinitionId: string;
+  name: string;
+  description?: string;
+  status: StepExecutionStatus;
+  displayOrder: number;
+  dependencyJoinType: DependencyJoinType;
+  dependencies: string[];
+  allowedActions: StepActionType[];
+  workItems: BffWorkspaceWorkItem[];
+}
+
+export interface BffCaseDocument {
+  id: string;
+  fileName: string;
+  fileSizeBytes: number;
+  fileType: string;
+  category: string;
+  uploadedAt: string;
+  uploadedByName: string;
+  downloadUrl?: string;
+}
+
+export interface BffParticipant {
+  id: string;
+  roleId: string;
+  roleName: string;
+  name: string;
+  email: string;
+  phone?: string;
+  companyName?: string;
+  isPrimary?: boolean;
+}
+
 export interface BffWorkspaceSnapshot {
   caseId: string;
   reference: string;
   title: string;
   propertyAddress: string;
+  caseTypeId: string;
   caseTypeName: string;
   templateVersion: number;
   status: CaseLifecycleStatus;
   progressPercentage: number;
-  steps: {
-    id: string;
-    stepDefinitionId: string;
-    name: string;
-    status: StepStatus;
-    displayOrder: number;
-    workItems: {
-      id: string;
-      title: string;
-      status: 'Pending' | 'Completed' | 'Waived';
-      tag: WorkItemTag;
-      requirement: WorkItemRequirement;
-      role: string;
-      completedAt?: string;
-    }[];
-  }[];
-  participants: {
-    roleId: string;
-    roleName: string;
-    name: string;
-    email: string;
-    phone?: string;
-  }[];
+  agreedPrice?: number;
+  assignedProgressorName: string;
+  branchName: string;
+  targetCompletionDate?: string;
+  blockers: string[];
+  steps: BffWorkspaceStep[];
+  documents: BffCaseDocument[];
+  participants: BffParticipant[];
+  updatedAt: string;
 }
 
 export type CaseSummary = {
