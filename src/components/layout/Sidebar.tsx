@@ -3,10 +3,11 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   FolderKanban,
-  FileCode,
-  TrendingUp,
-  Settings,
-  Sparkles,
+  GitBranch,
+  Users,
+  BarChart3,
+  User,
+  Sliders,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -14,83 +15,63 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  badge?: string;
 }
 
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { label: 'Cases', href: '/cases', icon: FolderKanban, badge: 'Live' },
-  { label: 'Sales Progression', href: '/sales-progression', icon: TrendingUp },
-  { label: 'Template Builder', href: '/templates', icon: FileCode },
-  { label: 'Settings', href: '/settings', icon: Settings },
+  { label: 'Cases', href: '/cases', icon: FolderKanban },
+  { label: 'Workflow Templates', href: '/templates', icon: GitBranch },
+  { label: 'Roles & Stakeholders', href: '/roles', icon: Users },
+  { label: 'Analytics', href: '/analytics', icon: BarChart3 },
+  { label: 'Settings', href: '/settings', icon: Sliders },
 ];
 
 export const Sidebar: React.FC = () => {
   return (
-    <aside className="w-64 border-r border-slate-800/80 bg-slate-950/80 backdrop-blur-md flex flex-col h-screen sticky top-0">
-      {/* Brand Logo */}
-      <div className="h-16 border-b border-slate-800/80 px-6 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-sky-400 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
-          <Sparkles className="w-4 h-4" />
-        </div>
-        <div>
-          <span className="font-bold text-sm bg-gradient-to-r from-sky-300 via-indigo-200 to-white bg-clip-text text-transparent">
-            Iceberg
-          </span>
-          <span className="text-xs text-slate-400 block font-normal -mt-0.5">
-            Case Management
-          </span>
+    <aside className="w-16 md:w-20 bg-[#11131A] flex flex-col items-center py-5 h-screen sticky top-0 z-40 border-r border-slate-800/40">
+      {/* Brand Icon */}
+      <div className="mb-8">
+        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-md cursor-pointer hover:scale-105 transition-transform">
+          <div className="w-0 h-0 border-t-[6px] border-t-transparent border-l-[11px] border-l-[#E1007A] border-b-[6px] border-b-transparent ml-1" />
         </div>
       </div>
 
-      {/* Navigation Links */}
-      <div className="flex-1 px-3 py-4 space-y-1">
-        <p className="px-3 text-[10px] font-semibold tracking-wider text-slate-400 uppercase mb-2">
-          Operations
-        </p>
+      {/* Main Navigation Items */}
+      <div className="flex-1 flex flex-col items-center gap-3 w-full px-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           return (
             <NavLink
               key={item.href}
               to={item.href}
+              title={item.label}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all group',
+                  'w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 group relative',
                   isActive
-                    ? 'bg-indigo-600/15 text-indigo-300 border border-indigo-500/30'
-                    : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60',
+                    ? 'bg-[#E1007A] text-white shadow-md shadow-[#E1007A]/30'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60',
                 )
               }
             >
-              <div className="flex items-center gap-3">
-                <Icon className="w-4 h-4 transition-transform group-hover:scale-110" />
-                <span>{item.label}</span>
-              </div>
-              {item.badge && (
-                <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded font-mono">
-                  {item.badge}
-                </span>
-              )}
+              <Icon className="w-5 h-5 transition-transform group-hover:scale-110" />
+              {/* Tooltip */}
+              <span className="absolute left-full ml-3 px-2 py-1 bg-slate-900 text-white text-[11px] font-medium rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity shadow-lg z-50">
+                {item.label}
+              </span>
             </NavLink>
           );
         })}
       </div>
 
-      {/* Footer info */}
-      <div className="p-4 border-t border-slate-800/80">
-        <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-800 text-xs">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-slate-400">Environment</span>
-            <span className="text-emerald-400 text-[11px] font-mono">
-              dev-local
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-slate-400 text-[11px]">
-            <span>Fastify API</span>
-            <span className="text-slate-300 font-mono">:4000</span>
-          </div>
-        </div>
+      {/* User profile bottom */}
+      <div className="mt-auto pt-4 border-t border-slate-800/60 w-full flex justify-center">
+        <button
+          title="Account"
+          className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
+        >
+          <User className="w-5 h-5" />
+        </button>
       </div>
     </aside>
   );
