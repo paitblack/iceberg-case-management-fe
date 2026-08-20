@@ -3,7 +3,8 @@ import axios, {
   type AxiosInstance,
   type AxiosRequestConfig,
 } from 'axios';
-import type { ProblemDetails } from '../types/api';
+import type { ProblemDetails, CaseType, TemplateVersion } from '../types/api';
+import type { BackendDraftPayload } from '../features/templates/context/TemplateBuilderContext';
 
 export class ApiError extends Error {
   public readonly status: number;
@@ -17,7 +18,7 @@ export class ApiError extends Error {
   }
 }
 
-export function createApiClient(baseUrl: string = '/api'): AxiosInstance {
+export function createApiClient(baseUrl: string = '/api/v1'): AxiosInstance {
   const client = axios.create({
     baseURL: baseUrl,
     headers: {
@@ -99,4 +100,38 @@ export async function apiDelete<T>(
 ): Promise<T> {
   const response = await apiClient.delete<T>(url, config);
   return response.data;
+}
+
+/**
+ * Domain Service: Template Engine & Case Type API Calls
+ */
+
+export async function createCaseType(data: {
+  name: string;
+  description?: string;
+}): Promise<CaseType> {
+  return apiPost<CaseType>('/case-types', data);
+}
+
+export async function getCaseType(caseTypeId: string): Promise<CaseType> {
+  return apiGet<CaseType>(`/case-types/${caseTypeId}`);
+}
+
+export async function saveCaseTypeDraft(
+  caseTypeId: string,
+  payload: BackendDraftPayload,
+): Promise<{ id: string; version: number }> {
+  return apiPut<{ id: string; version: number }>(
+    `/case-types/${caseTypeId}/draft`,
+    payload,
+  );
+}
+
+export async function publishCaseTypeDraft(
+  caseTypeId: string,
+  draftId: string,
+): Promise<TemplateVersion> {
+  return apiPost<TemplateVersion>(
+    `/case-types/${caseTypeId}/drafts/${draftId}/publish`,
+  );
 }

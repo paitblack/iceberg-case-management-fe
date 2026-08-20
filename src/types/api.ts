@@ -19,8 +19,10 @@ export interface ProblemDetails {
 export type DependencyJoinType = 'ALL' | 'ANY';
 export type CompletionRuleType = 'ALL_REQUIRED' | 'ANY_REQUIRED' | 'MANUAL';
 export type WorkItemRequirement = 'required' | 'optional' | 'conditional';
-export type WorkItemTag = 'Manual' | 'Key Date' | 'Email' | 'Document Upload' | 'Public Update';
-export type StepStatus = 'Completed' | 'In progress' | 'Waiting' | 'Not started' | 'Blocked';
+export type WorkItemTag =
+  'Manual' | 'Key Date' | 'Email' | 'Document Upload' | 'Public Update';
+export type StepStatus =
+  'Completed' | 'In progress' | 'Waiting' | 'Not started' | 'Blocked';
 export type CaseLifecycleStatus = 'Open' | 'OnHold' | 'Completed' | 'Cancelled';
 
 export interface DueRule {
@@ -193,4 +195,3 @@ export type CaseSummary = {
   price?: number;
   updatedAt: string;
 };
-
