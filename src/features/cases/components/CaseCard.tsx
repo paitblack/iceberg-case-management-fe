@@ -1,15 +1,37 @@
 import React from 'react';
-import { Layers, AlertTriangle, ChevronRight, Calendar } from 'lucide-react';
+import {
+  Layers,
+  AlertTriangle,
+  ChevronRight,
+  Calendar,
+  PauseCircle,
+  PlayCircle,
+  CheckCircle,
+  XCircle,
+} from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
-import type { BffCaseItem } from '../../../types/api';
+import type { BffCaseItem, CaseStatusAction } from '../../../types/api';
 
 interface CaseCardProps {
   caseItem: BffCaseItem;
   onClick: () => void;
+  onTriggerAction?: (caseItem: BffCaseItem, action: CaseStatusAction) => void;
 }
 
-export const CaseCard: React.FC<CaseCardProps> = ({ caseItem, onClick }) => {
+export const CaseCard: React.FC<CaseCardProps> = ({
+  caseItem,
+  onClick,
+  onTriggerAction,
+}) => {
   const isBlocked = caseItem.blockersCount > 0;
+  const allowedActions = caseItem.allowedActions || [];
+
+  const handleAction = (e: React.MouseEvent, action: CaseStatusAction) => {
+    e.stopPropagation();
+    if (onTriggerAction) {
+      onTriggerAction(caseItem, action);
+    }
+  };
 
   return (
     <div
@@ -87,8 +109,9 @@ export const CaseCard: React.FC<CaseCardProps> = ({ caseItem, onClick }) => {
         )}
       </div>
 
-      {/* Progress Track & Footer */}
-      <div className="pt-3 border-t border-slate-100 space-y-2.5">
+      {/* Progress Track, Quick Actions & Footer */}
+      <div className="pt-3 border-t border-slate-100 space-y-3">
+        {/* Progress bar */}
         <div className="space-y-1">
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] text-slate-500">
@@ -107,6 +130,51 @@ export const CaseCard: React.FC<CaseCardProps> = ({ caseItem, onClick }) => {
             />
           </div>
         </div>
+
+        {/* Quick Actions Buttons */}
+        {allowedActions.length > 0 && onTriggerAction && (
+          <div className="flex items-center gap-1.5 flex-wrap pt-1">
+            {allowedActions.includes('RESUME') && (
+              <button
+                type="button"
+                onClick={(e) => handleAction(e, 'RESUME')}
+                className="px-2 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors flex items-center gap-1"
+              >
+                <PlayCircle className="w-3 h-3" /> Resume
+              </button>
+            )}
+
+            {allowedActions.includes('HOLD') && (
+              <button
+                type="button"
+                onClick={(e) => handleAction(e, 'HOLD')}
+                className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 transition-colors flex items-center gap-1"
+              >
+                <PauseCircle className="w-3 h-3" /> Hold
+              </button>
+            )}
+
+            {allowedActions.includes('COMPLETE') && (
+              <button
+                type="button"
+                onClick={(e) => handleAction(e, 'COMPLETE')}
+                className="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors flex items-center gap-1"
+              >
+                <CheckCircle className="w-3 h-3 text-emerald-600" /> Complete
+              </button>
+            )}
+
+            {allowedActions.includes('CANCEL') && (
+              <button
+                type="button"
+                onClick={(e) => handleAction(e, 'CANCEL')}
+                className="px-2 py-1 rounded-lg text-[10px] font-bold bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 transition-colors flex items-center gap-1"
+              >
+                <XCircle className="w-3 h-3" /> Cancel
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
           <span className="flex items-center gap-1">

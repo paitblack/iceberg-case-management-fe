@@ -1,18 +1,37 @@
-import React from 'react';
-import { Layers, AlertTriangle, ChevronRight } from 'lucide-react';
+import React, { useState } from 'react';
+import {
+  Layers,
+  AlertTriangle,
+  ChevronRight,
+  MoreVertical,
+  PauseCircle,
+  PlayCircle,
+  CheckCircle,
+  XCircle,
+} from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
-import type { BffCaseItem } from '../../../types/api';
+import type { BffCaseItem, CaseStatusAction } from '../../../types/api';
 
 interface CaseTableRowProps {
   caseItem: BffCaseItem;
   onClick: () => void;
+  onTriggerAction: (caseItem: BffCaseItem, action: CaseStatusAction) => void;
 }
 
 export const CaseTableRow: React.FC<CaseTableRowProps> = ({
   caseItem,
   onClick,
+  onTriggerAction,
 }) => {
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const isBlocked = caseItem.blockersCount > 0;
+  const allowedActions = caseItem.allowedActions || [];
+
+  const handleActionClick = (e: React.MouseEvent, action: CaseStatusAction) => {
+    e.stopPropagation();
+    setIsMenuOpen(false);
+    onTriggerAction(caseItem, action);
+  };
 
   return (
     <tr
@@ -115,9 +134,86 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
         {new Date(caseItem.createdAt).toLocaleDateString()}
       </td>
 
-      {/* Actions */}
-      <td className="py-3.5 px-4 text-right">
-        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#E1007A] transition-colors ml-auto" />
+      {/* Quick Actions Dropdown / Trigger */}
+      <td className="py-3.5 px-4 text-right relative">
+        <div className="flex items-center justify-end gap-1.5">
+          {/* Quick Action Button (Direct if RESUME or HOLD) */}
+          {allowedActions.includes('RESUME') && (
+            <button
+              type="button"
+              onClick={(e) => handleActionClick(e, 'RESUME')}
+              className="px-2 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors shrink-0 flex items-center gap-1"
+            >
+              <PlayCircle className="w-3 h-3" /> Resume
+            </button>
+          )}
+
+          {allowedActions.includes('HOLD') && (
+            <button
+              type="button"
+              onClick={(e) => handleActionClick(e, 'HOLD')}
+              className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 transition-colors shrink-0 flex items-center gap-1"
+            >
+              <PauseCircle className="w-3 h-3" /> Hold
+            </button>
+          )}
+
+          {/* More Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsMenuOpen(!isMenuOpen);
+              }}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+
+            {isMenuOpen && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-30 animate-in fade-in"
+              >
+                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                  Quick Actions
+                </div>
+
+                {allowedActions.includes('COMPLETE') && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleActionClick(e, 'COMPLETE')}
+                    className="w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Complete Case</span>
+                  </button>
+                )}
+
+                {allowedActions.includes('CANCEL') && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleActionClick(e, 'CANCEL')}
+                    className="w-full px-3 py-1.5 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                  >
+                    <XCircle className="w-3.5 h-3.5 text-rose-500" />
+                    <span>Cancel Case</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={onClick}
+                  className="w-full px-3 py-1.5 text-left text-xs font-semibold text-[#E1007A] hover:bg-pink-50 flex items-center gap-2 border-t border-slate-100 mt-1"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                  <span>Open Workspace</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </td>
     </tr>
   );

@@ -13,6 +13,8 @@ import type {
   BffCaseDocument,
   BffCaseListResponse,
   BffCaseListQueryParams,
+  ChangeCaseStatusPayload,
+  BffDashboardSnapshot,
 } from '../types/api';
 
 export class ApiError extends Error {
@@ -146,7 +148,7 @@ export async function publishCaseTypeDraft(
 }
 
 /**
- * BFF Snapshots & Mutation Actions (PAI-15, PAI-17, PAI-18)
+ * BFF Snapshots & Mutation Actions (PAI-15, PAI-17, PAI-18, Dashboard)
  */
 
 export async function fetchCaseList(
@@ -159,6 +161,20 @@ export async function fetchCaseWorkspace(
   caseId: string,
 ): Promise<BffWorkspaceSnapshot> {
   return apiGet<BffWorkspaceSnapshot>(`/bff/case-workspace/${caseId}`);
+}
+
+export async function fetchDashboardSnapshot(): Promise<BffDashboardSnapshot> {
+  return apiGet<BffDashboardSnapshot>('/bff/dashboard');
+}
+
+export async function changeCaseStatus(
+  caseId: string,
+  payload: ChangeCaseStatusPayload,
+): Promise<{ success: boolean; status: string }> {
+  return apiPost<{ success: boolean; status: string }>(
+    `/cases/${caseId}/status`,
+    payload,
+  );
 }
 
 export async function executeStepAction(
