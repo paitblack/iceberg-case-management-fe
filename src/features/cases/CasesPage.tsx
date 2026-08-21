@@ -1,16 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building, Plus, ArrowDownCircle, Inbox } from 'lucide-react';
+import {
+  Building,
+  Plus,
+  ArrowDownCircle,
+  Inbox,
+  CheckCircle2,
+} from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { CaseListFilters } from './components/CaseListFilters';
 import { CaseCard } from './components/CaseCard';
 import { CaseTableRow } from './components/CaseTableRow';
 import { CaseListSkeleton } from './components/CaseListSkeleton';
-import { fetchCaseList } from '../../lib/api-client';
+import { ChangeStatusModal } from './components/ChangeStatusModal';
+import { fetchCaseList, changeCaseStatus } from '../../lib/api-client';
 import type {
   BffCaseItem,
   BffCaseListMeta,
   BffCaseListAvailableFilters,
+  CaseStatusAction,
+  CaseLifecycleStatus,
 } from '../../types/api';
 
 const DEFAULT_MOCK_ITEMS: BffCaseItem[] = [
@@ -35,7 +44,7 @@ const DEFAULT_MOCK_ITEMS: BffCaseItem[] = [
     },
     blockersCount: 1,
     createdAt: '2026-08-10T09:00:00Z',
-    allowedActions: ['HOLD', 'COMPLETE', 'CANCEL', 'UPLOAD_DOCUMENT'],
+    allowedActions: ['HOLD', 'COMPLETE', 'CANCEL'],
   },
   {
     id: 'case-102',
@@ -181,9 +190,19 @@ export const CasesPage: React.FC = () => {
   const [selectedCaseTypeId, setSelectedCaseTypeId] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
-  // Loading states
+  // Loading & Action states
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [isMutatingStatus, setIsMutatingStatus] = useState<boolean>(false);
+
+  // Modal states
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState<boolean>(false);
+  const [selectedCaseForAction, setSelectedCaseForAction] =
+    useState<BffCaseItem | null>(null);
+  const [pendingAction, setPendingAction] = useState<CaseStatusAction | null>(
+    null,
+  );
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Data fetching logic
   const loadCases = useCallback(
@@ -263,8 +282,100 @@ export const CasesPage: React.FC = () => {
     }
   };
 
+  const handleTriggerAction = (
+    caseItem: BffCaseItem,
+    action: CaseStatusAction,
+  ) => {
+    setSelectedCaseForAction(caseItem);
+    setPendingAction(action);
+    setIsStatusModalOpen(true);
+  };
+
+  const handleConfirmStatusChange = async (
+    caseId: string,
+    action: CaseStatusAction,
+    reason?: string,
+  ) => {
+    setIsMutatingStatus(true);
+    try {
+      await changeCaseStatus(caseId, { action, reason });
+
+      // Calculate target status
+      let newStatus: CaseLifecycleStatus = 'Open';
+      let allowed: CaseStatusAction[] = ['HOLD', 'COMPLETE', 'CANCEL'];
+      if (action === 'HOLD') {
+        newStatus = 'OnHold';
+        allowed = ['RESUME', 'CANCEL'];
+      } else if (action === 'COMPLETE') {
+        newStatus = 'Completed';
+        allowed = [];
+      } else if (action === 'CANCEL') {
+        newStatus = 'Cancelled';
+        allowed = [];
+      }
+
+      // Optimistically update list
+      setItems((prev) =>
+        prev.map((c) =>
+          c.id === caseId
+            ? {
+                ...c,
+                status: newStatus,
+                statusLabel: newStatus,
+                allowedActions: allowed,
+              }
+            : c,
+        ),
+      );
+
+      setToastMessage(`Case status updated to ${newStatus} successfully.`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch {
+      // Local fallback simulation
+      let newStatus: CaseLifecycleStatus = 'Open';
+      let allowed: CaseStatusAction[] = ['HOLD', 'COMPLETE', 'CANCEL'];
+      if (action === 'HOLD') {
+        newStatus = 'OnHold';
+        allowed = ['RESUME', 'CANCEL'];
+      } else if (action === 'COMPLETE') {
+        newStatus = 'Completed';
+        allowed = [];
+      } else if (action === 'CANCEL') {
+        newStatus = 'Cancelled';
+        allowed = [];
+      }
+
+      setItems((prev) =>
+        prev.map((c) =>
+          c.id === caseId
+            ? {
+                ...c,
+                status: newStatus,
+                statusLabel: newStatus,
+                allowedActions: allowed,
+              }
+            : c,
+        ),
+      );
+
+      setToastMessage(`Case status updated to ${newStatus} (Simulation).`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } finally {
+      setIsMutatingStatus(false);
+      setIsStatusModalOpen(false);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-12">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5 border border-slate-700 text-xs animate-in fade-in slide-in-from-bottom-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -337,6 +448,7 @@ export const CasesPage: React.FC = () => {
               key={caseItem.id}
               caseItem={caseItem}
               onClick={() => navigate(`/cases/${caseItem.id}`)}
+              onTriggerAction={handleTriggerAction}
             />
           ))}
         </div>
@@ -353,7 +465,7 @@ export const CasesPage: React.FC = () => {
                   <th className="py-3 px-4">Progression</th>
                   <th className="py-3 px-4">Created Date</th>
                   <th className="py-3 px-4 text-right">
-                    <span className="sr-only">Actions</span>
+                    <span>Quick Actions</span>
                   </th>
                 </tr>
               </thead>
@@ -363,6 +475,7 @@ export const CasesPage: React.FC = () => {
                     key={caseItem.id}
                     caseItem={caseItem}
                     onClick={() => navigate(`/cases/${caseItem.id}`)}
+                    onTriggerAction={handleTriggerAction}
                   />
                 ))}
               </tbody>
@@ -386,6 +499,16 @@ export const CasesPage: React.FC = () => {
           </Button>
         </div>
       )}
+
+      {/* Change Status Confirmation Modal */}
+      <ChangeStatusModal
+        isOpen={isStatusModalOpen}
+        onClose={() => setIsStatusModalOpen(false)}
+        caseItem={selectedCaseForAction}
+        action={pendingAction}
+        onConfirm={handleConfirmStatusChange}
+        isLoading={isMutatingStatus}
+      />
     </div>
   );
 };

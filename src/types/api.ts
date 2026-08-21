@@ -28,6 +28,12 @@ export type CaseLifecycleStatus = 'Open' | 'OnHold' | 'Completed' | 'Cancelled';
 
 export type StepActionType = 'COMPLETE_STEP' | 'SKIP_STEP';
 export type WorkItemActionType = 'COMPLETE' | 'WAIVE';
+export type CaseStatusAction = 'HOLD' | 'RESUME' | 'COMPLETE' | 'CANCEL';
+
+export interface ChangeCaseStatusPayload {
+  action: CaseStatusAction;
+  reason?: string;
+}
 
 export interface DueRule {
   type: 'none' | 'daysAfterPredecessor' | 'fixedDate';
@@ -126,7 +132,7 @@ export interface CaseType {
 }
 
 /**
- * BFF Snapshots & View Models (PAI-15, PAI-17, PAI-18)
+ * BFF Snapshots & View Models (PAI-15, PAI-17, PAI-18, Dashboard)
  */
 
 export interface BffCaseItemProgress {
@@ -153,7 +159,7 @@ export interface BffCaseItem {
   currentStep?: BffCaseItemCurrentStep;
   blockersCount: number;
   createdAt: string;
-  allowedActions: string[];
+  allowedActions: CaseStatusAction[];
   reference?: string;
   propertyAddress?: string;
   price?: number;
@@ -187,25 +193,34 @@ export interface BffCaseListQueryParams {
   cursor?: string;
 }
 
-export interface BffCaseListItem {
-  id: string;
-  reference: string;
-  title: string;
-  propertyAddress: string;
-  caseTypeId: string;
-  caseTypeName: string;
-  status: CaseLifecycleStatus;
-  executionStatus: 'active' | 'blocked' | 'completed';
-  currentStepId: string;
+/**
+ * Operations Dashboard BFF Snapshot
+ */
+
+export interface BffPriorityOperationItem {
+  caseId: string;
+  caseTitle: string;
   currentStepName: string;
-  progressPercentage: number;
-  agreedPrice?: number;
-  assignedOwnerName: string;
-  blockerReason?: string;
-  nextScheduledChase?: string;
-  priority: 'High' | 'Medium' | 'Low';
-  slaStatus: 'onTrack' | 'dueToday' | 'overdue';
-  updatedAt: string;
+  status: StepExecutionStatus;
+  statusLabel: string;
+  dueDate?: string;
+  priority?: 'High' | 'Medium' | 'Low';
+}
+
+export interface BffDashboardMetrics {
+  avgCycleTimeDays: number;
+  milestonesDueToday: number;
+  pipelineValueAmount: number;
+  pipelineValueCurrency: string;
+}
+
+export interface BffDashboardSnapshot {
+  contractVersion: string;
+  generatedAt: string;
+  activeCasesCount: number;
+  activeBlockersCount: number;
+  priorityOperations: BffPriorityOperationItem[];
+  metrics: BffDashboardMetrics;
 }
 
 export interface BffWorkspaceWorkItem {
