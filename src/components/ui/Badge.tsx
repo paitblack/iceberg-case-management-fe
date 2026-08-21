@@ -13,6 +13,7 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
     | 'medium'
     | 'low'
     | 'success'
+    | 'warning'
     | 'info'
     | 'pink';
   size?: 'xs' | 'sm' | 'md';
@@ -36,6 +37,7 @@ export const Badge: React.FC<BadgeProps> = ({
     medium: 'bg-amber-50 text-amber-700 border-amber-200 font-medium',
     low: 'bg-sky-50 text-sky-700 border-sky-200 font-medium',
     success: 'bg-emerald-50 text-emerald-700 border-emerald-200 font-medium',
+    warning: 'bg-amber-50 text-amber-800 border-amber-300 font-medium',
     info: 'bg-blue-50 text-blue-700 border-blue-200',
     pink: 'bg-[#E1007A] text-white border-transparent',
   };

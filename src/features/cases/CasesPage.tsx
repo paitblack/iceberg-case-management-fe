@@ -1,275 +1,391 @@
-import React, { useState } from 'react';
-import {
-  Search,
-  Filter,
-  Plus,
-  MoreVertical,
-  Layers,
-  Building,
-} from 'lucide-react';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Building, Plus, ArrowDownCircle, Inbox } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-import { formatCurrency, formatDate } from '../../lib/utils';
-import type { CaseSummary } from '../../types/api';
+import { CaseListFilters } from './components/CaseListFilters';
+import { CaseCard } from './components/CaseCard';
+import { CaseTableRow } from './components/CaseTableRow';
+import { CaseListSkeleton } from './components/CaseListSkeleton';
+import { fetchCaseList } from '../../lib/api-client';
+import type {
+  BffCaseItem,
+  BffCaseListMeta,
+  BffCaseListAvailableFilters,
+} from '../../types/api';
 
-const initialCases: CaseSummary[] = [
+const DEFAULT_MOCK_ITEMS: BffCaseItem[] = [
   {
-    id: 'case-101',
-    caseTypeId: 'ct-sales',
-    caseTypeName: 'Residential Sales Progression',
-    title: '84 Parkfield Avenue, Kensington',
-    reference: 'SP-2026-089',
-    status: 'blocked',
-    progressPercentage: 55,
-    currentStage: 'Searches & Title Review',
-    assigneeName: 'Sarah Collins',
-    propertyAddress: '84 Parkfield Avenue, London, W8 6HN',
-    price: 1250000,
-    updatedAt: '2026-08-20T14:30:00Z',
+    id: 'case-oxford-101',
+    caseTypeId: 'ct-sales-01',
+    caseTypeName: 'UK Residential Sales Progression',
+    title: '42 Woodstock Road, Oxford OX2 6HT',
+    reference: 'CM-2026-084',
+    status: 'Open',
+    statusLabel: 'Open',
+    progress: {
+      totalSteps: 5,
+      completedSteps: 2,
+      percentage: 58,
+    },
+    currentStep: {
+      id: 'step-exec-3',
+      name: 'Buyer Solicitor Instructed & ID Verification',
+      status: 'InProgress',
+      statusLabel: 'In Progress',
+    },
+    blockersCount: 1,
+    createdAt: '2026-08-10T09:00:00Z',
+    allowedActions: ['HOLD', 'COMPLETE', 'CANCEL', 'UPLOAD_DOCUMENT'],
   },
   {
     id: 'case-102',
-    caseTypeId: 'ct-sales',
-    caseTypeName: 'Residential Sales Progression',
-    title: '14 Queens Gate Mews, Richmond',
+    caseTypeId: 'ct-sales-01',
+    caseTypeName: 'UK Residential Sales Progression',
+    title: '14 Queens Gate Mews, Richmond, TW10 6RF',
     reference: 'SP-2026-092',
-    status: 'active',
-    progressPercentage: 65,
-    currentStage: 'Mortgage Formal Offer',
-    assigneeName: 'James Sterling',
-    propertyAddress: '14 Queens Gate Mews, Richmond, TW10 6RF',
-    price: 890000,
-    updatedAt: '2026-08-20T11:20:00Z',
+    status: 'Open',
+    statusLabel: 'Open',
+    progress: {
+      totalSteps: 6,
+      completedSteps: 4,
+      percentage: 65,
+    },
+    currentStep: {
+      id: 'step-102-4',
+      name: 'Mortgage Formal Offer Received',
+      status: 'InProgress',
+      statusLabel: 'In Progress',
+    },
+    blockersCount: 0,
+    createdAt: '2026-08-12T11:20:00Z',
+    allowedActions: ['HOLD', 'COMPLETE', 'CANCEL'],
   },
   {
     id: 'case-103',
-    caseTypeId: 'ct-market',
+    caseTypeId: 'ct-appraisal-01',
     caseTypeName: 'Market Appraisal & Valuation',
-    title: '27 Claremont Road, St Albans',
+    title: '27 Claremont Road, St Albans, AL1 4DX',
     reference: 'MA-2026-031',
-    status: 'active',
-    progressPercentage: 85,
-    currentStage: 'Valuation Report Preparation',
-    assigneeName: 'Emma Watson',
-    propertyAddress: '27 Claremont Road, St Albans, AL1 4DX',
-    price: 640000,
-    updatedAt: '2026-08-19T16:00:00Z',
+    status: 'Open',
+    statusLabel: 'Open',
+    progress: {
+      totalSteps: 4,
+      completedSteps: 3,
+      percentage: 85,
+    },
+    currentStep: {
+      id: 'step-103-3',
+      name: 'Valuation Report Preparation',
+      status: 'InProgress',
+      statusLabel: 'In Progress',
+    },
+    blockersCount: 0,
+    createdAt: '2026-08-14T16:00:00Z',
+    allowedActions: ['HOLD', 'COMPLETE', 'CANCEL'],
   },
   {
     id: 'case-104',
-    caseTypeId: 'ct-sales',
-    caseTypeName: 'Residential Sales Progression',
-    title: '52 Marlborough Crescent, Bath',
+    caseTypeId: 'ct-sales-01',
+    caseTypeName: 'UK Residential Sales Progression',
+    title: '52 Marlborough Crescent, Bath, BA1 2SQ',
     reference: 'SP-2026-095',
-    status: 'blocked',
-    progressPercentage: 40,
-    currentStage: 'Enquiries & AML Verification',
-    assigneeName: 'Sarah Collins',
-    propertyAddress: '52 Marlborough Crescent, Bath, BA1 2SQ',
-    price: 775000,
-    updatedAt: '2026-08-19T10:15:00Z',
+    status: 'OnHold',
+    statusLabel: 'On Hold',
+    progress: {
+      totalSteps: 5,
+      completedSteps: 2,
+      percentage: 40,
+    },
+    currentStep: {
+      id: 'step-104-2',
+      name: 'Enquiries & AML Biometric Verification',
+      status: 'InProgress',
+      statusLabel: 'In Progress',
+    },
+    blockersCount: 2,
+    createdAt: '2026-08-15T10:15:00Z',
+    allowedActions: ['RESUME', 'CANCEL'],
   },
   {
     id: 'case-105',
-    caseTypeId: 'ct-commercial',
-    caseTypeName: 'Commercial Lease Progression',
-    title: 'Units 4-6 Riverside Commercial Park',
+    caseTypeId: 'ct-commercial-01',
+    caseTypeName: 'Commercial Lease Conveyancing',
+    title: 'Units 4-6 Riverside Commercial Park, Bristol',
     reference: 'CP-2026-012',
-    status: 'active',
-    progressPercentage: 50,
-    currentStage: 'Draft Lease Agreement Approval',
-    assigneeName: 'Marcus Vance',
-    propertyAddress: 'Riverside Park, Bristol, BS1 6XN',
-    price: 1950000,
-    updatedAt: '2026-08-18T15:45:00Z',
+    status: 'Open',
+    statusLabel: 'Open',
+    progress: {
+      totalSteps: 4,
+      completedSteps: 2,
+      percentage: 50,
+    },
+    currentStep: {
+      id: 'step-105-2',
+      name: 'Tenant Credit & Commercial Referencing',
+      status: 'InProgress',
+      statusLabel: 'In Progress',
+    },
+    blockersCount: 0,
+    createdAt: '2026-08-16T15:45:00Z',
+    allowedActions: ['HOLD', 'COMPLETE', 'CANCEL'],
   },
   {
     id: 'case-106',
-    caseTypeId: 'ct-sales',
-    caseTypeName: 'Residential Sales Progression',
-    title: '19 Redland Park, Bristol',
+    caseTypeId: 'ct-sales-01',
+    caseTypeName: 'UK Residential Sales Progression',
+    title: '19 Redland Park, Bristol, BS6 6NP',
     reference: 'SP-2026-099',
-    status: 'completed',
-    progressPercentage: 100,
-    currentStage: 'Completion & Key Handover',
-    assigneeName: 'James Sterling',
-    propertyAddress: '19 Redland Park, Bristol, BS6 6NP',
-    price: 520000,
-    updatedAt: '2026-08-17T12:00:00Z',
+    status: 'Completed',
+    statusLabel: 'Completed',
+    progress: {
+      totalSteps: 5,
+      completedSteps: 5,
+      percentage: 100,
+    },
+    currentStep: {
+      id: 'step-106-5',
+      name: 'Completion & Key Release',
+      status: 'Completed',
+      statusLabel: 'Completed',
+    },
+    blockersCount: 0,
+    createdAt: '2026-08-01T12:00:00Z',
+    allowedActions: [],
   },
 ];
 
-export const CasesPage: React.FC = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+const DEFAULT_FILTERS: BffCaseListAvailableFilters = {
+  statuses: ['Open', 'OnHold', 'Completed', 'Cancelled'],
+  caseTypes: [
+    { id: 'ct-sales-01', name: 'UK Residential Sales Progression' },
+    { id: 'ct-appraisal-01', name: 'Market Appraisal & Valuation' },
+    { id: 'ct-commercial-01', name: 'Commercial Lease Conveyancing' },
+  ],
+};
 
-  const filteredCases = initialCases.filter((c) => {
-    const matchesSearch =
-      c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.propertyAddress?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.caseTypeName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      selectedStatus === 'all' || c.status === selectedStatus;
-    return matchesSearch && matchesStatus;
+export const CasesPage: React.FC = () => {
+  const navigate = useNavigate();
+
+  // State
+  const [items, setItems] = useState<BffCaseItem[]>(DEFAULT_MOCK_ITEMS);
+  const [meta, setMeta] = useState<BffCaseListMeta>({
+    totalCount: DEFAULT_MOCK_ITEMS.length,
+    hasMore: false,
   });
+  const [availableFilters, setAvailableFilters] =
+    useState<BffCaseListAvailableFilters>(DEFAULT_FILTERS);
+
+  // Filter query states
+  const [search, setSearch] = useState<string>('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedCaseTypeId, setSelectedCaseTypeId] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+
+  // Loading states
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+
+  // Data fetching logic
+  const loadCases = useCallback(
+    async (cursor?: string) => {
+      if (cursor) {
+        setIsLoadingMore(true);
+      } else {
+        setIsLoading(true);
+      }
+
+      try {
+        const queryParams = {
+          search: search.trim() || undefined,
+          status: selectedStatus !== 'all' ? selectedStatus : undefined,
+          caseTypeId:
+            selectedCaseTypeId !== 'all' ? selectedCaseTypeId : undefined,
+          limit: 10,
+          cursor,
+        };
+
+        const res = await fetchCaseList(queryParams);
+
+        if (cursor) {
+          setItems((prev) => [...prev, ...res.items]);
+        } else {
+          setItems(res.items);
+        }
+
+        setMeta(res.meta);
+        if (res.availableFilters) {
+          setAvailableFilters(res.availableFilters);
+        }
+      } catch {
+        // Graceful mock fallback for offline local testing
+        let filtered = [...DEFAULT_MOCK_ITEMS];
+
+        if (search.trim()) {
+          const q = search.toLowerCase();
+          filtered = filtered.filter(
+            (c) =>
+              c.title.toLowerCase().includes(q) ||
+              (c.reference && c.reference.toLowerCase().includes(q)) ||
+              c.caseTypeName.toLowerCase().includes(q),
+          );
+        }
+
+        if (selectedStatus !== 'all') {
+          filtered = filtered.filter((c) => c.status === selectedStatus);
+        }
+
+        if (selectedCaseTypeId !== 'all') {
+          filtered = filtered.filter(
+            (c) => c.caseTypeId === selectedCaseTypeId,
+          );
+        }
+
+        setItems(filtered);
+        setMeta({
+          totalCount: filtered.length,
+          hasMore: false,
+        });
+      } finally {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      }
+    },
+    [search, selectedStatus, selectedCaseTypeId],
+  );
+
+  useEffect(() => {
+    loadCases();
+  }, [loadCases]);
+
+  const handleLoadMore = () => {
+    if (meta.hasMore && meta.nextCursor) {
+      loadCases(meta.nextCursor);
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-6 pb-12">
+      {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+          <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
             <Building className="w-6 h-6 text-[#E1007A]" />
-            Active Case Directory & Progression
+            Live Case Directory & Progression
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Track multi-domain workflow executions, milestone dependencies, and
-            assigned responsibilities.
+            Real-time multi-domain workflow progression, milestone dependencies,
+            and blocker tracking.
           </p>
         </div>
+
         <Button
           variant="primary"
           size="md"
           leftIcon={<Plus className="w-4 h-4" />}
+          onClick={() => navigate('/templates')}
         >
-          Start New Case
+          New Case Workflow
         </Button>
       </div>
 
-      {/* Filter & Search Bar */}
-      <Card className="flex flex-col sm:flex-row items-center gap-4 py-3 border-slate-200/90 shadow-2xs">
-        <div className="flex-1 w-full">
-          <Input
-            placeholder="Search by property, client, reference, or case type..."
-            leftIcon={<Search className="w-4 h-4" />}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs">
-            {['all', 'active', 'blocked', 'completed'].map((status) => (
-              <button
-                key={status}
-                onClick={() => setSelectedStatus(status)}
-                className={`px-3 py-1 rounded-lg capitalize font-semibold transition-all ${
-                  selectedStatus === status
-                    ? 'bg-white text-slate-900 shadow-2xs'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                {status === 'all' ? 'All (6)' : status}
-              </button>
-            ))}
+      {/* Dynamic Filters Bar */}
+      <CaseListFilters
+        search={search}
+        onSearchChange={setSearch}
+        selectedStatus={selectedStatus}
+        onStatusChange={setSelectedStatus}
+        selectedCaseTypeId={selectedCaseTypeId}
+        onCaseTypeChange={setSelectedCaseTypeId}
+        availableStatuses={availableFilters.statuses}
+        availableCaseTypes={availableFilters.caseTypes}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        totalCount={meta.totalCount}
+      />
+
+      {/* Main List / Table Render */}
+      {isLoading ? (
+        <CaseListSkeleton viewMode={viewMode} />
+      ) : items.length === 0 ? (
+        <div className="p-16 rounded-2xl bg-white border border-dashed border-slate-200 text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto">
+            <Inbox className="w-6 h-6" />
           </div>
+          <h3 className="text-sm font-bold text-slate-800">
+            No matching cases found
+          </h3>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            Try adjusting your search terms, status filters, or case type
+            selection.
+          </p>
           <Button
             variant="secondary"
             size="sm"
-            leftIcon={<Filter className="w-3.5 h-3.5" />}
+            onClick={() => {
+              setSearch('');
+              setSelectedStatus('all');
+              setSelectedCaseTypeId('all');
+            }}
           >
-            Filter
+            Clear All Filters
           </Button>
         </div>
-      </Card>
-
-      {/* Cases Table */}
-      <div className="iceberg-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#FAFBFD] text-slate-500 border-b border-slate-200/80 font-bold uppercase tracking-wider text-[10px]">
-              <tr>
-                <th className="py-3 px-4">Case Reference & Property</th>
-                <th className="py-3 px-4">Domain Package / Type</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Current Progression Stage</th>
-                <th className="py-3 px-4">Progress</th>
-                <th className="py-3 px-4">Agreed Value</th>
-                <th className="py-3 px-4">Owner</th>
-                <th className="py-3 px-4">Last Updated</th>
-                <th className="py-3 px-4 text-right">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
-              {filteredCases.map((c) => (
-                <tr
-                  key={c.id}
-                  className="hover:bg-slate-50/80 transition-colors cursor-pointer"
-                >
-                  <td className="py-3.5 px-4">
-                    <div className="font-bold text-slate-900">{c.title}</div>
-                    <div className="text-[11px] font-mono text-[#E1007A] font-semibold mt-0.5">
-                      {c.reference}
-                    </div>
-                  </td>
-
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-1.5 text-slate-700 font-medium">
-                      <Layers className="w-3.5 h-3.5 text-slate-400" />
-                      {c.caseTypeName}
-                    </div>
-                  </td>
-
-                  <td className="py-3.5 px-4">
-                    <Badge
-                      variant={
-                        c.status === 'active'
-                          ? 'info'
-                          : c.status === 'blocked'
-                            ? 'high'
-                            : 'success'
-                      }
-                      size="xs"
-                    >
-                      {c.status.toUpperCase()}
-                    </Badge>
-                  </td>
-
-                  <td className="py-3.5 px-4 font-semibold text-slate-800">
-                    {c.currentStage}
-                  </td>
-
-                  <td className="py-3.5 px-4">
-                    <div className="w-24 space-y-1">
-                      <div className="flex justify-between text-[10px] text-slate-500 font-medium">
-                        <span>{c.progressPercentage}%</span>
-                      </div>
-                      <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-[#E1007A] rounded-full transition-all"
-                          style={{ width: `${c.progressPercentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  </td>
-
-                  <td className="py-3.5 px-4 font-bold text-slate-900">
-                    {c.price ? formatCurrency(c.price) : '—'}
-                  </td>
-
-                  <td className="py-3.5 px-4 text-slate-700 font-medium whitespace-nowrap">
-                    {c.assigneeName}
-                  </td>
-
-                  <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
-                    {formatDate(c.updatedAt)}
-                  </td>
-
-                  <td className="py-3.5 px-4 text-right">
-                    <button className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      ) : viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {items.map((caseItem) => (
+            <CaseCard
+              key={caseItem.id}
+              caseItem={caseItem}
+              onClick={() => navigate(`/cases/${caseItem.id}`)}
+            />
+          ))}
         </div>
-      </div>
+      ) : (
+        <div className="iceberg-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#FAFBFD] text-slate-500 border-b border-slate-200/80 font-bold uppercase tracking-wider text-[10px]">
+                <tr>
+                  <th className="py-3 px-4">Case Title & Reference</th>
+                  <th className="py-3 px-4">Domain Type</th>
+                  <th className="py-3 px-4">Status & Blockers</th>
+                  <th className="py-3 px-4">Current Milestone Stage</th>
+                  <th className="py-3 px-4">Progression</th>
+                  <th className="py-3 px-4">Created Date</th>
+                  <th className="py-3 px-4 text-right">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {items.map((caseItem) => (
+                  <CaseTableRow
+                    key={caseItem.id}
+                    caseItem={caseItem}
+                    onClick={() => navigate(`/cases/${caseItem.id}`)}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Pagination / Load More */}
+      {meta.hasMore && (
+        <div className="flex justify-center pt-2">
+          <Button
+            variant="secondary"
+            size="md"
+            isLoading={isLoadingMore}
+            onClick={handleLoadMore}
+            leftIcon={<ArrowDownCircle className="w-4 h-4 text-[#E1007A]" />}
+            className="font-bold"
+          >
+            Load More Cases
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

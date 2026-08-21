@@ -1,14 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  FolderKanban,
-  GitBranch,
-  Users,
-  BarChart3,
-  User,
-  Sliders,
-} from 'lucide-react';
+import { LayoutDashboard, FolderKanban, GitBranch, User } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface NavItem {
@@ -21,9 +13,6 @@ const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: LayoutDashboard },
   { label: 'Cases', href: '/cases', icon: FolderKanban },
   { label: 'Workflow Templates', href: '/templates', icon: GitBranch },
-  { label: 'Roles & Stakeholders', href: '/roles', icon: Users },
-  { label: 'Analytics', href: '/analytics', icon: BarChart3 },
-  { label: 'Settings', href: '/settings', icon: Sliders },
 ];
 
 export const Sidebar: React.FC = () => {
