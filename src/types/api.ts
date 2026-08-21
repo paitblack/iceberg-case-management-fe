@@ -35,6 +35,28 @@ export interface ChangeCaseStatusPayload {
   reason?: string;
 }
 
+export interface CreateCasePayload {
+  title: string;
+  templateVersionId: string;
+  propertyAddress?: string;
+  agreedPrice?: number;
+  branchName?: string;
+}
+
+export interface CreateCaseResponse {
+  id: string;
+  reference?: string;
+}
+
+export interface PublishedTemplateItem {
+  id: string;
+  name: string;
+  versionNumber: number;
+  description?: string;
+  caseTypeId: string;
+  stepCount?: number;
+}
+
 export interface DueRule {
   type: 'none' | 'daysAfterPredecessor' | 'fixedDate';
   days?: number;
