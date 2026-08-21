@@ -15,6 +15,7 @@ import { Button } from '../../components/ui/Button';
 import { KpiCard } from './components/KpiCard';
 import { PriorityOperationsList } from './components/PriorityOperationsList';
 import { DashboardSkeleton } from './components/DashboardSkeleton';
+import { CreateCaseModal } from '../cases/components/CreateCaseModal';
 import { fetchDashboardSnapshot } from '../../lib/api-client';
 import type { BffDashboardSnapshot } from '../../types/api';
 
@@ -76,6 +77,7 @@ export const DashboardPage: React.FC = () => {
   );
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
 
   const loadDashboard = useCallback(async (refresh = false) => {
     if (refresh) setIsRefreshing(true);
@@ -142,7 +144,7 @@ export const DashboardPage: React.FC = () => {
             variant="primary"
             size="sm"
             leftIcon={<Plus className="w-3.5 h-3.5" />}
-            onClick={() => navigate('/templates')}
+            onClick={() => setIsCreateModalOpen(true)}
           >
             New Workflow
           </Button>
@@ -234,6 +236,13 @@ export const DashboardPage: React.FC = () => {
           </div>
         </>
       )}
+
+      {/* Start New Case Modal */}
+      <CreateCaseModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={(newCaseId) => navigate(`/cases/${newCaseId}`)}
+      />
     </div>
   );
 };

@@ -15,6 +15,9 @@ import type {
   BffCaseListQueryParams,
   ChangeCaseStatusPayload,
   BffDashboardSnapshot,
+  CreateCasePayload,
+  CreateCaseResponse,
+  PublishedTemplateItem,
 } from '../types/api';
 
 export class ApiError extends Error {
@@ -147,9 +150,21 @@ export async function publishCaseTypeDraft(
   );
 }
 
+export async function fetchPublishedTemplates(): Promise<
+  PublishedTemplateItem[]
+> {
+  return apiGet<PublishedTemplateItem[]>('/templates');
+}
+
 /**
- * BFF Snapshots & Mutation Actions (PAI-15, PAI-17, PAI-18, Dashboard)
+ * BFF Snapshots & Mutation Actions (PAI-15, PAI-17, PAI-18, Dashboard, Create Case)
  */
+
+export async function createCase(
+  payload: CreateCasePayload,
+): Promise<CreateCaseResponse> {
+  return apiPost<CreateCaseResponse>('/cases', payload);
+}
 
 export async function fetchCaseList(
   params?: BffCaseListQueryParams,

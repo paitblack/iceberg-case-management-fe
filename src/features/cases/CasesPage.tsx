@@ -13,6 +13,7 @@ import { CaseCard } from './components/CaseCard';
 import { CaseTableRow } from './components/CaseTableRow';
 import { CaseListSkeleton } from './components/CaseListSkeleton';
 import { ChangeStatusModal } from './components/ChangeStatusModal';
+import { CreateCaseModal } from './components/CreateCaseModal';
 import { fetchCaseList, changeCaseStatus } from '../../lib/api-client';
 import type {
   BffCaseItem,
@@ -196,6 +197,7 @@ export const CasesPage: React.FC = () => {
   const [isMutatingStatus, setIsMutatingStatus] = useState<boolean>(false);
 
   // Modal states
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState<boolean>(false);
   const [selectedCaseForAction, setSelectedCaseForAction] =
     useState<BffCaseItem | null>(null);
@@ -393,9 +395,9 @@ export const CasesPage: React.FC = () => {
           variant="primary"
           size="md"
           leftIcon={<Plus className="w-4 h-4" />}
-          onClick={() => navigate('/templates')}
+          onClick={() => setIsCreateModalOpen(true)}
         >
-          New Case Workflow
+          Start New Case
         </Button>
       </div>
 
@@ -508,6 +510,17 @@ export const CasesPage: React.FC = () => {
         action={pendingAction}
         onConfirm={handleConfirmStatusChange}
         isLoading={isMutatingStatus}
+      />
+
+      {/* Start New Case Modal */}
+      <CreateCaseModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={(newCaseId) => {
+          setToastMessage('New Case Workflow initiated successfully!');
+          setTimeout(() => setToastMessage(null), 4000);
+          navigate(`/cases/${newCaseId}`);
+        }}
       />
     </div>
   );
