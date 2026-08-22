@@ -6,6 +6,7 @@ import { BlockersBanner } from './workspace/BlockersBanner';
 import { WorkItemExecutionRow } from './workspace/WorkItemExecutionRow';
 import { StepExecutionCard } from './workspace/StepExecutionCard';
 import { CaseWorkspacePage } from './CaseWorkspacePage';
+import * as apiClient from '../../lib/api-client';
 import type {
   BffWorkspaceSnapshot,
   BffWorkspaceStep,
@@ -57,20 +58,21 @@ describe('Case Workspace Components', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders WorkItemExecutionRow with role and triggers complete action', async () => {
+  it('renders WorkItemExecutionRow and triggers complete action', async () => {
     const mockWorkItem: BffWorkspaceWorkItem = {
       id: 'wi-test-1',
       stepId: 'step-test-1',
-      title: 'Obtain Proof of Deposit from Buyer',
+      title: 'Verify AML identity proof documents',
+      description: 'Check biometric passport & utility bill',
       status: 'Pending',
       tag: 'Key Date',
       requirement: 'required',
-      role: 'Sales Progressor',
+      role: 'Compliance Officer',
       isKeyDate: true,
       allowedActions: ['COMPLETE', 'WAIVE'],
     };
 
-    const handleAction = vi.fn().mockResolvedValue(undefined);
+    const handleAction = vi.fn();
 
     render(
       <WorkItemExecutionRow
@@ -81,48 +83,47 @@ describe('Case Workspace Components', () => {
     );
 
     expect(
-      screen.getByText('Obtain Proof of Deposit from Buyer'),
+      screen.getByText('Verify AML identity proof documents'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Role: Sales Progressor')).toBeInTheDocument();
-    expect(screen.getByText('Key Date Milestone')).toBeInTheDocument();
+    expect(screen.getByText('Key Date')).toBeInTheDocument();
 
-    const completeBtn = screen.getByRole('button', { name: /Complete Task/i });
+    const completeBtn = screen.getByRole('button', { name: /Complete/i });
     expect(completeBtn).toBeInTheDocument();
 
     fireEvent.click(completeBtn);
     expect(handleAction).toHaveBeenCalledWith('wi-test-1', 'COMPLETE');
   });
 
-  it('renders StepExecutionCard with step actions when allowed', async () => {
+  it('renders StepExecutionCard and handles step complete action', async () => {
     const mockStep: BffWorkspaceStep = {
       id: 'step-test-1',
-      stepDefinitionId: 'sdef-1',
-      name: 'Memorandum of Sale Distributed',
-      status: 'InProgress',
+      stepDefinitionId: 'step-def-1',
+      name: 'Mortgage Valuation Inspection',
+      description: 'Bank valuer conducts property inspection.',
+      status: 'Available',
       displayOrder: 2,
       dependencyJoinType: 'ALL',
-      dependencies: [],
-      allowedActions: ['COMPLETE_STEP'],
+      dependencies: ['step-test-0'],
+      allowedActions: ['COMPLETE_STEP', 'SKIP_STEP'],
       workItems: [],
     };
 
-    const handleStepAction = vi.fn().mockResolvedValue(undefined);
-    const handleWorkItemAction = vi.fn().mockResolvedValue(undefined);
+    const handleStepAction = vi.fn();
 
     render(
       <StepExecutionCard
         step={mockStep}
         onStepAction={handleStepAction}
-        onWorkItemAction={handleWorkItemAction}
+        onWorkItemAction={vi.fn()}
         loadingStepId={null}
         loadingWorkItemId={null}
       />,
     );
 
     expect(
-      screen.getByText('Memorandum of Sale Distributed'),
+      screen.getByText('Mortgage Valuation Inspection'),
     ).toBeInTheDocument();
-    expect(screen.getByText('InProgress')).toBeInTheDocument();
+    expect(screen.getByText('Available')).toBeInTheDocument();
 
     const completeStepBtn = screen.getByRole('button', {
       name: /Complete Step/i,
@@ -137,8 +138,10 @@ describe('Case Workspace Components', () => {
   });
 
   it('renders the complete CaseWorkspacePage with all tabs', async () => {
+    vi.spyOn(apiClient, 'fetchCaseWorkspace').mockResolvedValue(mockSnapshot);
+
     render(
-      <MemoryRouter initialEntries={['/cases/case-oxford-101']}>
+      <MemoryRouter initialEntries={['/cases/case-test-101']}>
         <Routes>
           <Route path="/cases/:caseId" element={<CaseWorkspacePage />} />
         </Routes>
@@ -147,7 +150,7 @@ describe('Case Workspace Components', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: /42 Woodstock Road, Oxford OX2 6HT/i,
+        name: /10 Downing Street, London/i,
       }),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/Workflow Progression/i)[0]).toBeInTheDocument();

@@ -4,8 +4,17 @@ import React, {
   useState,
   useCallback,
   useMemo,
+  useEffect,
 } from 'react';
-import type { DependencyJoinType } from '../../../types/api';
+import type { DependencyJoinType, CaseType } from '../../../types/api';
+import {
+  saveCaseTypeDraft,
+  publishCaseTypeDraft,
+  listCaseTypes,
+  createCaseType,
+  getCaseType,
+  ApiError,
+} from '../../../lib/api-client';
 
 export type CompletionRuleOption =
   'all-required-work-items' | 'any-required-work-item' | 'manual';
@@ -63,9 +72,12 @@ interface TemplateBuilderState {
   versionNumber: number;
   isPublished: boolean;
   steps: BuilderStep[];
+  backendDagError: string | null;
   isSaving: boolean;
   isPublishing: boolean;
   lastSavedAt: Date | null;
+  availableCaseTypes: CaseType[];
+  isLoadingCaseTypes: boolean;
 }
 
 interface TemplateBuilderContextValue extends TemplateBuilderState {
@@ -74,6 +86,12 @@ interface TemplateBuilderContextValue extends TemplateBuilderState {
     description: string,
     category?: string,
   ) => void;
+  selectCaseType: (id: string) => Promise<void>;
+  createNewTemplate: (
+    name: string,
+    description?: string,
+    preset?: 'sales' | 'appraisal' | 'commercial',
+  ) => Promise<string>;
   addStep: (initialData?: Partial<BuilderStep>) => void;
   updateStep: (stepId: string, updates: Partial<BuilderStep>) => void;
   removeStep: (stepId: string) => void;
@@ -95,6 +113,7 @@ interface TemplateBuilderContextValue extends TemplateBuilderState {
   saveDraft: () => Promise<BackendDraftPayload>;
   publishDraft: () => Promise<void>;
   edges: DependencyEdge[];
+  refreshCaseTypes: () => Promise<void>;
 }
 
 const TemplateBuilderContext =
@@ -102,134 +121,476 @@ const TemplateBuilderContext =
 
 const DEFAULT_SALES_STEPS: BuilderStep[] = [
   {
-    id: 'ui-temp-step-1',
-    name: 'Offer Accepted & Terms Confirmed',
+    id: 'step-sales-1',
+    name: 'Offer Accepted & Onboarding',
     description:
-      'Record agreed purchase price, buyer qualification, and vendor acceptance.',
+      'Record agreed purchase price, buyer qualification, and vendor onboarding.',
     displayOrder: 1,
     completionRule: { type: 'all-required-work-items' },
     dependencyJoinType: 'ALL',
     dependencies: [],
     workItems: [
       {
-        id: 'ui-temp-wi-1',
-        name: 'Record agreed offer price & deposit amount',
+        id: 'wi-sales-1',
+        name: 'Verify Buyer & Vendor ID / AML Checks',
         requiredRole: 'Listing Agent',
         requirement: 'required',
       },
       {
-        id: 'ui-temp-wi-2',
-        name: 'Verify buyer chain & financial qualification',
+        id: 'wi-sales-2',
+        name: 'Verify Proof of Funds & Deposit',
         requiredRole: 'Listing Agent',
+        requirement: 'required',
+      },
+      {
+        id: 'wi-sales-3',
+        name: 'Generate & Distribute Memorandum of Sale',
+        requiredRole: 'Sales Progressor',
         requirement: 'required',
       },
     ],
   },
   {
-    id: 'ui-temp-step-2',
-    name: 'Memorandum of Sale Distributed',
+    id: 'step-sales-2',
+    name: 'Conveyancer Instruction & Legal Pack',
     description:
-      'Issue formal sales memo to buyer and seller conveyancing solicitors.',
+      'Confirm both legal parties instructed and TA6/TA10 protocol forms issued.',
     displayOrder: 2,
     completionRule: { type: 'all-required-work-items' },
     dependencyJoinType: 'ALL',
-    dependencies: ['ui-temp-step-1'],
+    dependencies: ['step-sales-1'],
     workItems: [
       {
-        id: 'ui-temp-wi-3',
-        name: 'Generate formal Memorandum of Sale document',
+        id: 'wi-sales-4',
+        name: 'Confirm Both Solicitors Instructed',
         requiredRole: 'Sales Progressor',
         requirement: 'required',
       },
       {
-        id: 'ui-temp-wi-4',
-        name: 'Distribute Memo to all legal representatives',
-        requiredRole: 'Sales Progressor',
+        id: 'wi-sales-5',
+        name: 'Complete TA6 Property Info & TA10 Fittings Forms',
+        requiredRole: 'Vendor Solicitor',
         requirement: 'required',
       },
     ],
   },
   {
-    id: 'ui-temp-step-3',
-    name: 'Buyer Solicitor Instructed & ID Verification',
+    id: 'step-sales-3',
+    name: 'Mortgage & Valuation / Survey',
     description:
-      'Confirm buyer legal representation and AML source of funds verification.',
+      'Submit mortgage application, complete physical valuation, and review survey.',
     displayOrder: 3,
     completionRule: { type: 'all-required-work-items' },
     dependencyJoinType: 'ALL',
-    dependencies: ['ui-temp-step-2'],
+    dependencies: ['step-sales-2'],
     workItems: [
       {
-        id: 'ui-temp-wi-5',
-        name: 'Collect buyer solicitor contact details',
-        requiredRole: 'Sales Progressor',
-        requirement: 'required',
-      },
-      {
-        id: 'ui-temp-wi-6',
-        name: 'Verify biometric AML ID and source of funds',
-        requiredRole: 'Compliance Officer',
+        id: 'wi-sales-6',
+        name: 'Book & Complete Lender Valuation',
+        requiredRole: 'Mortgage Broker',
         requirement: 'required',
         isKeyDate: true,
       },
       {
-        id: 'ui-temp-wi-7',
-        name: 'Send instruction confirmation letter',
-        requiredRole: 'Sales Progressor',
+        id: 'wi-sales-7',
+        name: 'Receive Formal Written Mortgage Offer',
+        requiredRole: 'Mortgage Broker',
         requirement: 'required',
       },
     ],
   },
   {
-    id: 'ui-temp-step-4',
-    name: 'Searches & Enquiries Ordered',
+    id: 'step-sales-4',
+    name: 'Property Searches & Enquiries',
     description:
-      'Local authority, environmental, and drainage searches submitted.',
+      'Local authority, environmental, and drainage searches submitted and satisfied.',
     displayOrder: 4,
     completionRule: { type: 'all-required-work-items' },
     dependencyJoinType: 'ALL',
-    dependencies: ['ui-temp-step-3'],
+    dependencies: ['step-sales-3'],
     workItems: [
       {
-        id: 'ui-temp-wi-8',
-        name: 'Confirm search fees received from buyer',
-        requiredRole: 'Sales Progressor',
-        requirement: 'required',
-      },
-      {
-        id: 'ui-temp-wi-9',
-        name: 'Log local authority search submission date',
-        requiredRole: 'Sales Progressor',
+        id: 'wi-sales-8',
+        name: 'Order Local Authority, Drainage & Environmental Searches',
+        requiredRole: 'Buyer Solicitor',
         requirement: 'required',
         isKeyDate: true,
+      },
+      {
+        id: 'wi-sales-9',
+        name: 'Satisfy All Enquiries & Approve Final Contract',
+        requiredRole: 'Vendor Solicitor',
+        requirement: 'required',
+      },
+    ],
+  },
+  {
+    id: 'step-sales-5',
+    name: 'Exchange of Contracts',
+    description:
+      'Transfer 10% deposit funds, sign TR1 deed, and fix completion date.',
+    displayOrder: 5,
+    completionRule: { type: 'all-required-work-items' },
+    dependencyJoinType: 'ALL',
+    dependencies: ['step-sales-4'],
+    workItems: [
+      {
+        id: 'wi-sales-10',
+        name: 'Transfer 10% Exchange Deposit Funds',
+        requiredRole: 'Buyer Solicitor',
+        requirement: 'required',
+        isKeyDate: true,
+      },
+      {
+        id: 'wi-sales-11',
+        name: 'Formal Exchange of Contracts & Fix Completion Date',
+        requiredRole: 'Vendor Solicitor',
+        requirement: 'required',
+      },
+    ],
+  },
+  {
+    id: 'step-sales-6',
+    name: 'Completion & Key Handover',
+    description: 'Transfer completion balance funds and release property keys.',
+    displayOrder: 6,
+    completionRule: { type: 'all-required-work-items' },
+    dependencyJoinType: 'ALL',
+    dependencies: ['step-sales-5'],
+    workItems: [
+      {
+        id: 'wi-sales-12',
+        name: 'Transfer Mortgage & Completion Balance Funds',
+        requiredRole: 'Buyer Solicitor',
+        requirement: 'required',
+        isKeyDate: true,
+      },
+      {
+        id: 'wi-sales-13',
+        name: 'Confirm Legal Completion & Release Property Keys',
+        requiredRole: 'Listing Agent',
+        requirement: 'required',
       },
     ],
   },
 ];
 
+const APPRAISAL_STEPS: BuilderStep[] = [
+  {
+    id: 'step-app-1',
+    name: 'Lead Qualification & Property Intake',
+    description: 'Confirm vendor motivation, details, and desktop research.',
+    displayOrder: 1,
+    completionRule: { type: 'all-required-work-items' },
+    dependencyJoinType: 'ALL',
+    dependencies: [],
+    workItems: [
+      {
+        id: 'wi-app-1',
+        name: 'Confirm client contact details & motivation',
+        requiredRole: 'Listing Agent',
+        requirement: 'required',
+      },
+      {
+        id: 'wi-app-2',
+        name: 'Retrieve Land Registry title & historical comparables',
+        requiredRole: 'Listing Agent',
+        requirement: 'required',
+      },
+    ],
+  },
+  {
+    id: 'step-app-2',
+    name: 'On-Site Valuation Inspection',
+    description: 'Physical property walkthrough, measurements, and appraisal.',
+    displayOrder: 2,
+    completionRule: { type: 'all-required-work-items' },
+    dependencyJoinType: 'ALL',
+    dependencies: ['step-app-1'],
+    workItems: [
+      {
+        id: 'wi-app-3',
+        name: 'Conduct physical property inspection & measurements',
+        requiredRole: 'Valuer',
+        requirement: 'required',
+        isKeyDate: true,
+      },
+      {
+        id: 'wi-app-4',
+        name: 'Capture marketing photos and floorplan draft',
+        requiredRole: 'Valuer',
+        requirement: 'optional',
+      },
+    ],
+  },
+  {
+    id: 'step-app-3',
+    name: 'Valuation Pack & Agency Agreement',
+    description: 'Deliver formal valuation pack and sign agency terms.',
+    displayOrder: 3,
+    completionRule: { type: 'all-required-work-items' },
+    dependencyJoinType: 'ALL',
+    dependencies: ['step-app-2'],
+    workItems: [
+      {
+        id: 'wi-app-5',
+        name: 'Generate formal appraisal valuation pack',
+        requiredRole: 'Listing Agent',
+        requirement: 'required',
+      },
+      {
+        id: 'wi-app-6',
+        name: 'Present proposal to vendor & sign sole agency terms',
+        requiredRole: 'Listing Agent',
+        requirement: 'required',
+      },
+    ],
+  },
+];
+
+const COMMERCIAL_STEPS: BuilderStep[] = [
+  {
+    id: 'step-comm-1',
+    name: 'Commercial Heads of Terms Agreed',
+    description: 'Negotiate commercial lease term, rent review, and covenants.',
+    displayOrder: 1,
+    completionRule: { type: 'all-required-work-items' },
+    dependencyJoinType: 'ALL',
+    dependencies: [],
+    workItems: [
+      {
+        id: 'wi-comm-1',
+        name: 'Confirm commercial rent, lease term, and break clauses',
+        requiredRole: 'Commercial Agent',
+        requirement: 'required',
+      },
+    ],
+  },
+  {
+    id: 'step-comm-2',
+    name: 'Tenant Due Diligence & Referencing',
+    description: 'Obtain company accounts, credit checks, and guarantor deed.',
+    displayOrder: 2,
+    completionRule: { type: 'all-required-work-items' },
+    dependencyJoinType: 'ALL',
+    dependencies: ['step-comm-1'],
+    workItems: [
+      {
+        id: 'wi-comm-2',
+        name: 'Obtain 3 years audited accounts and trade references',
+        requiredRole: 'Compliance Officer',
+        requirement: 'required',
+      },
+      {
+        id: 'wi-comm-3',
+        name: 'Execute Director Guarantor Agreement if required',
+        requiredRole: 'Compliance Officer',
+        requirement: 'optional',
+      },
+    ],
+  },
+  {
+    id: 'step-comm-3',
+    name: 'Lease Drafting & Execution',
+    description:
+      'Solicitor lease engrossment, rent deposit deed, and completion.',
+    displayOrder: 3,
+    completionRule: { type: 'all-required-work-items' },
+    dependencyJoinType: 'ALL',
+    dependencies: ['step-comm-2'],
+    workItems: [
+      {
+        id: 'wi-comm-4',
+        name: 'Approve draft commercial lease and rent deposit deed',
+        requiredRole: 'Vendor Solicitor',
+        requirement: 'required',
+      },
+      {
+        id: 'wi-comm-5',
+        name: 'Complete commercial lease and release premises keys',
+        requiredRole: 'Commercial Agent',
+        requirement: 'required',
+      },
+    ],
+  },
+];
+
+function formatDagError(
+  rawError: string,
+  currentSteps: BuilderStep[],
+): string {
+  if (rawError.includes('Circular dependency detected in step flow:')) {
+    const parts = rawError
+      .split('Circular dependency detected in step flow:')[1]
+      ?.trim();
+    if (parts) {
+      const stepIds = parts.split('->').map((s) => s.trim());
+      const resolvedNames = stepIds.map((id) => {
+        const found = currentSteps.find((s) => s.id === id);
+        return found ? `Step ${found.displayOrder} (${found.name})` : id;
+      });
+      return `Circular dependency loop detected: ${resolvedNames.join(' → ')}. Please remove the cyclic prerequisite dependency to ensure an acyclic progression flow.`;
+    }
+  }
+  return rawError;
+}
+
 export const TemplateBuilderProvider: React.FC<{
   children: React.ReactNode;
   initialCaseTypeId?: string;
-}> = ({ children, initialCaseTypeId = 'ct-sales-01' }) => {
-  const [caseTypeId] = useState<string>(initialCaseTypeId);
+}> = ({ children, initialCaseTypeId }) => {
+  const [availableCaseTypes, setAvailableCaseTypes] = useState<CaseType[]>([]);
+  const [isLoadingCaseTypes, setIsLoadingCaseTypes] = useState<boolean>(true);
+
+  const [caseTypeId, setCaseTypeId] = useState<string>(
+    initialCaseTypeId || '',
+  );
   const [name, setName] = useState<string>('UK Residential Sales Progression');
   const [description, setDescription] = useState<string>(
     'Standard England & Wales conveyance and sales progression workflow with AML, searches, mortgage offer, and exchange.',
   );
   const [category, setCategory] = useState<string>('Sales Progression');
-  const [versionNumber, setVersionNumber] = useState<number>(3);
+  const [versionNumber, setVersionNumber] = useState<number>(2);
   const [isPublished, setIsPublished] = useState<boolean>(false);
   const [steps, setSteps] = useState<BuilderStep[]>(DEFAULT_SALES_STEPS);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isPublishing, setIsPublishing] = useState<boolean>(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
+  const refreshCaseTypes = useCallback(async () => {
+    setIsLoadingCaseTypes(true);
+    try {
+      const types = await listCaseTypes();
+      if (types && types.length > 0) {
+        setAvailableCaseTypes(types);
+        setCaseTypeId((prevId) => {
+          if (!prevId || !types.some((t) => t.id === prevId)) {
+            return types[0].id;
+          }
+          return prevId;
+        });
+      }
+    } catch {
+      setAvailableCaseTypes([]);
+    } finally {
+      setIsLoadingCaseTypes(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshCaseTypes();
+  }, [refreshCaseTypes]);
+
+  const selectCaseType = useCallback(
+    async (selectedId: string) => {
+      setCaseTypeId(selectedId);
+      try {
+        const ct = await getCaseType(selectedId);
+        if (ct) {
+          setName(ct.name);
+          if (ct.description) setDescription(ct.description);
+          setVersionNumber(ct.publishedVersionCount || 1);
+          setIsPublished(ct.publishedVersionCount > 0);
+
+          // Infer steps based on name or default
+          if (ct.name.toLowerCase().includes('appraisal')) {
+            setSteps(APPRAISAL_STEPS);
+            setCategory('Valuation & Listing');
+          } else if (ct.name.toLowerCase().includes('commercial')) {
+            setSteps(COMMERCIAL_STEPS);
+            setCategory('Commercial');
+          } else {
+            setSteps(DEFAULT_SALES_STEPS);
+            setCategory('Sales Progression');
+          }
+        }
+      } catch {
+        const matched = availableCaseTypes.find((t) => t.id === selectedId);
+        if (matched) {
+          setName(matched.name);
+          if (matched.description) setDescription(matched.description);
+          setVersionNumber(matched.publishedVersionCount || 1);
+        }
+      }
+    },
+    [availableCaseTypes],
+  );
+
+  const createNewTemplate = useCallback(
+    async (
+      newName: string,
+      newDesc?: string,
+      preset?: 'sales' | 'appraisal' | 'commercial',
+    ): Promise<string> => {
+      setIsSaving(true);
+      try {
+        const created = await createCaseType({
+          name: newName.trim(),
+          description: newDesc?.trim() || undefined,
+        });
+
+        const newId = created.id;
+        setCaseTypeId(newId);
+        setName(created.name);
+        setDescription(created.description || '');
+        setVersionNumber(1);
+        setIsPublished(false);
+
+        let initialSteps = DEFAULT_SALES_STEPS;
+        let cat = 'Sales Progression';
+        if (preset === 'appraisal') {
+          initialSteps = APPRAISAL_STEPS;
+          cat = 'Valuation & Listing';
+        } else if (preset === 'commercial') {
+          initialSteps = COMMERCIAL_STEPS;
+          cat = 'Commercial';
+        }
+        setSteps(initialSteps);
+        setCategory(cat);
+
+        // Save initial draft immediately to the new CaseType
+        const dto = {
+          steps: initialSteps.map((s) => ({
+            id: s.id,
+            name: s.name,
+            description: s.description || s.name,
+            displayOrder: s.displayOrder,
+            dependencyJoinType: s.dependencyJoinType,
+          })),
+          workItems: initialSteps.flatMap((s) =>
+            s.workItems.map((wi) => ({
+              id: wi.id,
+              stepId: s.id,
+              name: wi.name,
+              requirement: wi.requirement,
+              evidenceRequired: false,
+            })),
+          ),
+          edges: [],
+          roles: [],
+          customFields: [],
+        };
+
+        try {
+          await saveCaseTypeDraft(newId, dto);
+        } catch {
+          // Local fallback
+        }
+
+        await refreshCaseTypes();
+        return newId;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [refreshCaseTypes],
+  );
+
   // Compute edges automatically from step dependencies
   const edges = useMemo<DependencyEdge[]>(() => {
     const computed: DependencyEdge[] = [];
     for (const step of steps) {
       for (const depId of step.dependencies) {
-        // ensure predecessor exists
         if (steps.some((s) => s.id === depId)) {
           computed.push({ fromStepId: depId, toStepId: step.id });
         }
@@ -251,7 +612,7 @@ export const TemplateBuilderProvider: React.FC<{
     setSteps((prev) => {
       const nextOrder = prev.length + 1;
       const newStep: BuilderStep = {
-        id: `ui-temp-step-${Date.now()}`,
+        id: `ui-step-${Date.now()}`,
         name: initialData?.name || `Step ${nextOrder}: New Milestone`,
         description: initialData?.description || '',
         displayOrder: nextOrder,
@@ -262,7 +623,7 @@ export const TemplateBuilderProvider: React.FC<{
         dependencies: initialData?.dependencies || [],
         workItems: initialData?.workItems || [
           {
-            id: `ui-temp-wi-${Date.now()}-1`,
+            id: `ui-wi-${Date.now()}-1`,
             name: 'Initial action item',
             requiredRole: 'Sales Progressor',
             requirement: 'required',
@@ -287,7 +648,6 @@ export const TemplateBuilderProvider: React.FC<{
   const removeStep = useCallback((stepId: string) => {
     setSteps((prev) => {
       const filtered = prev.filter((s) => s.id !== stepId);
-      // Re-index display orders and remove stepId from any dependency lists
       return filtered.map((step, idx) => ({
         ...step,
         displayOrder: idx + 1,
@@ -321,7 +681,7 @@ export const TemplateBuilderProvider: React.FC<{
         prev.map((step) => {
           if (step.id !== stepId) return step;
           const newWorkItem: BuilderWorkItem = {
-            id: `ui-temp-wi-${Date.now()}`,
+            id: `ui-wi-${Date.now()}`,
             name: initialData?.name || 'New required action',
             requiredRole: initialData?.requiredRole || 'Sales Progressor',
             requirement: initialData?.requirement || 'required',
@@ -366,17 +726,108 @@ export const TemplateBuilderProvider: React.FC<{
     );
   }, []);
 
+  const [backendDagError, setBackendDagError] = useState<string | null>(null);
+
+  const checkBackendDraft = useCallback(
+    async (nextSteps: BuilderStep[], nextEdges: DependencyEdge[]) => {
+      let activeId = caseTypeId;
+      if (!activeId && availableCaseTypes.length > 0) {
+        activeId = availableCaseTypes[0].id;
+      }
+      if (!activeId) return;
+
+      const dto = {
+        steps: nextSteps.map((s) => ({
+          id: s.id,
+          name: s.name,
+          description: s.description || s.name,
+          displayOrder: s.displayOrder,
+          dependencyJoinType: s.dependencyJoinType,
+        })),
+        workItems: nextSteps.flatMap((s) =>
+          s.workItems.map((wi) => ({
+            id: wi.id,
+            stepId: s.id,
+            name: wi.name,
+            requirement: wi.requirement,
+            evidenceRequired: false,
+          })),
+        ),
+        edges: nextEdges.map((e) => ({
+          fromStepId: e.fromStepId,
+          toStepId: e.toStepId,
+        })),
+        roles: [],
+        customFields: [],
+      };
+
+      try {
+        await saveCaseTypeDraft(activeId, dto);
+        setBackendDagError(null);
+        setLastSavedAt(new Date());
+      } catch (err: unknown) {
+        if (err instanceof ApiError) {
+          if (err.problem.status === 404) {
+            const types = await listCaseTypes();
+            if (types && types.length > 0) {
+              setAvailableCaseTypes(types);
+              const freshId = types[0].id;
+              setCaseTypeId(freshId);
+              try {
+                await saveCaseTypeDraft(freshId, dto);
+                setBackendDagError(null);
+                setLastSavedAt(new Date());
+                return;
+              } catch (retryErr) {
+                if (retryErr instanceof ApiError) {
+                  setBackendDagError(
+                    formatDagError(
+                      retryErr.problem.detail || retryErr.message,
+                      nextSteps,
+                    ),
+                  );
+                  return;
+                }
+              }
+            }
+          }
+          setBackendDagError(
+            formatDagError(err.problem.detail || err.message, nextSteps),
+          );
+        } else if (err instanceof Error) {
+          setBackendDagError(formatDagError(err.message, nextSteps));
+        }
+      }
+    },
+    [caseTypeId, availableCaseTypes],
+  );
+
   const setStepDependencies = useCallback(
     (stepId: string, predecessorStepIds: string[]) => {
-      setSteps((prev) =>
-        prev.map((step) =>
+      setSteps((prev) => {
+        const nextSteps = prev.map((step) =>
           step.id === stepId
             ? { ...step, dependencies: predecessorStepIds }
             : step,
-        ),
-      );
+        );
+
+        // Compute updated edges for backend DAG validation
+        const nextEdges: DependencyEdge[] = [];
+        for (const s of nextSteps) {
+          for (const depId of s.dependencies) {
+            if (nextSteps.some((step) => step.id === depId)) {
+              nextEdges.push({ fromStepId: depId, toStepId: s.id });
+            }
+          }
+        }
+
+        // Trigger backend DAG validator immediately on edge toggle!
+        void checkBackendDraft(nextSteps, nextEdges);
+
+        return nextSteps;
+      });
     },
-    [],
+    [checkBackendDraft],
   );
 
   const setStepDependencyJoinType = useCallback(
@@ -405,115 +856,14 @@ export const TemplateBuilderProvider: React.FC<{
           'Lead qualification, desktop valuation, on-site physical inspection, and proposal generation flow.',
         );
         setCategory('Valuation & Listing');
-        setSteps([
-          {
-            id: 'ui-temp-app-1',
-            name: 'Lead Qualification & Property Intake',
-            displayOrder: 1,
-            completionRule: { type: 'all-required-work-items' },
-            dependencyJoinType: 'ALL',
-            dependencies: [],
-            workItems: [
-              {
-                id: 'ui-temp-wi-app-1',
-                name: 'Confirm client contact details & motivation',
-                requiredRole: 'Listing Agent',
-                requirement: 'required',
-              },
-              {
-                id: 'ui-temp-wi-app-2',
-                name: 'Retrieve Land Registry title & historical sales data',
-                requiredRole: 'Listing Agent',
-                requirement: 'required',
-              },
-            ],
-          },
-          {
-            id: 'ui-temp-app-2',
-            name: 'On-Site Valuation Inspection',
-            displayOrder: 2,
-            completionRule: { type: 'all-required-work-items' },
-            dependencyJoinType: 'ALL',
-            dependencies: ['ui-temp-app-1'],
-            workItems: [
-              {
-                id: 'ui-temp-wi-app-3',
-                name: 'Conduct physical property inspection & room measurements',
-                requiredRole: 'Valuer',
-                requirement: 'required',
-                isKeyDate: true,
-              },
-              {
-                id: 'ui-temp-wi-app-4',
-                name: 'Take marketing preparation photos',
-                requiredRole: 'Valuer',
-                requirement: 'optional',
-              },
-            ],
-          },
-          {
-            id: 'ui-temp-app-3',
-            name: 'Valuation Report & Agency Proposal',
-            displayOrder: 3,
-            completionRule: { type: 'all-required-work-items' },
-            dependencyJoinType: 'ALL',
-            dependencies: ['ui-temp-app-2'],
-            workItems: [
-              {
-                id: 'ui-temp-wi-app-5',
-                name: 'Generate formal appraisal valuation pack',
-                requiredRole: 'Listing Agent',
-                requirement: 'required',
-              },
-              {
-                id: 'ui-temp-wi-app-6',
-                name: 'Present proposal to vendor & agree marketing terms',
-                requiredRole: 'Listing Agent',
-                requirement: 'required',
-              },
-            ],
-          },
-        ]);
+        setSteps(APPRAISAL_STEPS);
       } else if (presetKey === 'commercial') {
         setName('Commercial Lease Conveyancing');
         setDescription(
           'Commercial lease negotiations, tenant referencing, draft lease terms, and guarantor verification.',
         );
         setCategory('Commercial');
-        setSteps([
-          {
-            id: 'ui-temp-comm-1',
-            name: 'Heads of Terms Agreed',
-            displayOrder: 1,
-            completionRule: { type: 'all-required-work-items' },
-            dependencyJoinType: 'ALL',
-            dependencies: [],
-            workItems: [
-              {
-                id: 'ui-temp-wi-comm-1',
-                name: 'Confirm commercial rent, lease term, and rent review intervals',
-                requiredRole: 'Commercial Agent',
-                requirement: 'required',
-              },
-            ],
-          },
-          {
-            id: 'ui-temp-comm-2',
-            name: 'Tenant Credit & Commercial Referencing',
-            displayOrder: 2,
-            completionRule: { type: 'all-required-work-items' },
-            dependencyJoinType: 'ALL',
-            dependencies: ['ui-temp-comm-1'],
-            workItems: [
-              {
-                id: 'ui-temp-wi-comm-2',
-                name: 'Obtain 3 years audited accounts and trade references',
-                requiredRole: 'Compliance Officer',
-                requirement: 'required',
-              },
-            ],
-          },
-        ]);
+        setSteps(COMMERCIAL_STEPS);
       }
     },
     [],
@@ -543,37 +893,71 @@ export const TemplateBuilderProvider: React.FC<{
   const saveDraft = useCallback(async (): Promise<BackendDraftPayload> => {
     setIsSaving(true);
     try {
-      const payload = toBackendDraftPayload();
-      console.log(
-        `[TemplateBuilder] Saving draft payload for caseTypeId '${caseTypeId}':`,
-        JSON.stringify(payload, null, 2),
-      );
+      const activeCaseTypeId = caseTypeId;
 
-      // Simulate slight network delay if running mock or real backend
-      await new Promise((resolve) => setTimeout(resolve, 350));
+      const dto = {
+        steps: steps.map((s) => ({
+          id: s.id,
+          name: s.name,
+          description: s.description || s.name,
+          displayOrder: s.displayOrder,
+          dependencyJoinType: s.dependencyJoinType,
+        })),
+        workItems: steps.flatMap((s) =>
+          s.workItems.map((wi) => ({
+            id: wi.id,
+            stepId: s.id,
+            name: wi.name,
+            requirement: wi.requirement,
+            evidenceRequired: false,
+          })),
+        ),
+        edges: edges.map((e) => ({
+          fromStepId: e.fromStepId,
+          toStepId: e.toStepId,
+        })),
+        roles: [],
+        customFields: [],
+      };
 
-      setLastSavedAt(new Date());
-      return payload;
+      try {
+        await saveCaseTypeDraft(activeCaseTypeId, dto);
+        setBackendDagError(null);
+        setLastSavedAt(new Date());
+        return toBackendDraftPayload();
+      } catch (err: unknown) {
+        if (err instanceof ApiError) {
+          setBackendDagError(
+            formatDagError(err.problem.detail || err.message, steps),
+          );
+        } else if (err instanceof Error) {
+          setBackendDagError(formatDagError(err.message, steps));
+        }
+        throw err;
+      }
     } finally {
       setIsSaving(false);
     }
-  }, [caseTypeId, toBackendDraftPayload]);
+  }, [caseTypeId, steps, edges, toBackendDraftPayload]);
 
   const publishDraft = useCallback(async (): Promise<void> => {
     setIsPublishing(true);
     try {
-      const payload = toBackendDraftPayload();
-      console.log(
-        `[TemplateBuilder] Publishing template version for caseTypeId '${caseTypeId}':`,
-        JSON.stringify(payload, null, 2),
-      );
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      setVersionNumber((prev) => prev + 1);
+      await saveDraft();
+
+      const res = await publishCaseTypeDraft(caseTypeId);
+      if (res && res.versionNumber) {
+        setVersionNumber(res.versionNumber);
+      } else {
+        setVersionNumber((prev) => prev + 1);
+      }
+
       setIsPublished(true);
+      await refreshCaseTypes();
     } finally {
       setIsPublishing(false);
     }
-  }, [caseTypeId, toBackendDraftPayload]);
+  }, [caseTypeId, saveDraft, refreshCaseTypes]);
 
   const value = useMemo(
     () => ({
@@ -585,10 +969,15 @@ export const TemplateBuilderProvider: React.FC<{
       isPublished,
       steps,
       edges,
+      backendDagError,
       isSaving,
       isPublishing,
       lastSavedAt,
+      availableCaseTypes,
+      isLoadingCaseTypes,
       setCaseTypeMeta,
+      selectCaseType,
+      createNewTemplate,
       addStep,
       updateStep,
       removeStep,
@@ -602,6 +991,7 @@ export const TemplateBuilderProvider: React.FC<{
       toBackendDraftPayload,
       saveDraft,
       publishDraft,
+      refreshCaseTypes,
     }),
     [
       caseTypeId,
@@ -612,10 +1002,15 @@ export const TemplateBuilderProvider: React.FC<{
       isPublished,
       steps,
       edges,
+      backendDagError,
       isSaving,
       isPublishing,
       lastSavedAt,
+      availableCaseTypes,
+      isLoadingCaseTypes,
       setCaseTypeMeta,
+      selectCaseType,
+      createNewTemplate,
       addStep,
       updateStep,
       removeStep,
@@ -629,6 +1024,7 @@ export const TemplateBuilderProvider: React.FC<{
       toBackendDraftPayload,
       saveDraft,
       publishDraft,
+      refreshCaseTypes,
     ],
   );
 

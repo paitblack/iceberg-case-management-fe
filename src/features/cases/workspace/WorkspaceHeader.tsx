@@ -10,7 +10,8 @@ interface WorkspaceHeaderProps {
 export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   snapshot,
 }) => {
-  const completedStepsCount = snapshot.steps.filter(
+  const steps = snapshot.steps || [];
+  const completedStepsCount = steps.filter(
     (s) => s.status === 'Completed',
   ).length;
 
@@ -24,7 +25,8 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
               {snapshot.reference}
             </span>
             <span className="text-xs font-semibold text-[#E1007A] bg-pink-50 px-2 py-0.5 rounded-md border border-pink-100">
-              {snapshot.caseTypeName} (v{snapshot.templateVersion}.0)
+              {snapshot.caseTypeName || 'Residential Property Sale'} (v
+              {snapshot.templateVersion || 1}.0)
             </span>
             <Badge
               variant={
@@ -47,17 +49,17 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
           <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-slate-500 pt-0.5">
             <span className="flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5 text-slate-400" />
-              {snapshot.propertyAddress}
+              {snapshot.propertyAddress || snapshot.title}
             </span>
             <span className="flex items-center gap-1">
               <Building2 className="w-3.5 h-3.5 text-slate-400" />
-              {snapshot.branchName}
+              {snapshot.branchName || 'Central Office Branch'}
             </span>
             <span className="flex items-center gap-1">
               <User className="w-3.5 h-3.5 text-slate-400" />
               Progressor:{' '}
               <strong className="text-slate-700">
-                {snapshot.assignedProgressorName}
+                {snapshot.assignedProgressorName || 'Operations Progressor'}
               </strong>
             </span>
             {snapshot.targetCompletionDate && (
@@ -91,8 +93,7 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
               Workflow Progression Status
             </span>
             <span className="text-slate-500 text-[11px]">
-              ({completedStepsCount} of {snapshot.steps.length} milestones
-              complete)
+              ({completedStepsCount} of {steps.length} milestones complete)
             </span>
           </div>
           <span className="font-extrabold text-sm text-[#E1007A]">

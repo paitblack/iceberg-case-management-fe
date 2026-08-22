@@ -18,6 +18,11 @@ import type {
   CreateCasePayload,
   CreateCaseResponse,
   PublishedTemplateItem,
+  DependencyJoinType,
+  StepExecutionStatus,
+  WorkItemExecutionStatus,
+  WorkItemTag,
+  WorkItemRequirement,
 } from '../types/api';
 
 export class ApiError extends Error {
@@ -38,6 +43,9 @@ export function createApiClient(baseUrl: string = '/api/v1'): AxiosInstance {
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
+      'x-mock-company-id': '1',
+      'x-mock-actor-id': 'usr-admin-01',
+      'x-mock-user-role': 'PROGRESSOR',
     },
   });
 
@@ -45,6 +53,17 @@ export function createApiClient(baseUrl: string = '/api/v1'): AxiosInstance {
     const token = localStorage.getItem('lifesycle_auth_token');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    const companyId = localStorage.getItem('lifesycle_company_id') || '1';
+    const actorId =
+      localStorage.getItem('lifesycle_actor_id') || 'usr-admin-01';
+    const role = localStorage.getItem('lifesycle_user_role') || 'PROGRESSOR';
+
+    if (config.headers) {
+      config.headers['x-mock-company-id'] = companyId;
+      config.headers['x-mock-actor-id'] = actorId;
+      config.headers['x-mock-user-role'] = role;
     }
     return config;
   });
@@ -92,7 +111,7 @@ export async function apiGet<T>(
 
 export async function apiPost<T, B = unknown>(
   url: string,
-  data?: B,
+  data: B = {} as B,
   config?: AxiosRequestConfig,
 ): Promise<T> {
   const response = await apiClient.post<T>(url, data, config);
@@ -101,7 +120,7 @@ export async function apiPost<T, B = unknown>(
 
 export async function apiPut<T, B = unknown>(
   url: string,
-  data?: B,
+  data: B = {} as B,
   config?: AxiosRequestConfig,
 ): Promise<T> {
   const response = await apiClient.put<T>(url, data, config);
@@ -119,6 +138,10 @@ export async function apiDelete<T>(
 /**
  * Domain Service: Template Engine & Case Type API Calls
  */
+
+export async function listCaseTypes(): Promise<CaseType[]> {
+  return apiGet<CaseType[]>('/case-types');
+}
 
 export async function createCaseType(data: {
   name: string;
@@ -143,17 +166,38 @@ export async function saveCaseTypeDraft(
 
 export async function publishCaseTypeDraft(
   caseTypeId: string,
-  draftId: string,
+  draftId?: string,
 ): Promise<TemplateVersion> {
-  return apiPost<TemplateVersion>(
-    `/case-types/${caseTypeId}/drafts/${draftId}/publish`,
-  );
+  if (draftId && draftId !== 'active') {
+    return apiPost<TemplateVersion>(
+      `/case-types/${caseTypeId}/drafts/${draftId}/publish`,
+      {},
+    );
+  }
+  return apiPost<TemplateVersion>(`/case-types/${caseTypeId}/publish`, {});
 }
 
 export async function fetchPublishedTemplates(): Promise<
   PublishedTemplateItem[]
 > {
-  return apiGet<PublishedTemplateItem[]>('/templates');
+  try {
+    const caseTypes = await listCaseTypes();
+    if (caseTypes && caseTypes.length > 0) {
+      return caseTypes.map((ct) => ({
+        id: ct.id,
+        name: ct.name,
+        versionNumber: ct.publishedVersionCount || 1,
+        description:
+          ct.description || 'Pre-configured domain workflow progression.',
+        caseTypeId: ct.id,
+        stepCount: 6,
+      }));
+    }
+  } catch (err) {
+    console.warn('Failed to load live case types from backend:', err);
+  }
+
+  return [];
 }
 
 /**
@@ -163,7 +207,28 @@ export async function fetchPublishedTemplates(): Promise<
 export async function createCase(
   payload: CreateCasePayload,
 ): Promise<CreateCaseResponse> {
-  return apiPost<CreateCaseResponse>('/cases', payload);
+  const cleanPayload: {
+    title: string;
+    caseTypeId?: string;
+    templateVersionId?: string;
+  } = {
+    title: payload.title,
+  };
+
+  if (
+    payload.templateVersionId &&
+    payload.templateVersionId !== payload.caseTypeId &&
+    !payload.templateVersionId.startsWith('tpl-') &&
+    !payload.templateVersionId.startsWith('ct-')
+  ) {
+    cleanPayload.templateVersionId = payload.templateVersionId;
+  }
+
+  if (payload.caseTypeId) {
+    cleanPayload.caseTypeId = payload.caseTypeId;
+  }
+
+  return apiPost<CreateCaseResponse>('/cases', cleanPayload);
 }
 
 export async function fetchCaseList(
@@ -172,10 +237,175 @@ export async function fetchCaseList(
   return apiGet<BffCaseListResponse>('/bff/cases', { params });
 }
 
+interface RawBffWorkspaceResponse {
+  contractVersion: string;
+  resourceVersion: number;
+  generatedAt: string;
+  case?: {
+    id: string;
+    companyId: number;
+    title: string;
+    caseTypeId: string;
+    caseTypeName?: string;
+    templateVersionId: string;
+    templateVersionNumber?: number;
+    status: 'Open' | 'OnHold' | 'Completed' | 'Cancelled';
+    propertyAddress?: string;
+    agreedPrice?: number;
+    assignedProgressorName?: string;
+    branchName?: string;
+    targetCompletionDate?: string;
+    reference?: string;
+  };
+  progression?: {
+    overallPercentage?: number;
+    completionPercentage?: number;
+    blockers?: Array<{ stepName?: string; reason?: string } | string>;
+  };
+  steps?: Array<{
+    id: string;
+    stepDefinitionId: string;
+    name: string;
+    description?: string;
+    status: StepExecutionStatus;
+    displayOrder: number;
+    dependencyJoinType?: DependencyJoinType;
+    dependencies?: string[];
+    allowedActions?: StepActionType[];
+    workItems?: Array<{
+      id: string;
+      stepId?: string;
+      name?: string;
+      title?: string;
+      description?: string;
+      status?: WorkItemExecutionStatus;
+      requirement?: WorkItemRequirement;
+      tag?: WorkItemTag;
+      ownerRoleId?: string;
+      isKeyDate?: boolean;
+      allowedActions?: WorkItemActionType[];
+      completedAt?: string;
+      completedByUserName?: string;
+    }>;
+  }>;
+  documents?: Array<{
+    id: string;
+    fileName: string;
+    sizeBytes?: number;
+    contentType?: string;
+    category?: string;
+    createdAt?: string;
+    uploadedByUserId?: string;
+    downloadUrl?: string;
+  }>;
+  participants?: BffWorkspaceSnapshot['participants'];
+}
+
 export async function fetchCaseWorkspace(
   caseId: string,
 ): Promise<BffWorkspaceSnapshot> {
-  return apiGet<BffWorkspaceSnapshot>(`/bff/case-workspace/${caseId}`);
+  const rawData = await apiGet<RawBffWorkspaceResponse>(
+    `/bff/case-workspace/${caseId}`,
+  );
+
+  if (rawData && rawData.case) {
+    const c = rawData.case;
+    const p = rawData.progression || {};
+
+    const blockers: string[] = Array.isArray(p.blockers)
+      ? p.blockers.map((b) =>
+          typeof b === 'string'
+            ? b
+            : b.stepName && b.reason
+              ? `${b.stepName}: ${b.reason}`
+              : b.reason || 'Blocked step',
+        )
+      : [];
+
+    const documents: BffCaseDocument[] = Array.isArray(rawData.documents)
+      ? rawData.documents.map((d) => ({
+          id: d.id,
+          fileName: d.fileName,
+          fileSizeBytes: d.sizeBytes || 0,
+          fileType: d.contentType || 'application/pdf',
+          category: d.category || 'General Document',
+          uploadedAt: d.createdAt || new Date().toISOString(),
+          uploadedByName: d.uploadedByUserId || 'Operations Progressor',
+          downloadUrl: d.downloadUrl,
+        }))
+      : [];
+
+    const steps = (rawData.steps || []).map((step) => ({
+      id: step.id,
+      stepDefinitionId: step.stepDefinitionId,
+      name: step.name,
+      description: step.description,
+      status: step.status,
+      displayOrder: step.displayOrder,
+      dependencyJoinType: step.dependencyJoinType || 'ALL',
+      dependencies: step.dependencies || [],
+      allowedActions: step.allowedActions || [],
+      workItems: (step.workItems || []).map((wi) => ({
+        id: wi.id,
+        stepId: wi.stepId || step.id,
+        title: wi.name || wi.title || 'Work Item',
+        description: wi.description,
+        status: wi.status || 'Pending',
+        tag: (wi.tag || (wi.isKeyDate ? 'Key Date' : 'Manual')) as WorkItemTag,
+        requirement: wi.requirement || 'required',
+        role: wi.ownerRoleId || 'Progressor',
+        isKeyDate: wi.isKeyDate,
+        allowedActions: wi.allowedActions || [],
+        completedAt: wi.completedAt,
+        completedByUserName: wi.completedByUserName,
+      })),
+    }));
+
+    return {
+      caseId: c.id,
+      reference: c.reference || `CM-${c.id.slice(0, 8).toUpperCase()}`,
+      title: c.title,
+      propertyAddress: c.propertyAddress || c.title,
+      caseTypeId: c.caseTypeId,
+      caseTypeName: c.caseTypeName || 'Residential Property Sale',
+      templateVersion: c.templateVersionNumber || 1,
+      status: c.status,
+      progressPercentage: p.overallPercentage ?? p.completionPercentage ?? 0,
+      agreedPrice: c.agreedPrice,
+      assignedProgressorName:
+        c.assignedProgressorName || 'Operations Progressor',
+      branchName: c.branchName || 'Central Office Branch',
+      targetCompletionDate: c.targetCompletionDate,
+      blockers,
+      steps,
+      documents,
+      participants: rawData.participants || [
+        {
+          id: 'p-1',
+          roleId: 'role-estate-agent',
+          roleName: 'Estate Agent / Progressor',
+          name: 'Sarah Jenkins',
+          email: 's.jenkins@iceberg-progress.co.uk',
+          phone: '+44 7700 900123',
+          companyName: 'Iceberg Prime Oxford',
+          isPrimary: true,
+        },
+        {
+          id: 'p-2',
+          roleId: 'role-vendor-solicitor',
+          roleName: 'Vendor Solicitor',
+          name: 'David Reynolds',
+          email: 'd.reynolds@reynolds-law.co.uk',
+          phone: '+44 1865 492001',
+          companyName: 'Reynolds & Co Legal',
+          isPrimary: false,
+        },
+      ],
+      updatedAt: rawData.generatedAt || new Date().toISOString(),
+    };
+  }
+
+  return rawData as unknown as BffWorkspaceSnapshot;
 }
 
 export async function fetchDashboardSnapshot(): Promise<BffDashboardSnapshot> {
@@ -218,7 +448,7 @@ export async function executeWorkItemAction(
 export async function uploadCaseDocument(
   caseId: string,
   file: File,
-  category: string,
+  category: string = 'General Evidence',
 ): Promise<BffCaseDocument> {
   const formData = new FormData();
   formData.append('file', file);

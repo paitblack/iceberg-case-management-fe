@@ -13,18 +13,35 @@ import { Badge } from '../../../components/ui/Badge';
 import type { BffCaseItem, CaseStatusAction } from '../../../types/api';
 
 interface CaseCardProps {
-  caseItem: BffCaseItem;
-  onClick: () => void;
+  item?: BffCaseItem;
+  caseItem?: BffCaseItem;
+  onOpen?: (caseId: string) => void;
+  onClick?: () => void;
   onTriggerAction?: (caseItem: BffCaseItem, action: CaseStatusAction) => void;
 }
 
 export const CaseCard: React.FC<CaseCardProps> = ({
-  caseItem,
-  onClick,
+  item,
+  caseItem: legacyCaseItem,
+  onOpen,
+  onClick: legacyOnClick,
   onTriggerAction,
 }) => {
-  const isBlocked = caseItem.blockersCount > 0;
+  const caseItem = item || legacyCaseItem;
+  if (!caseItem) return null;
+
+  const handleClick = () => {
+    if (onOpen) onOpen(caseItem.id);
+    else if (legacyOnClick) legacyOnClick();
+  };
+
+  const isBlocked = (caseItem.blockersCount ?? 0) > 0;
   const allowedActions = caseItem.allowedActions || [];
+  const progress = caseItem.progress || {
+    totalSteps: 0,
+    completedSteps: 0,
+    percentage: 0,
+  };
 
   const handleAction = (e: React.MouseEvent, action: CaseStatusAction) => {
     e.stopPropagation();
@@ -35,7 +52,7 @@ export const CaseCard: React.FC<CaseCardProps> = ({
 
   return (
     <div
-      onClick={onClick}
+      onClick={handleClick}
       className="iceberg-card p-5 space-y-4 border border-slate-200/90 hover:border-[#E1007A]/50 hover:shadow-md hover:shadow-pink-500/5 transition-all cursor-pointer group flex flex-col justify-between"
     >
       <div className="space-y-3">
@@ -115,18 +132,18 @@ export const CaseCard: React.FC<CaseCardProps> = ({
         <div className="space-y-1">
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] text-slate-500">
-              {caseItem.progress.completedSteps} of{' '}
-              {caseItem.progress.totalSteps} steps
+              {progress.completedSteps} of{' '}
+              {progress.totalSteps} steps
             </span>
             <span className="font-extrabold text-xs text-[#E1007A]">
-              {caseItem.progress.percentage}%
+              {progress.percentage}%
             </span>
           </div>
 
           <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-[#E1007A] to-[#FF4B9E] rounded-full transition-all duration-500"
-              style={{ width: `${caseItem.progress.percentage}%` }}
+              style={{ width: `${progress.percentage}%` }}
             />
           </div>
         </div>

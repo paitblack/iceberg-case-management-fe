@@ -111,7 +111,7 @@ describe('CreateCaseModal', () => {
       expect(createSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           title: '99 Oxford High Street - Sale',
-          templateVersionId: 'tpl-test-sales-v3',
+          caseTypeId: 'ct-sales-01',
         }),
       );
       expect(successSpy).toHaveBeenCalledWith('new-case-123');

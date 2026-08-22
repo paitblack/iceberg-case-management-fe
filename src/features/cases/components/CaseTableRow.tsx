@@ -13,19 +13,36 @@ import { Badge } from '../../../components/ui/Badge';
 import type { BffCaseItem, CaseStatusAction } from '../../../types/api';
 
 interface CaseTableRowProps {
-  caseItem: BffCaseItem;
-  onClick: () => void;
+  item?: BffCaseItem;
+  caseItem?: BffCaseItem;
+  onOpen?: (caseId: string) => void;
+  onClick?: () => void;
   onTriggerAction: (caseItem: BffCaseItem, action: CaseStatusAction) => void;
 }
 
 export const CaseTableRow: React.FC<CaseTableRowProps> = ({
-  caseItem,
-  onClick,
+  item,
+  caseItem: legacyCaseItem,
+  onOpen,
+  onClick: legacyOnClick,
   onTriggerAction,
 }) => {
+  const caseItem = item || legacyCaseItem;
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
-  const isBlocked = caseItem.blockersCount > 0;
+  if (!caseItem) return null;
+
+  const handleClick = () => {
+    if (onOpen) onOpen(caseItem.id);
+    else if (legacyOnClick) legacyOnClick();
+  };
+
+  const isBlocked = (caseItem.blockersCount ?? 0) > 0;
   const allowedActions = caseItem.allowedActions || [];
+  const progress = caseItem.progress || {
+    totalSteps: 0,
+    completedSteps: 0,
+    percentage: 0,
+  };
 
   const handleActionClick = (e: React.MouseEvent, action: CaseStatusAction) => {
     e.stopPropagation();
@@ -35,7 +52,7 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
 
   return (
     <tr
-      onClick={onClick}
+      onClick={handleClick}
       className="hover:bg-pink-50/30 transition-colors cursor-pointer group border-b border-slate-100"
     >
       {/* Title & Reference */}
@@ -113,17 +130,17 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
         <div className="space-y-1">
           <div className="flex justify-between text-[10px] text-slate-500 font-medium">
             <span>
-              {caseItem.progress.completedSteps}/{caseItem.progress.totalSteps}{' '}
+              {progress.completedSteps}/{progress.totalSteps}{' '}
               steps
             </span>
             <span className="font-bold text-[#E1007A]">
-              {caseItem.progress.percentage}%
+              {progress.percentage}%
             </span>
           </div>
           <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
             <div
               className="h-full bg-[#E1007A] rounded-full transition-all duration-500"
-              style={{ width: `${caseItem.progress.percentage}%` }}
+              style={{ width: `${progress.percentage}%` }}
             />
           </div>
         </div>
@@ -204,7 +221,7 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
 
                 <button
                   type="button"
-                  onClick={onClick}
+                  onClick={handleClick}
                   className="w-full px-3 py-1.5 text-left text-xs font-semibold text-[#E1007A] hover:bg-pink-50 flex items-center gap-2 border-t border-slate-100 mt-1"
                 >
                   <ChevronRight className="w-3.5 h-3.5" />
