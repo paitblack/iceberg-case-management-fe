@@ -23,6 +23,10 @@ import type {
   WorkItemExecutionStatus,
   WorkItemTag,
   WorkItemRequirement,
+  BffParticipant,
+  AssignParticipantPayload,
+  BffCaseNote,
+  AddCaseNotePayload,
 } from '../types/api';
 
 export class ApiError extends Error {
@@ -279,10 +283,19 @@ interface RawBffWorkspaceResponse {
       title?: string;
       description?: string;
       status?: WorkItemExecutionStatus;
+      statusLabel?: string;
       requirement?: WorkItemRequirement;
       tag?: WorkItemTag;
       ownerRoleId?: string;
+      assignee?: {
+        id: string;
+        name: string;
+        email?: string;
+        phone?: string;
+        companyName?: string;
+      };
       isKeyDate?: boolean;
+      evidenceRequired?: boolean;
       allowedActions?: WorkItemActionType[];
       completedAt?: string;
       completedByUserName?: string;
@@ -299,6 +312,7 @@ interface RawBffWorkspaceResponse {
     downloadUrl?: string;
   }>;
   participants?: BffWorkspaceSnapshot['participants'];
+  notes?: BffWorkspaceSnapshot['notes'];
 }
 
 export async function fetchCaseWorkspace(
@@ -349,12 +363,17 @@ export async function fetchCaseWorkspace(
         id: wi.id,
         stepId: wi.stepId || step.id,
         title: wi.name || wi.title || 'Work Item',
+        name: wi.name || wi.title || 'Work Item',
         description: wi.description,
         status: wi.status || 'Pending',
+        statusLabel: wi.statusLabel,
         tag: (wi.tag || (wi.isKeyDate ? 'Key Date' : 'Manual')) as WorkItemTag,
         requirement: wi.requirement || 'required',
         role: wi.ownerRoleId || 'Progressor',
+        ownerRoleId: wi.ownerRoleId,
+        assignee: wi.assignee,
         isKeyDate: wi.isKeyDate,
+        evidenceRequired: wi.evidenceRequired,
         allowedActions: wi.allowedActions || [],
         completedAt: wi.completedAt,
         completedByUserName: wi.completedByUserName,
@@ -379,28 +398,8 @@ export async function fetchCaseWorkspace(
       blockers,
       steps,
       documents,
-      participants: rawData.participants || [
-        {
-          id: 'p-1',
-          roleId: 'role-estate-agent',
-          roleName: 'Estate Agent / Progressor',
-          name: 'Sarah Jenkins',
-          email: 's.jenkins@iceberg-progress.co.uk',
-          phone: '+44 7700 900123',
-          companyName: 'Iceberg Prime Oxford',
-          isPrimary: true,
-        },
-        {
-          id: 'p-2',
-          roleId: 'role-vendor-solicitor',
-          roleName: 'Vendor Solicitor',
-          name: 'David Reynolds',
-          email: 'd.reynolds@reynolds-law.co.uk',
-          phone: '+44 1865 492001',
-          companyName: 'Reynolds & Co Legal',
-          isPrimary: false,
-        },
-      ],
+      participants: rawData.participants || [],
+      notes: rawData.notes || [],
       updatedAt: rawData.generatedAt || new Date().toISOString(),
     };
   }
@@ -464,4 +463,35 @@ export async function uploadCaseDocument(
     },
   );
   return response.data;
+}
+
+export async function assignCaseParticipant(
+  caseId: string,
+  payload: AssignParticipantPayload,
+): Promise<BffParticipant> {
+  return apiPost<BffParticipant>(`/cases/${caseId}/participants`, payload);
+}
+
+export async function listCaseParticipants(
+  caseId: string,
+): Promise<BffParticipant[]> {
+  return apiGet<BffParticipant[]>(`/cases/${caseId}/participants`);
+}
+
+export async function removeCaseParticipant(
+  caseId: string,
+  participantId: string,
+): Promise<void> {
+  return apiDelete<void>(`/cases/${caseId}/participants/${participantId}`);
+}
+
+export async function addCaseNote(
+  caseId: string,
+  payload: AddCaseNotePayload,
+): Promise<BffCaseNote> {
+  return apiPost<BffCaseNote>(`/cases/${caseId}/notes`, payload);
+}
+
+export async function listCaseNotes(caseId: string): Promise<BffCaseNote[]> {
+  return apiGet<BffCaseNote[]>(`/cases/${caseId}/notes`);
 }

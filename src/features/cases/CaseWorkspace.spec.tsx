@@ -156,5 +156,34 @@ describe('Case Workspace Components', () => {
     expect(screen.getAllByText(/Workflow Progression/i)[0]).toBeInTheDocument();
     expect(screen.getByText(/Documents & Evidence/i)).toBeInTheDocument();
     expect(screen.getByText(/Stakeholders & Solicitors/i)).toBeInTheDocument();
+    expect(screen.getByText(/Timeline & Notes/i)).toBeInTheDocument();
+  });
+
+  it('renders WorkItemExecutionRow with dynamic assignee badge', () => {
+    const mockWorkItemWithAssignee: BffWorkspaceWorkItem = {
+      id: 'wi-test-2',
+      title: 'Approve draft contract pack',
+      status: 'Pending',
+      requirement: 'required',
+      ownerRoleId: 'role-vendor-solicitor',
+      assignee: {
+        id: 'part-1',
+        name: 'David Reynolds',
+        companyName: 'Reynolds & Co Legal',
+      },
+      allowedActions: ['COMPLETE', 'WAIVE'],
+    };
+
+    render(
+      <WorkItemExecutionRow
+        workItem={mockWorkItemWithAssignee}
+        onAction={vi.fn()}
+        isLoading={false}
+      />,
+    );
+
+    expect(
+      screen.getByText(/David Reynolds \(Reynolds & Co Legal\)/i),
+    ).toBeInTheDocument();
   });
 });

@@ -416,10 +416,7 @@ const COMMERCIAL_STEPS: BuilderStep[] = [
   },
 ];
 
-function formatDagError(
-  rawError: string,
-  currentSteps: BuilderStep[],
-): string {
+function formatDagError(rawError: string, currentSteps: BuilderStep[]): string {
   if (rawError.includes('Circular dependency detected in step flow:')) {
     const parts = rawError
       .split('Circular dependency detected in step flow:')[1]
@@ -452,9 +449,7 @@ export const TemplateBuilderProvider: React.FC<{
   const [availableCaseTypes, setAvailableCaseTypes] = useState<CaseType[]>([]);
   const [isLoadingCaseTypes, setIsLoadingCaseTypes] = useState<boolean>(true);
 
-  const [caseTypeId, setCaseTypeId] = useState<string>(
-    initialCaseTypeId || '',
-  );
+  const [caseTypeId, setCaseTypeId] = useState<string>(initialCaseTypeId || '');
   const [name, setName] = useState<string>('UK Residential Sales Progression');
   const [description, setDescription] = useState<string>(
     'Standard England & Wales conveyance and sales progression workflow with AML, searches, mortgage offer, and exchange.',
