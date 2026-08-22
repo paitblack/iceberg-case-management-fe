@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  FolderPlus,
-  GitBranch,
   Layers,
   Sparkles,
   Home,
@@ -13,7 +11,11 @@ import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Badge } from '../../../components/ui/Badge';
-import { createCase, fetchPublishedTemplates } from '../../../lib/api-client';
+import {
+  createCase,
+  fetchPublishedTemplates,
+  ApiError,
+} from '../../../lib/api-client';
 import type { PublishedTemplateItem } from '../../../types/api';
 
 interface CreateCaseModalProps {
@@ -21,36 +23,6 @@ interface CreateCaseModalProps {
   onClose: () => void;
   onSuccess?: (newCaseId: string) => void;
 }
-
-const DEFAULT_MOCK_TEMPLATES: PublishedTemplateItem[] = [
-  {
-    id: 'tpl-sales-v3',
-    name: 'UK Residential Sales Progression',
-    versionNumber: 3,
-    description:
-      '12-stage standard conveyancing, mortgage tracking, exchange & completion progression.',
-    caseTypeId: 'ct-sales-01',
-    stepCount: 12,
-  },
-  {
-    id: 'tpl-appraisal-v1',
-    name: 'Market Appraisal & Valuation',
-    versionNumber: 1,
-    description:
-      'Property inspection, comparable evidence collation, vendor proposal presentation.',
-    caseTypeId: 'ct-appraisal-01',
-    stepCount: 4,
-  },
-  {
-    id: 'tpl-comm-v2',
-    name: 'Commercial Lease Conveyancing',
-    versionNumber: 2,
-    description:
-      'Commercial tenant referencing, lease agreement drafting, local authority searches.',
-    caseTypeId: 'ct-commercial-01',
-    stepCount: 6,
-  },
-];
 
 export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
   isOpen,
@@ -66,9 +38,7 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
   const [agreedPrice, setAgreedPrice] = useState<string>('');
 
   // Templates state
-  const [templates, setTemplates] = useState<PublishedTemplateItem[]>(
-    DEFAULT_MOCK_TEMPLATES,
-  );
+  const [templates, setTemplates] = useState<PublishedTemplateItem[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -84,14 +54,13 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
             setTemplates(res);
             setTemplateVersionId(res[0].id);
           } else {
-            setTemplates(DEFAULT_MOCK_TEMPLATES);
-            setTemplateVersionId(DEFAULT_MOCK_TEMPLATES[0].id);
+            setTemplates([]);
+            setTemplateVersionId('');
           }
         })
         .catch(() => {
-          // Graceful offline mock fallback
-          setTemplates(DEFAULT_MOCK_TEMPLATES);
-          setTemplateVersionId(DEFAULT_MOCK_TEMPLATES[0].id);
+          setTemplates([]);
+          setTemplateVersionId('');
         })
         .finally(() => {
           setIsLoadingTemplates(false);
@@ -116,9 +85,12 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
     setErrorMessage(null);
 
     try {
+      const targetCaseTypeId =
+        selectedTemplate?.caseTypeId || selectedTemplate?.id;
+
       const payload = {
         title: title.trim(),
-        templateVersionId,
+        caseTypeId: targetCaseTypeId,
         propertyAddress: propertyAddress.trim() || undefined,
         agreedPrice: agreedPrice
           ? Number(agreedPrice.replace(/[^0-9.]/g, ''))
@@ -134,14 +106,13 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
       } else {
         navigate(`/cases/${newCaseId}`);
       }
-    } catch {
-      // Local fallback simulation with realistic mock case ID
-      const mockCaseId = `case-${Date.now().toString(36)}`;
-      onClose();
-      if (onSuccess) {
-        onSuccess(mockCaseId);
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setErrorMessage(err.problem.detail || err.message);
+      } else if (err instanceof Error) {
+        setErrorMessage(err.message);
       } else {
-        navigate(`/cases/${mockCaseId}`);
+        setErrorMessage('Failed to create case in backend database.');
       }
     } finally {
       setIsSubmitting(false);
@@ -168,6 +139,7 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
             size="sm"
             isLoading={isSubmitting}
             onClick={handleSubmit}
+            disabled={templates.length === 0}
             leftIcon={<Sparkles className="w-3.5 h-3.5" />}
           >
             Launch Case Workflow
@@ -175,117 +147,132 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
         </>
       }
     >
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-4 text-xs text-slate-700"
-      >
-        {/* Error Alert */}
+      <form onSubmit={handleSubmit} className="space-y-4 text-xs text-slate-700">
         {errorMessage && (
-          <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-2 text-xs">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMessage}</span>
+          <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-2.5 shadow-2xs">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            <div className="space-y-0.5 flex-1 min-w-0">
+              <p className="font-bold">Cannot Create Case</p>
+              <p className="text-[11px] leading-relaxed break-words">
+                {errorMessage}
+              </p>
+            </div>
           </div>
         )}
 
-        {/* Case Title (Required) */}
-        <div className="space-y-1.5">
+        {/* Title Input */}
+        <div className="space-y-1">
           <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
             Case Title <span className="text-[#E1007A]">*</span>
           </label>
           <Input
             placeholder="e.g. 42 Woodstock Road Sale Progression"
-            leftIcon={<FolderPlus className="w-4 h-4 text-slate-400" />}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full text-xs"
             required
             autoFocus
+            className="text-xs"
           />
+          <p className="text-[10px] text-slate-400">
+            A clear title identifying the property or conveyancing transaction.
+          </p>
         </div>
 
-        {/* Workflow Template Version Select (Required) */}
+        {/* Template Selector */}
         <div className="space-y-1.5">
           <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
             <span>
-              Workflow Template Package{' '}
-              <span className="text-[#E1007A]">*</span>
+              Workflow Template Package <span className="text-[#E1007A]">*</span>
             </span>
             {isLoadingTemplates && (
-              <span className="text-[10px] text-slate-400 font-normal">
-                Loading templates...
+              <span className="text-[10px] text-slate-400 font-normal animate-pulse">
+                Fetching published versions...
               </span>
             )}
           </label>
 
+          {templates.length === 0 && !isLoadingTemplates ? (
+            <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs space-y-1">
+              <p className="font-bold">No Published Templates Found</p>
+              <p className="text-[11px]">
+                Please publish a workflow template in the Template Studio first to launch new cases.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+              {templates.map((tpl) => {
+                const isSelected = tpl.id === templateVersionId;
+                return (
+                  <div
+                    key={tpl.id}
+                    onClick={() => setTemplateVersionId(tpl.id)}
+                    className={`p-3 rounded-xl border transition-all cursor-pointer space-y-1 ${
+                      isSelected
+                        ? 'border-[#E1007A] bg-pink-50/50 ring-2 ring-[#E1007A]/10 shadow-2xs'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`w-5 h-5 rounded-lg flex items-center justify-center ${
+                            isSelected
+                              ? 'bg-[#E1007A] text-white'
+                              : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          <Layers className="w-3 h-3" />
+                        </div>
+                        <span className="font-bold text-slate-900 text-xs">
+                          {tpl.name}
+                        </span>
+                      </div>
+                      <Badge
+                        variant={isSelected ? 'required' : 'default'}
+                        size="xs"
+                      >
+                        v{tpl.versionNumber}.0
+                      </Badge>
+                    </div>
+
+                    <p className="text-[11px] text-slate-500 line-clamp-2 pl-7">
+                      {tpl.description}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Property Address */}
+        <div className="space-y-1">
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            Property Address (Optional)
+          </label>
           <div className="relative">
-            <select
-              value={templateVersionId}
-              onChange={(e) => setTemplateVersionId(e.target.value)}
-              className="w-full rounded-xl bg-white border border-slate-200 p-2.5 text-xs text-slate-900 font-semibold focus:border-[#E1007A] focus:outline-none focus:ring-2 focus:ring-[#E1007A]/15 cursor-pointer appearance-none"
-            >
-              {templates.map((tpl) => (
-                <option key={tpl.id} value={tpl.id}>
-                  {tpl.name} (v{tpl.versionNumber}.0)
-                </option>
-              ))}
-            </select>
-            <GitBranch className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
+            <Home className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+            <Input
+              placeholder="e.g. 42 Woodstock Road, Oxford"
+              value={propertyAddress}
+              onChange={(e) => setPropertyAddress(e.target.value)}
+              className="pl-8 text-xs"
+            />
           </div>
         </div>
 
-        {/* Selected Template Preview Card */}
-        {selectedTemplate && (
-          <div className="p-3.5 rounded-xl bg-pink-50/40 border border-pink-100 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-[#E1007A]" />
-                {selectedTemplate.name}
-              </span>
-              <Badge variant="required" size="xs">
-                v{selectedTemplate.versionNumber}.0
-              </Badge>
-            </div>
-            {selectedTemplate.description && (
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                {selectedTemplate.description}
-              </p>
-            )}
-            {selectedTemplate.stepCount && (
-              <p className="text-[10px] font-bold text-[#E1007A] pt-0.5">
-                {selectedTemplate.stepCount} progression milestone stages
-                included
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Optional Metadata Row (Address & Agreed Price) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-          <div className="space-y-1">
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Property Address (Optional)
-            </label>
-            <Input
-              placeholder="e.g. Flat 4, 10 High Street"
-              leftIcon={<Home className="w-3.5 h-3.5 text-slate-400" />}
-              value={propertyAddress}
-              onChange={(e) => setPropertyAddress(e.target.value)}
-              className="text-xs"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Agreed Price (Optional)
-            </label>
+        {/* Agreed Sale Price */}
+        <div className="space-y-1">
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            Agreed Transaction Price (Optional)
+          </label>
+          <div className="relative">
+            <PoundSterling className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
             <Input
               placeholder="e.g. 475000"
-              leftIcon={
-                <PoundSterling className="w-3.5 h-3.5 text-slate-400" />
-              }
               value={agreedPrice}
               onChange={(e) => setAgreedPrice(e.target.value)}
-              className="text-xs"
+              className="pl-8 text-xs font-mono"
             />
           </div>
         </div>

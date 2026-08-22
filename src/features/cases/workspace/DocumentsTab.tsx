@@ -5,19 +5,21 @@ import { Badge } from '../../../components/ui/Badge';
 import type { BffCaseDocument } from '../../../types/api';
 
 interface DocumentsTabProps {
-  documents: BffCaseDocument[];
+  documents?: BffCaseDocument[];
   onUploadDocument?: (file: File, category: string) => Promise<void>;
   isUploading?: boolean;
 }
 
 export const DocumentsTab: React.FC<DocumentsTabProps> = ({
-  documents,
+  documents = [],
   onUploadDocument,
   isUploading = false,
 }) => {
   const [selectedCategory, setSelectedCategory] =
     useState<string>('Conveyancing');
   const [dragActive, setDragActive] = useState<boolean>(false);
+
+  const list = documents || [];
 
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -43,117 +45,149 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
         }}
         onDragLeave={() => setDragActive(false)}
         onDrop={handleFileDrop}
-        className={`p-6 rounded-2xl border-2 border-dashed transition-all text-center space-y-3 bg-white ${
+        className={`iceberg-card p-6 border-2 border-dashed transition-all text-center space-y-3 ${
           dragActive
             ? 'border-[#E1007A] bg-pink-50/50'
-            : 'border-slate-300 hover:border-slate-400'
+            : 'border-slate-300 hover:border-slate-400 bg-white'
         }`}
       >
-        <div className="w-12 h-12 rounded-2xl bg-pink-50 text-[#E1007A] flex items-center justify-center mx-auto shadow-xs">
+        <div className="w-12 h-12 rounded-2xl bg-pink-50 text-[#E1007A] flex items-center justify-center mx-auto shadow-2xs">
           <UploadCloud className="w-6 h-6" />
         </div>
 
-        <div className="space-y-1">
+        <div>
           <h3 className="text-sm font-bold text-slate-800">
-            Upload Verified Case Documents & Evidence
+            Upload Workflow & Evidence Documents
           </h3>
-          <p className="text-xs text-slate-500">
-            Drag and drop contracts, search reports, AML ID certificates, or
-            survey reports (PDF, DOCX up to 25MB)
+          <p className="text-xs text-slate-400 max-w-md mx-auto mt-0.5">
+            Attach official conveyance contracts, searches, AML biometric
+            certifications, or mortgage documents.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+        {/* Category Selector */}
+        <div className="flex items-center justify-center gap-2 pt-1">
+          <span className="text-[11px] font-semibold text-slate-500">
+            Category:
+          </span>
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus:border-[#E1007A] focus:outline-none cursor-pointer"
+            className="rounded-lg bg-slate-50 border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#E1007A]"
           >
-            <option value="Conveyancing">Conveyancing & Memo</option>
-            <option value="AML & Identity">AML & Biometric ID</option>
+            <option value="Conveyancing">Conveyancing & Legal Pack</option>
+            <option value="AML / ID Verification">AML & Identity</option>
+            <option value="Mortgage & Financial">Mortgage & Valuation</option>
             <option value="Searches & Enquiries">Searches & Enquiries</option>
-            <option value="Mortgage Offer">Mortgage Offer</option>
-            <option value="Survey & Valuation">Survey & Valuation</option>
           </select>
+        </div>
 
-          <label className="cursor-pointer">
-            <input
-              type="file"
-              className="hidden"
-              onChange={handleFileInputChange}
-              disabled={isUploading}
-            />
+        {/* Upload Trigger Input */}
+        <div>
+          <label className="inline-flex">
             <Button
-              variant="primary"
+              variant="secondary"
               size="sm"
               isLoading={isUploading}
-              leftIcon={<UploadCloud className="w-3.5 h-3.5" />}
-              className="pointer-events-none"
+              className="cursor-pointer font-bold"
+              onClick={() => {
+                const el = document.getElementById('case-file-input');
+                el?.click();
+              }}
             >
-              Browse Local File
+              Choose File to Upload
             </Button>
+            <input
+              id="case-file-input"
+              type="file"
+              onChange={handleFileInputChange}
+              className="hidden"
+            />
           </label>
         </div>
       </div>
 
-      {/* Documents List */}
+      {/* Documents List Table */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
-            Authoritative Case Documents ({documents.length})
+            Authoritative Case Documents ({list.length})
           </h3>
-          <span className="text-[11px] text-slate-400 font-mono">
-            <Lock className="w-3 h-3 inline mr-1" />
-            Cloudflare R2 Object Storage Protected
+          <span className="text-[11px] text-slate-400">
+            Immutable Storage backed by Cloudflare R2
           </span>
         </div>
 
-        {documents.length === 0 ? (
-          <div className="p-8 rounded-2xl bg-white border border-slate-200 text-center text-xs text-slate-400">
-            No documents uploaded to this case yet.
+        {list.length === 0 ? (
+          <div className="p-8 rounded-2xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-400">
+            No documents uploaded yet for this case.
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-            {documents.map((doc) => (
-              <div
-                key={doc.id}
-                className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-all flex items-start justify-between gap-3"
-              >
-                <div className="flex items-start gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
-                    <FileText className="w-5 h-5" />
-                  </div>
-                  <div className="space-y-1 min-w-0">
-                    <p className="text-xs font-bold text-slate-900 truncate">
-                      {doc.fileName}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="info" size="xs">
+          <div className="iceberg-card overflow-hidden">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#FAFBFD] text-slate-500 border-b border-slate-200 font-bold uppercase tracking-wider text-[10px]">
+                <tr>
+                  <th className="py-3 px-4">Document Title</th>
+                  <th className="py-3 px-4">Category</th>
+                  <th className="py-3 px-4">Size</th>
+                  <th className="py-3 px-4">Uploaded By</th>
+                  <th className="py-3 px-4">Timestamp</th>
+                  <th className="py-3 px-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {list.map((doc) => (
+                  <tr
+                    key={doc.id}
+                    className="hover:bg-slate-50/80 transition-colors"
+                  >
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2 font-bold text-slate-900">
+                        <FileText className="w-4 h-4 text-[#E1007A] shrink-0" />
+                        <span className="truncate max-w-xs">
+                          {doc.fileName}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <Badge variant="required" size="xs">
                         {doc.category}
                       </Badge>
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        {(doc.fileSizeBytes / (1024 * 1024)).toFixed(2)} MB
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-500">
-                      Uploaded by {doc.uploadedByName} on{' '}
-                      {new Date(doc.uploadedAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1 shrink-0">
-                  <a
-                    href={doc.downloadUrl || '#'}
-                    download={doc.fileName}
-                    title="Download document"
-                    className="p-2 rounded-xl text-slate-500 hover:text-[#E1007A] hover:bg-pink-50 transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
-                  </a>
-                </div>
-              </div>
-            ))}
+                    </td>
+                    <td className="py-3 px-4 font-mono text-[11px] text-slate-500">
+                      {(doc.fileSizeBytes / (1024 * 1024)).toFixed(2)} MB
+                    </td>
+                    <td className="py-3 px-4 text-slate-600">
+                      {doc.uploadedByName}
+                    </td>
+                    <td className="py-3 px-4 font-mono text-[10px] text-slate-400">
+                      {new Date(doc.uploadedAt).toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      {doc.downloadUrl ? (
+                        <a
+                          href={doc.downloadUrl}
+                          download
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-[#E1007A] hover:underline"
+                        >
+                          <Download className="w-3.5 h-3.5" /> Download
+                        </a>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 font-semibold">
+                          <Lock className="w-3 h-3" /> Encrypted
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

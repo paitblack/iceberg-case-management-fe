@@ -145,6 +145,6 @@ describe('CasesPage & Case List UI', () => {
     const tableBtn = screen.getByTitle('Table View');
     fireEvent.click(tableBtn);
 
-    expect(screen.getByText('Case Title & Reference')).toBeInTheDocument();
+    expect(screen.getByText('Case Identity & Title')).toBeInTheDocument();
   });
 });

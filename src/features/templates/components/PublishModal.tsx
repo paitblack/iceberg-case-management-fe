@@ -1,8 +1,9 @@
-import React from 'react';
-import { Lock, ShieldAlert, Sparkles } from 'lucide-react';
+import React, { useState } from 'react';
+import { Lock, ShieldAlert, Sparkles, AlertCircle } from 'lucide-react';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import { useTemplateBuilder } from '../context/TemplateBuilderContext';
+import { ApiError } from '../../../lib/api-client';
 
 interface PublishModalProps {
   isOpen: boolean;
@@ -16,9 +17,22 @@ export const PublishModal: React.FC<PublishModalProps> = ({
   const { name, versionNumber, steps, edges, publishDraft, isPublishing } =
     useTemplateBuilder();
 
+  const [publishError, setPublishError] = useState<string | null>(null);
+
   const handleConfirmPublish = async () => {
-    await publishDraft();
-    onClose();
+    setPublishError(null);
+    try {
+      await publishDraft();
+      onClose();
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setPublishError(err.problem.detail || err.message);
+      } else if (err instanceof Error) {
+        setPublishError(err.message);
+      } else {
+        setPublishError('Failed to publish template version.');
+      }
+    }
   };
 
   return (
@@ -49,6 +63,18 @@ export const PublishModal: React.FC<PublishModalProps> = ({
       }
     >
       <div className="space-y-4 text-xs text-slate-600">
+        {publishError && (
+          <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 shadow-2xs">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            <div className="space-y-0.5 flex-1 min-w-0">
+              <p className="font-bold">Backend DAG / Validation Error</p>
+              <p className="text-[11px] leading-relaxed break-words">
+                {publishError}
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3">
           <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div className="space-y-1">
@@ -94,8 +120,8 @@ export const PublishModal: React.FC<PublishModalProps> = ({
 
         <p className="text-[11px] text-slate-500 italic">
           <Lock className="w-3 h-3 inline mr-1 text-slate-400" />
-          All DAG invariants, acyclicity checks, and orphan work items have been
-          validated.
+          All DAG invariants and acyclicity checks are strictly verified by
+          Kahn&apos;s algorithm on the backend.
         </p>
       </div>
     </Modal>

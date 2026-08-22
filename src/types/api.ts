@@ -37,7 +37,8 @@ export interface ChangeCaseStatusPayload {
 
 export interface CreateCasePayload {
   title: string;
-  templateVersionId: string;
+  templateVersionId?: string;
+  caseTypeId?: string;
   propertyAddress?: string;
   agreedPrice?: number;
   branchName?: string;

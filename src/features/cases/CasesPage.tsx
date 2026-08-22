@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Building,
   Plus,
   ArrowDownCircle,
   Inbox,
   CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { CaseListFilters } from './components/CaseListFilters';
@@ -14,172 +14,26 @@ import { CaseTableRow } from './components/CaseTableRow';
 import { CaseListSkeleton } from './components/CaseListSkeleton';
 import { ChangeStatusModal } from './components/ChangeStatusModal';
 import { CreateCaseModal } from './components/CreateCaseModal';
-import { fetchCaseList, changeCaseStatus } from '../../lib/api-client';
+import { fetchCaseList, changeCaseStatus, ApiError } from '../../lib/api-client';
 import type {
   BffCaseItem,
   BffCaseListMeta,
   BffCaseListAvailableFilters,
   CaseStatusAction,
-  CaseLifecycleStatus,
 } from '../../types/api';
-
-const DEFAULT_MOCK_ITEMS: BffCaseItem[] = [
-  {
-    id: 'case-oxford-101',
-    caseTypeId: 'ct-sales-01',
-    caseTypeName: 'UK Residential Sales Progression',
-    title: '42 Woodstock Road, Oxford OX2 6HT',
-    reference: 'CM-2026-084',
-    status: 'Open',
-    statusLabel: 'Open',
-    progress: {
-      totalSteps: 5,
-      completedSteps: 2,
-      percentage: 58,
-    },
-    currentStep: {
-      id: 'step-exec-3',
-      name: 'Buyer Solicitor Instructed & ID Verification',
-      status: 'InProgress',
-      statusLabel: 'In Progress',
-    },
-    blockersCount: 1,
-    createdAt: '2026-08-10T09:00:00Z',
-    allowedActions: ['HOLD', 'COMPLETE', 'CANCEL'],
-  },
-  {
-    id: 'case-102',
-    caseTypeId: 'ct-sales-01',
-    caseTypeName: 'UK Residential Sales Progression',
-    title: '14 Queens Gate Mews, Richmond, TW10 6RF',
-    reference: 'SP-2026-092',
-    status: 'Open',
-    statusLabel: 'Open',
-    progress: {
-      totalSteps: 6,
-      completedSteps: 4,
-      percentage: 65,
-    },
-    currentStep: {
-      id: 'step-102-4',
-      name: 'Mortgage Formal Offer Received',
-      status: 'InProgress',
-      statusLabel: 'In Progress',
-    },
-    blockersCount: 0,
-    createdAt: '2026-08-12T11:20:00Z',
-    allowedActions: ['HOLD', 'COMPLETE', 'CANCEL'],
-  },
-  {
-    id: 'case-103',
-    caseTypeId: 'ct-appraisal-01',
-    caseTypeName: 'Market Appraisal & Valuation',
-    title: '27 Claremont Road, St Albans, AL1 4DX',
-    reference: 'MA-2026-031',
-    status: 'Open',
-    statusLabel: 'Open',
-    progress: {
-      totalSteps: 4,
-      completedSteps: 3,
-      percentage: 85,
-    },
-    currentStep: {
-      id: 'step-103-3',
-      name: 'Valuation Report Preparation',
-      status: 'InProgress',
-      statusLabel: 'In Progress',
-    },
-    blockersCount: 0,
-    createdAt: '2026-08-14T16:00:00Z',
-    allowedActions: ['HOLD', 'COMPLETE', 'CANCEL'],
-  },
-  {
-    id: 'case-104',
-    caseTypeId: 'ct-sales-01',
-    caseTypeName: 'UK Residential Sales Progression',
-    title: '52 Marlborough Crescent, Bath, BA1 2SQ',
-    reference: 'SP-2026-095',
-    status: 'OnHold',
-    statusLabel: 'On Hold',
-    progress: {
-      totalSteps: 5,
-      completedSteps: 2,
-      percentage: 40,
-    },
-    currentStep: {
-      id: 'step-104-2',
-      name: 'Enquiries & AML Biometric Verification',
-      status: 'InProgress',
-      statusLabel: 'In Progress',
-    },
-    blockersCount: 2,
-    createdAt: '2026-08-15T10:15:00Z',
-    allowedActions: ['RESUME', 'CANCEL'],
-  },
-  {
-    id: 'case-105',
-    caseTypeId: 'ct-commercial-01',
-    caseTypeName: 'Commercial Lease Conveyancing',
-    title: 'Units 4-6 Riverside Commercial Park, Bristol',
-    reference: 'CP-2026-012',
-    status: 'Open',
-    statusLabel: 'Open',
-    progress: {
-      totalSteps: 4,
-      completedSteps: 2,
-      percentage: 50,
-    },
-    currentStep: {
-      id: 'step-105-2',
-      name: 'Tenant Credit & Commercial Referencing',
-      status: 'InProgress',
-      statusLabel: 'In Progress',
-    },
-    blockersCount: 0,
-    createdAt: '2026-08-16T15:45:00Z',
-    allowedActions: ['HOLD', 'COMPLETE', 'CANCEL'],
-  },
-  {
-    id: 'case-106',
-    caseTypeId: 'ct-sales-01',
-    caseTypeName: 'UK Residential Sales Progression',
-    title: '19 Redland Park, Bristol, BS6 6NP',
-    reference: 'SP-2026-099',
-    status: 'Completed',
-    statusLabel: 'Completed',
-    progress: {
-      totalSteps: 5,
-      completedSteps: 5,
-      percentage: 100,
-    },
-    currentStep: {
-      id: 'step-106-5',
-      name: 'Completion & Key Release',
-      status: 'Completed',
-      statusLabel: 'Completed',
-    },
-    blockersCount: 0,
-    createdAt: '2026-08-01T12:00:00Z',
-    allowedActions: [],
-  },
-];
 
 const DEFAULT_FILTERS: BffCaseListAvailableFilters = {
   statuses: ['Open', 'OnHold', 'Completed', 'Cancelled'],
-  caseTypes: [
-    { id: 'ct-sales-01', name: 'UK Residential Sales Progression' },
-    { id: 'ct-appraisal-01', name: 'Market Appraisal & Valuation' },
-    { id: 'ct-commercial-01', name: 'Commercial Lease Conveyancing' },
-  ],
+  caseTypes: [],
 };
 
 export const CasesPage: React.FC = () => {
   const navigate = useNavigate();
 
   // State
-  const [items, setItems] = useState<BffCaseItem[]>(DEFAULT_MOCK_ITEMS);
+  const [items, setItems] = useState<BffCaseItem[]>([]);
   const [meta, setMeta] = useState<BffCaseListMeta>({
-    totalCount: DEFAULT_MOCK_ITEMS.length,
+    totalCount: 0,
     hasMore: false,
   });
   const [availableFilters, setAvailableFilters] =
@@ -195,6 +49,7 @@ export const CasesPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [isMutatingStatus, setIsMutatingStatus] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
@@ -204,11 +59,15 @@ export const CasesPage: React.FC = () => {
   const [pendingAction, setPendingAction] = useState<CaseStatusAction | null>(
     null,
   );
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
 
   // Data fetching logic
   const loadCases = useCallback(
     async (cursor?: string) => {
+      setErrorMessage(null);
       if (cursor) {
         setIsLoadingMore(true);
       } else {
@@ -237,35 +96,18 @@ export const CasesPage: React.FC = () => {
         if (res.availableFilters) {
           setAvailableFilters(res.availableFilters);
         }
-      } catch {
-        // Graceful mock fallback for offline local testing
-        let filtered = [...DEFAULT_MOCK_ITEMS];
-
-        if (search.trim()) {
-          const q = search.toLowerCase();
-          filtered = filtered.filter(
-            (c) =>
-              c.title.toLowerCase().includes(q) ||
-              (c.reference && c.reference.toLowerCase().includes(q)) ||
-              c.caseTypeName.toLowerCase().includes(q),
-          );
+      } catch (err: unknown) {
+        if (!cursor) {
+          setItems([]);
+          setMeta({ totalCount: 0, hasMore: false });
         }
-
-        if (selectedStatus !== 'all') {
-          filtered = filtered.filter((c) => c.status === selectedStatus);
+        if (err instanceof ApiError) {
+          setErrorMessage(err.problem.detail || err.message);
+        } else if (err instanceof Error) {
+          setErrorMessage(err.message);
+        } else {
+          setErrorMessage('Failed to fetch cases from backend database.');
         }
-
-        if (selectedCaseTypeId !== 'all') {
-          filtered = filtered.filter(
-            (c) => c.caseTypeId === selectedCaseTypeId,
-          );
-        }
-
-        setItems(filtered);
-        setMeta({
-          totalCount: filtered.length,
-          hasMore: false,
-        });
       } finally {
         setIsLoading(false);
         setIsLoadingMore(false);
@@ -302,106 +144,102 @@ export const CasesPage: React.FC = () => {
     try {
       await changeCaseStatus(caseId, { action, reason });
 
-      // Calculate target status
-      let newStatus: CaseLifecycleStatus = 'Open';
-      let allowed: CaseStatusAction[] = ['HOLD', 'COMPLETE', 'CANCEL'];
-      if (action === 'HOLD') {
-        newStatus = 'OnHold';
-        allowed = ['RESUME', 'CANCEL'];
-      } else if (action === 'COMPLETE') {
-        newStatus = 'Completed';
-        allowed = [];
-      } else if (action === 'CANCEL') {
-        newStatus = 'Cancelled';
-        allowed = [];
-      }
+      // Refresh list directly from backend
+      await loadCases();
 
-      // Optimistically update list
-      setItems((prev) =>
-        prev.map((c) =>
-          c.id === caseId
-            ? {
-                ...c,
-                status: newStatus,
-                statusLabel: newStatus,
-                allowedActions: allowed,
-              }
-            : c,
-        ),
-      );
-
-      setToastMessage(`Case status updated to ${newStatus} successfully.`);
+      setToastMessage({
+        type: 'success',
+        text: `Case status updated successfully to ${action}.`,
+      });
       setTimeout(() => setToastMessage(null), 4000);
-    } catch {
-      // Local fallback simulation
-      let newStatus: CaseLifecycleStatus = 'Open';
-      let allowed: CaseStatusAction[] = ['HOLD', 'COMPLETE', 'CANCEL'];
-      if (action === 'HOLD') {
-        newStatus = 'OnHold';
-        allowed = ['RESUME', 'CANCEL'];
-      } else if (action === 'COMPLETE') {
-        newStatus = 'Completed';
-        allowed = [];
-      } else if (action === 'CANCEL') {
-        newStatus = 'Cancelled';
-        allowed = [];
-      }
-
-      setItems((prev) =>
-        prev.map((c) =>
-          c.id === caseId
-            ? {
-                ...c,
-                status: newStatus,
-                statusLabel: newStatus,
-                allowedActions: allowed,
-              }
-            : c,
-        ),
-      );
-
-      setToastMessage(`Case status updated to ${newStatus} (Simulation).`);
-      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof ApiError
+          ? err.problem.detail || err.message
+          : 'Failed to update case status on backend.';
+      setToastMessage({
+        type: 'error',
+        text: msg,
+      });
+      setTimeout(() => setToastMessage(null), 5000);
     } finally {
       setIsMutatingStatus(false);
       setIsStatusModalOpen(false);
+      setSelectedCaseForAction(null);
+      setPendingAction(null);
     }
+  };
+
+  const handleResetFilters = () => {
+    setSearch('');
+    setSelectedStatus('all');
+    setSelectedCaseTypeId('all');
+  };
+
+  const handleOpenCase = (caseId: string) => {
+    navigate(`/cases/${caseId}`);
   };
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Toast Notification */}
+      {/* Toast Notification Banner */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5 border border-slate-700 text-xs animate-in fade-in slide-in-from-bottom-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          <span>{toastMessage}</span>
+        <div
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-xl text-xs font-semibold text-white animate-in slide-in-from-bottom-5 duration-200 ${
+            toastMessage.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'
+          }`}
+        >
+          {toastMessage.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-rose-200" />
+          )}
+          <span>{toastMessage.text}</span>
+        </div>
+      )}
+
+      {/* Error Alert Box */}
+      {errorMessage && (
+        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 shadow-2xs">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+          <div className="space-y-0.5 flex-1 min-w-0">
+            <p className="font-bold">Backend Error</p>
+            <p className="text-[11px] leading-relaxed break-words">
+              {errorMessage}
+            </p>
+          </div>
         </div>
       )}
 
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
-            <Building className="w-6 h-6 text-[#E1007A]" />
-            Live Case Directory & Progression
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Real-time multi-domain workflow progression, milestone dependencies,
-            and blocker tracking.
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">
+              Case Management Directory
+            </h2>
+            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+              {meta.totalCount} active cases
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-1">
+            Real-time live portfolio tracking, quick operational status
+            transitions, and progression telemetry.
           </p>
         </div>
 
         <Button
           variant="primary"
           size="md"
-          leftIcon={<Plus className="w-4 h-4" />}
           onClick={() => setIsCreateModalOpen(true)}
+          leftIcon={<Plus className="w-4 h-4" />}
+          className="font-bold shadow-md shadow-pink-500/10 shrink-0"
         >
-          Start New Case
+          + New Case
         </Button>
       </div>
 
-      {/* Dynamic Filters Bar */}
+      {/* Filter Toolbar */}
       <CaseListFilters
         search={search}
         onSearchChange={setSearch}
@@ -416,67 +254,75 @@ export const CasesPage: React.FC = () => {
         totalCount={meta.totalCount}
       />
 
-      {/* Main List / Table Render */}
+      {/* Content Rendering: Loading vs Data vs Empty */}
       {isLoading ? (
-        <CaseListSkeleton viewMode={viewMode} />
+        <CaseListSkeleton viewMode={viewMode} count={5} />
       ) : items.length === 0 ? (
-        <div className="p-16 rounded-2xl bg-white border border-dashed border-slate-200 text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto">
+        <div className="iceberg-card p-12 text-center space-y-4 border border-slate-200/90 shadow-2xs">
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
             <Inbox className="w-6 h-6" />
           </div>
-          <h3 className="text-sm font-bold text-slate-800">
-            No matching cases found
-          </h3>
-          <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            Try adjusting your search terms, status filters, or case type
-            selection.
-          </p>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setSearch('');
-              setSelectedStatus('all');
-              setSelectedCaseTypeId('all');
-            }}
-          >
-            Clear All Filters
-          </Button>
+          <div className="max-w-md mx-auto space-y-1">
+            <h3 className="text-sm font-bold text-slate-800">
+              No Cases Found in Backend
+            </h3>
+            <p className="text-xs text-slate-500">
+              {search || selectedStatus !== 'all' || selectedCaseTypeId !== 'all'
+                ? 'No active cases match your current filter parameters. Try clearing your filters.'
+                : 'There are currently no cases in the database for your organization. Launch a new workflow case to get started.'}
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-3 pt-2">
+            {search ||
+            selectedStatus !== 'all' ||
+            selectedCaseTypeId !== 'all' ? (
+              <Button variant="outline" size="sm" onClick={handleResetFilters}>
+                Clear Filters
+              </Button>
+            ) : null}
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsCreateModalOpen(true)}
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
+            >
+              Start First Case
+            </Button>
+          </div>
         </div>
       ) : viewMode === 'grid' ? (
+        /* Grid Layout */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.map((caseItem) => (
+          {items.map((item) => (
             <CaseCard
-              key={caseItem.id}
-              caseItem={caseItem}
-              onClick={() => navigate(`/cases/${caseItem.id}`)}
+              key={item.id}
+              item={item}
+              onOpen={handleOpenCase}
               onTriggerAction={handleTriggerAction}
             />
           ))}
         </div>
       ) : (
-        <div className="iceberg-card overflow-hidden">
+        /* Table Layout */
+        <div className="iceberg-card overflow-hidden border border-slate-200/90 shadow-2xs">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#FAFBFD] text-slate-500 border-b border-slate-200/80 font-bold uppercase tracking-wider text-[10px]">
-                <tr>
-                  <th className="py-3 px-4">Case Title & Reference</th>
-                  <th className="py-3 px-4">Domain Type</th>
-                  <th className="py-3 px-4">Status & Blockers</th>
-                  <th className="py-3 px-4">Current Milestone Stage</th>
-                  <th className="py-3 px-4">Progression</th>
-                  <th className="py-3 px-4">Created Date</th>
-                  <th className="py-3 px-4 text-right">
-                    <span>Quick Actions</span>
-                  </th>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/75 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <th className="py-3 px-4">Case Identity & Title</th>
+                  <th className="py-3 px-4">Workflow Type</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Progression Milestone</th>
+                  <th className="py-3 px-4">Progress</th>
+                  <th className="py-3 px-4 text-right">Quick Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
-                {items.map((caseItem) => (
+              <tbody className="divide-y divide-slate-100">
+                {items.map((item) => (
                   <CaseTableRow
-                    key={caseItem.id}
-                    caseItem={caseItem}
-                    onClick={() => navigate(`/cases/${caseItem.id}`)}
+                    key={item.id}
+                    item={item}
+                    onOpen={handleOpenCase}
                     onTriggerAction={handleTriggerAction}
                   />
                 ))}
@@ -486,40 +332,45 @@ export const CasesPage: React.FC = () => {
         </div>
       )}
 
-      {/* Pagination / Load More */}
-      {meta.hasMore && (
-        <div className="flex justify-center pt-2">
+      {/* Pagination / Load More Footer */}
+      {!isLoading && meta.hasMore && (
+        <div className="flex justify-center pt-4">
           <Button
-            variant="secondary"
+            variant="outline"
             size="md"
             isLoading={isLoadingMore}
             onClick={handleLoadMore}
-            leftIcon={<ArrowDownCircle className="w-4 h-4 text-[#E1007A]" />}
-            className="font-bold"
+            leftIcon={<ArrowDownCircle className="w-4 h-4" />}
+            className="font-bold text-slate-700 bg-white"
           >
-            Load More Cases
+            Load Next 10 Cases
           </Button>
         </div>
       )}
 
-      {/* Change Status Confirmation Modal */}
-      <ChangeStatusModal
-        isOpen={isStatusModalOpen}
-        onClose={() => setIsStatusModalOpen(false)}
-        caseItem={selectedCaseForAction}
-        action={pendingAction}
-        onConfirm={handleConfirmStatusChange}
-        isLoading={isMutatingStatus}
-      />
+      {/* Change Status Modal Dialog */}
+      {selectedCaseForAction && pendingAction && (
+        <ChangeStatusModal
+          isOpen={isStatusModalOpen}
+          onClose={() => {
+            setIsStatusModalOpen(false);
+            setSelectedCaseForAction(null);
+            setPendingAction(null);
+          }}
+          caseItem={selectedCaseForAction}
+          action={pendingAction}
+          onConfirm={handleConfirmStatusChange}
+          isLoading={isMutatingStatus}
+        />
+      )}
 
-      {/* Start New Case Modal */}
+      {/* Create New Case Modal Dialog */}
       <CreateCaseModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={(newCaseId) => {
-          setToastMessage('New Case Workflow initiated successfully!');
-          setTimeout(() => setToastMessage(null), 4000);
-          navigate(`/cases/${newCaseId}`);
+        onSuccess={(_newCaseId) => {
+          setIsCreateModalOpen(false);
+          loadCases();
         }}
       />
     </div>

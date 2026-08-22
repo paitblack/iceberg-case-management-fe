@@ -1,20 +1,34 @@
-import { describe, it, expect } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import React from 'react';
 import {
   TemplateBuilderProvider,
   useTemplateBuilder,
 } from './context/TemplateBuilderContext';
+import * as apiClient from '../../lib/api-client';
 
 describe('TemplateBuilderContext & State Management', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.spyOn(apiClient, 'listCaseTypes').mockResolvedValue([]);
+    vi.spyOn(apiClient, 'saveCaseTypeDraft').mockResolvedValue({
+      id: 'test-case-type-101',
+      version: 1,
+    });
+  });
+
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <TemplateBuilderProvider initialCaseTypeId="test-case-type-101">
       {children}
     </TemplateBuilderProvider>
   );
 
-  it('initializes with default sales progression steps and auto-computed edges', () => {
+  it('initializes with default sales progression steps and auto-computed edges', async () => {
     const { result } = renderHook(() => useTemplateBuilder(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoadingCaseTypes).toBe(false);
+    });
 
     expect(result.current.caseTypeId).toBe('test-case-type-101');
     expect(result.current.steps.length).toBeGreaterThan(0);
@@ -22,8 +36,13 @@ describe('TemplateBuilderContext & State Management', () => {
     expect(result.current.name).toContain('Sales');
   });
 
-  it('adds a new step and re-indexes displayOrder correctly', () => {
+  it('adds a new step and re-indexes displayOrder correctly', async () => {
     const { result } = renderHook(() => useTemplateBuilder(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoadingCaseTypes).toBe(false);
+    });
+
     const initialCount = result.current.steps.length;
 
     act(() => {
@@ -40,8 +59,13 @@ describe('TemplateBuilderContext & State Management', () => {
     expect(addedStep.completionRule.type).toBe('manual');
   });
 
-  it('adds and updates work items within a step', () => {
+  it('adds and updates work items within a step', async () => {
     const { result } = renderHook(() => useTemplateBuilder(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoadingCaseTypes).toBe(false);
+    });
+
     const firstStep = result.current.steps[0];
     const initialWiCount = firstStep.workItems.length;
 
@@ -65,12 +89,17 @@ describe('TemplateBuilderContext & State Management', () => {
     expect(addedWi?.isKeyDate).toBe(true);
   });
 
-  it('updates dependencies and computes edges matching backend contract', () => {
+  it('updates dependencies and computes edges matching backend contract', async () => {
     const { result } = renderHook(() => useTemplateBuilder(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoadingCaseTypes).toBe(false);
+    });
+
     const step1 = result.current.steps[0];
     const step2 = result.current.steps[1];
 
-    act(() => {
+    await act(async () => {
       result.current.setStepDependencies(step2.id, [step1.id]);
     });
 
@@ -89,8 +118,13 @@ describe('TemplateBuilderContext & State Management', () => {
     ).toBe(true);
   });
 
-  it('generates the exact JSON payload expected by backend PUT /api/v1/case-types/:id/draft', () => {
+  it('generates the exact JSON payload expected by backend PUT /api/v1/case-types/:id/draft', async () => {
     const { result } = renderHook(() => useTemplateBuilder(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoadingCaseTypes).toBe(false);
+    });
+
     const payload = result.current.toBackendDraftPayload();
 
     expect(Array.isArray(payload.steps)).toBe(true);

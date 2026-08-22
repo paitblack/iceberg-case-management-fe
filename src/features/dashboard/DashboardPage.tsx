@@ -19,62 +19,23 @@ import { CreateCaseModal } from '../cases/components/CreateCaseModal';
 import { fetchDashboardSnapshot } from '../../lib/api-client';
 import type { BffDashboardSnapshot } from '../../types/api';
 
-const DEFAULT_MOCK_DASHBOARD: BffDashboardSnapshot = {
+const EMPTY_DASHBOARD: BffDashboardSnapshot = {
   contractVersion: '1.0.0',
   generatedAt: new Date().toISOString(),
-  activeCasesCount: 42,
-  activeBlockersCount: 7,
-  priorityOperations: [
-    {
-      caseId: 'case-oxford-101',
-      caseTitle: '42 Woodstock Road, Oxford OX2 6HT (CM-2026-084)',
-      currentStepName: 'Buyer Solicitor Instructed & ID Verification',
-      status: 'InProgress',
-      statusLabel: 'In Progress',
-      dueDate: new Date(Date.now() + 1000 * 60 * 60 * 12).toISOString(), // Due today
-      priority: 'High',
-    },
-    {
-      caseId: 'case-104',
-      caseTitle: '52 Marlborough Crescent, Bath, BA1 2SQ (SP-2026-095)',
-      currentStepName: 'Enquiries & AML Biometric Verification',
-      status: 'InProgress',
-      statusLabel: 'In Progress',
-      dueDate: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day overdue
-      priority: 'High',
-    },
-    {
-      caseId: 'case-102',
-      caseTitle: '14 Queens Gate Mews, Richmond, TW10 6RF (SP-2026-092)',
-      currentStepName: 'Mortgage Formal Offer Received',
-      status: 'InProgress',
-      statusLabel: 'In Progress',
-      dueDate: new Date(Date.now() + 1000 * 60 * 60 * 36).toISOString(), // Due tomorrow
-      priority: 'Medium',
-    },
-    {
-      caseId: 'case-103',
-      caseTitle: '27 Claremont Road, St Albans, AL1 4DX (MA-2026-031)',
-      currentStepName: 'Valuation Report Preparation',
-      status: 'InProgress',
-      statusLabel: 'In Progress',
-      dueDate: new Date(Date.now() + 1000 * 60 * 60 * 72).toISOString(), // In 3 days
-      priority: 'Low',
-    },
-  ],
+  activeCasesCount: 0,
+  activeBlockersCount: 0,
+  priorityOperations: [],
   metrics: {
-    avgCycleTimeDays: 38,
-    milestonesDueToday: 14,
-    pipelineValueAmount: 14850000,
+    avgCycleTimeDays: 0,
+    milestonesDueToday: 0,
+    pipelineValueAmount: 0,
     pipelineValueCurrency: 'GBP',
   },
 };
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const [data, setData] = useState<BffDashboardSnapshot>(
-    DEFAULT_MOCK_DASHBOARD,
-  );
+  const [data, setData] = useState<BffDashboardSnapshot>(EMPTY_DASHBOARD);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
@@ -87,8 +48,7 @@ export const DashboardPage: React.FC = () => {
       const res = await fetchDashboardSnapshot();
       setData(res);
     } catch {
-      // Offline fallback
-      setData(DEFAULT_MOCK_DASHBOARD);
+      setData(EMPTY_DASHBOARD);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -163,7 +123,7 @@ export const DashboardPage: React.FC = () => {
               subtitle="Open & On-Hold Workflows"
               icon={<FolderKanban className="w-4 h-4" />}
               variant="pink"
-              trend="+3 this week"
+              trend="Live from Database"
             />
 
             <KpiCard
@@ -183,7 +143,7 @@ export const DashboardPage: React.FC = () => {
               subtitle="Target Milestone SLA"
               icon={<Clock className="w-4 h-4" />}
               variant="amber"
-              trend="14 pending tasks"
+              trend="SLA Target"
             />
 
             <KpiCard
@@ -204,7 +164,7 @@ export const DashboardPage: React.FC = () => {
               subtitle="Agreed Portfolio Value"
               icon={<TrendingUp className="w-4 h-4" />}
               variant="emerald"
-              trend="42 live properties"
+              trend={`${data.activeCasesCount} active cases`}
             />
           </div>
 

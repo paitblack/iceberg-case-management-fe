@@ -1,7 +1,8 @@
 import React from 'react';
-import { GitMerge, Layers } from 'lucide-react';
+import { GitMerge, Layers, AlertCircle } from 'lucide-react';
 import type { DependencyJoinType } from '../../../types/api';
 import type { BuilderStep } from '../context/TemplateBuilderContext';
+import { useTemplateBuilder } from '../context/TemplateBuilderContext';
 
 interface DependencyPickerProps {
   currentStepId: string;
@@ -20,6 +21,8 @@ export const DependencyPicker: React.FC<DependencyPickerProps> = ({
   onChangeDependencies,
   onChangeJoinType,
 }) => {
+  const { backendDagError } = useTemplateBuilder();
+
   // Candidate predecessor steps: any step except the current one
   const candidateSteps = allSteps.filter((s) => s.id !== currentStepId);
 
@@ -71,6 +74,19 @@ export const DependencyPicker: React.FC<DependencyPickerProps> = ({
         )}
       </div>
 
+      {/* Backend Live DAG Error Alert */}
+      {backendDagError && (
+        <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 animate-in fade-in shadow-2xs">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+          <div className="space-y-0.5 flex-1 min-w-0">
+            <p className="font-bold text-rose-900">Backend DAG Validation Alert</p>
+            <p className="text-[11px] text-rose-700 leading-relaxed font-medium">
+              {backendDagError}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Checklist of Predecessors */}
       {candidateSteps.length === 0 ? (
         <p className="text-[11px] text-slate-400 italic">
@@ -111,8 +127,7 @@ export const DependencyPicker: React.FC<DependencyPickerProps> = ({
         <div className="flex items-center gap-1 text-[10px] text-slate-500 pt-0.5">
           <Layers className="w-3 h-3 text-[#E1007A]" />
           <span>
-            {selectedDependencies.length} dependency edge(s) generated for
-            backend execution snapshot.
+            {selectedDependencies.length} dependency edge(s) verified with backend DAG validator.
           </span>
         </div>
       )}
