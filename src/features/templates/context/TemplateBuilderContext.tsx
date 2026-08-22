@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useMemo,
   useEffect,
+  useRef,
 } from 'react';
 import type { DependencyJoinType, CaseType } from '../../../types/api';
 import {
@@ -439,6 +440,15 @@ export const TemplateBuilderProvider: React.FC<{
   children: React.ReactNode;
   initialCaseTypeId?: string;
 }> = ({ children, initialCaseTypeId }) => {
+  const isMountedRef = useRef<boolean>(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const [availableCaseTypes, setAvailableCaseTypes] = useState<CaseType[]>([]);
   const [isLoadingCaseTypes, setIsLoadingCaseTypes] = useState<boolean>(true);
 
@@ -458,9 +468,11 @@ export const TemplateBuilderProvider: React.FC<{
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
   const refreshCaseTypes = useCallback(async () => {
+    if (!isMountedRef.current) return;
     setIsLoadingCaseTypes(true);
     try {
       const types = await listCaseTypes();
+      if (!isMountedRef.current) return;
       if (types && types.length > 0) {
         setAvailableCaseTypes(types);
         setCaseTypeId((prevId) => {
@@ -471,9 +483,13 @@ export const TemplateBuilderProvider: React.FC<{
         });
       }
     } catch {
-      setAvailableCaseTypes([]);
+      if (isMountedRef.current) {
+        setAvailableCaseTypes([]);
+      }
     } finally {
-      setIsLoadingCaseTypes(false);
+      if (isMountedRef.current) {
+        setIsLoadingCaseTypes(false);
+      }
     }
   }, []);
 
@@ -763,22 +779,27 @@ export const TemplateBuilderProvider: React.FC<{
 
       try {
         await saveCaseTypeDraft(activeId, dto);
+        if (!isMountedRef.current) return;
         setBackendDagError(null);
         setLastSavedAt(new Date());
       } catch (err: unknown) {
+        if (!isMountedRef.current) return;
         if (err instanceof ApiError) {
           if (err.problem.status === 404) {
             const types = await listCaseTypes();
+            if (!isMountedRef.current) return;
             if (types && types.length > 0) {
               setAvailableCaseTypes(types);
               const freshId = types[0].id;
               setCaseTypeId(freshId);
               try {
                 await saveCaseTypeDraft(freshId, dto);
+                if (!isMountedRef.current) return;
                 setBackendDagError(null);
                 setLastSavedAt(new Date());
                 return;
               } catch (retryErr) {
+                if (!isMountedRef.current) return;
                 if (retryErr instanceof ApiError) {
                   setBackendDagError(
                     formatDagError(
@@ -791,11 +812,15 @@ export const TemplateBuilderProvider: React.FC<{
               }
             }
           }
-          setBackendDagError(
-            formatDagError(err.problem.detail || err.message, nextSteps),
-          );
+          if (isMountedRef.current) {
+            setBackendDagError(
+              formatDagError(err.problem.detail || err.message, nextSteps),
+            );
+          }
         } else if (err instanceof Error) {
-          setBackendDagError(formatDagError(err.message, nextSteps));
+          if (isMountedRef.current) {
+            setBackendDagError(formatDagError(err.message, nextSteps));
+          }
         }
       }
     },
