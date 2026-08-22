@@ -246,6 +246,14 @@ export interface BffDashboardSnapshot {
   metrics: BffDashboardMetrics;
 }
 
+export interface AssigneeInfo {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  companyName?: string;
+}
+
 export interface BffWorkspaceWorkItem {
   id: string;
   stepId?: string;
@@ -259,6 +267,7 @@ export interface BffWorkspaceWorkItem {
   requirement: WorkItemRequirement;
   role?: string;
   ownerRoleId?: string;
+  assignee?: AssigneeInfo;
   isKeyDate?: boolean;
   evidenceRequired?: boolean;
   allowedActions: WorkItemActionType[];
@@ -292,13 +301,48 @@ export interface BffCaseDocument {
 
 export interface BffParticipant {
   id: string;
+  caseId?: string;
   roleId: string;
-  roleName: string;
+  roleName?: string;
+  contactId?: string;
   name: string;
-  email: string;
+  email?: string;
   phone?: string;
   companyName?: string;
   isPrimary?: boolean;
+  createdAt?: string;
+}
+
+export interface AssignParticipantPayload {
+  roleId: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  companyName?: string;
+  contactId?: string;
+  isPrimary?: boolean;
+}
+
+export interface BffCaseNote {
+  id: string;
+  caseId: string;
+  stepId?: string;
+  workItemId?: string;
+  authorId: string;
+  authorName: string;
+  authorRole: string;
+  content: string;
+  isPrivate: boolean;
+  createdAt: string;
+}
+
+export interface AddCaseNotePayload {
+  content: string;
+  isPrivate?: boolean;
+  stepId?: string;
+  workItemId?: string;
+  authorName?: string;
+  authorRole?: string;
 }
 
 export interface BffWorkspaceSnapshot {
@@ -319,6 +363,7 @@ export interface BffWorkspaceSnapshot {
   steps: BffWorkspaceStep[];
   documents: BffCaseDocument[];
   participants: BffParticipant[];
+  notes?: BffCaseNote[];
   updatedAt: string;
 }
 

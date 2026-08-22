@@ -335,7 +335,9 @@ export const TemplateSidebar: React.FC = () => {
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500">Dependency Edges:</span>
-            <span className={`font-bold ${backendDagError ? 'text-rose-600' : 'text-slate-900'}`}>
+            <span
+              className={`font-bold ${backendDagError ? 'text-rose-600' : 'text-slate-900'}`}
+            >
               {edges.length}
             </span>
           </div>

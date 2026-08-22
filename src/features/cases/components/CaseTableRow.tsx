@@ -130,8 +130,7 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
         <div className="space-y-1">
           <div className="flex justify-between text-[10px] text-slate-500 font-medium">
             <span>
-              {progress.completedSteps}/{progress.totalSteps}{' '}
-              steps
+              {progress.completedSteps}/{progress.totalSteps} steps
             </span>
             <span className="font-bold text-[#E1007A]">
               {progress.percentage}%

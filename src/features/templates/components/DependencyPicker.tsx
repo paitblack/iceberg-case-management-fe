@@ -79,7 +79,9 @@ export const DependencyPicker: React.FC<DependencyPickerProps> = ({
         <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 animate-in fade-in shadow-2xs">
           <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
           <div className="space-y-0.5 flex-1 min-w-0">
-            <p className="font-bold text-rose-900">Backend DAG Validation Alert</p>
+            <p className="font-bold text-rose-900">
+              Backend DAG Validation Alert
+            </p>
             <p className="text-[11px] text-rose-700 leading-relaxed font-medium">
               {backendDagError}
             </p>
@@ -127,7 +129,8 @@ export const DependencyPicker: React.FC<DependencyPickerProps> = ({
         <div className="flex items-center gap-1 text-[10px] text-slate-500 pt-0.5">
           <Layers className="w-3 h-3 text-[#E1007A]" />
           <span>
-            {selectedDependencies.length} dependency edge(s) verified with backend DAG validator.
+            {selectedDependencies.length} dependency edge(s) verified with
+            backend DAG validator.
           </span>
         </div>
       )}

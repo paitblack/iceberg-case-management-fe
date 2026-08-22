@@ -14,7 +14,11 @@ import { CaseTableRow } from './components/CaseTableRow';
 import { CaseListSkeleton } from './components/CaseListSkeleton';
 import { ChangeStatusModal } from './components/ChangeStatusModal';
 import { CreateCaseModal } from './components/CreateCaseModal';
-import { fetchCaseList, changeCaseStatus, ApiError } from '../../lib/api-client';
+import {
+  fetchCaseList,
+  changeCaseStatus,
+  ApiError,
+} from '../../lib/api-client';
 import type {
   BffCaseItem,
   BffCaseListMeta,
@@ -267,7 +271,9 @@ export const CasesPage: React.FC = () => {
               No Cases Found in Backend
             </h3>
             <p className="text-xs text-slate-500">
-              {search || selectedStatus !== 'all' || selectedCaseTypeId !== 'all'
+              {search ||
+              selectedStatus !== 'all' ||
+              selectedCaseTypeId !== 'all'
                 ? 'No active cases match your current filter parameters. Try clearing your filters.'
                 : 'There are currently no cases in the database for your organization. Launch a new workflow case to get started.'}
             </p>

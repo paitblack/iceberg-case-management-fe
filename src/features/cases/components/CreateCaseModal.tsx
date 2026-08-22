@@ -147,7 +147,10 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-4 text-xs text-slate-700">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-4 text-xs text-slate-700"
+      >
         {errorMessage && (
           <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-2.5 shadow-2xs">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -182,7 +185,8 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
         <div className="space-y-1.5">
           <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
             <span>
-              Workflow Template Package <span className="text-[#E1007A]">*</span>
+              Workflow Template Package{' '}
+              <span className="text-[#E1007A]">*</span>
             </span>
             {isLoadingTemplates && (
               <span className="text-[10px] text-slate-400 font-normal animate-pulse">
@@ -195,7 +199,8 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
             <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs space-y-1">
               <p className="font-bold">No Published Templates Found</p>
               <p className="text-[11px]">
-                Please publish a workflow template in the Template Studio first to launch new cases.
+                Please publish a workflow template in the Template Studio first
+                to launch new cases.
               </p>
             </div>
           ) : (

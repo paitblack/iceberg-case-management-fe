@@ -6,6 +6,7 @@ import {
   Shield,
   FileCheck,
   Slash,
+  User,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -105,11 +106,23 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
 
           {/* Assigned Role & Completion Info */}
           <div className="flex flex-wrap items-center gap-x-3 text-[10px] text-slate-500">
-            {(workItem.role || workItem.ownerRoleId) && (
-              <span className="flex items-center gap-1 text-slate-600 font-medium">
-                <Shield className="w-3 h-3 text-slate-400" />
-                Role: {workItem.role || workItem.ownerRoleId}
+            {workItem.assignee ? (
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-pink-50/80 border border-pink-200/70 text-[#E1007A] font-bold text-[10px]">
+                <User className="w-3 h-3 text-[#E1007A] shrink-0" />
+                <span>
+                  {workItem.assignee.name}
+                  {workItem.assignee.companyName
+                    ? ` (${workItem.assignee.companyName})`
+                    : ''}
+                </span>
               </span>
+            ) : (
+              (workItem.role || workItem.ownerRoleId) && (
+                <span className="flex items-center gap-1 text-slate-600 font-medium">
+                  <Shield className="w-3 h-3 text-slate-400" />
+                  Role: {workItem.role || workItem.ownerRoleId}
+                </span>
+              )
             )}
 
             {workItem.isKeyDate && (

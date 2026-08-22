@@ -4,7 +4,7 @@ import {
   Layers,
   FileText,
   Users,
-  History,
+  MessageSquare,
   ArrowLeft,
   RefreshCw,
   AlertCircle,
@@ -15,6 +15,7 @@ import { BlockersBanner } from './workspace/BlockersBanner';
 import { StepExecutionCard } from './workspace/StepExecutionCard';
 import { DocumentsTab } from './workspace/DocumentsTab';
 import { ParticipantsTab } from './workspace/ParticipantsTab';
+import { NotesTab } from './workspace/NotesTab';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Spinner';
 import {
@@ -22,12 +23,17 @@ import {
   executeStepAction,
   executeWorkItemAction,
   uploadCaseDocument,
+  assignCaseParticipant,
+  removeCaseParticipant,
+  addCaseNote,
   ApiError,
 } from '../../lib/api-client';
 import type {
   BffWorkspaceSnapshot,
   StepActionType,
   WorkItemActionType,
+  AssignParticipantPayload,
+  AddCaseNotePayload,
 } from '../../types/api';
 
 type WorkspaceTab = 'progression' | 'documents' | 'participants' | 'timeline';
@@ -48,6 +54,9 @@ export const CaseWorkspacePage: React.FC = () => {
     null,
   );
   const [isUploadingDoc, setIsUploadingDoc] = useState<boolean>(false);
+  const [isSubmittingParticipant, setIsSubmittingParticipant] =
+    useState<boolean>(false);
+  const [isSubmittingNote, setIsSubmittingNote] = useState<boolean>(false);
 
   // Notification Toast state
   const [toastMessage, setToastMessage] = useState<{
@@ -150,6 +159,68 @@ export const CaseWorkspacePage: React.FC = () => {
       }
     } finally {
       setIsUploadingDoc(false);
+    }
+  };
+
+  const handleAssignParticipant = async (payload: AssignParticipantPayload) => {
+    if (!caseId) return;
+    setIsSubmittingParticipant(true);
+    try {
+      await assignCaseParticipant(caseId, payload);
+      showToast(
+        'success',
+        `Stakeholder "${payload.name}" assigned successfully.`,
+      );
+      await loadWorkspace();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        showToast('error', err.problem.detail || err.message);
+      } else {
+        showToast('error', 'Failed to assign stakeholder on backend.');
+      }
+      throw err;
+    } finally {
+      setIsSubmittingParticipant(false);
+    }
+  };
+
+  const handleRemoveParticipant = async (participantId: string) => {
+    if (!caseId) return;
+    try {
+      await removeCaseParticipant(caseId, participantId);
+      showToast('success', 'Stakeholder removed from case.');
+      await loadWorkspace();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        showToast('error', err.problem.detail || err.message);
+      } else {
+        showToast('error', 'Failed to remove stakeholder from backend.');
+      }
+      throw err;
+    }
+  };
+
+  const handleAddNote = async (payload: AddCaseNotePayload) => {
+    if (!caseId) return;
+    setIsSubmittingNote(true);
+    try {
+      await addCaseNote(caseId, payload);
+      showToast(
+        'success',
+        payload.isPrivate
+          ? 'Private internal note recorded.'
+          : 'Public update posted to stakeholders.',
+      );
+      await loadWorkspace();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        showToast('error', err.problem.detail || err.message);
+      } else {
+        showToast('error', 'Failed to post note on backend.');
+      }
+      throw err;
+    } finally {
+      setIsSubmittingNote(false);
     }
   };
 
@@ -318,8 +389,8 @@ export const CaseWorkspacePage: React.FC = () => {
               : 'border-transparent text-slate-500 hover:text-slate-900'
           }`}
         >
-          <History className="w-4 h-4" />
-          <span>Audit Activity</span>
+          <MessageSquare className="w-4 h-4" />
+          <span>Timeline & Notes ({(snapshot.notes || []).length})</span>
         </button>
       </div>
 
@@ -361,32 +432,20 @@ export const CaseWorkspacePage: React.FC = () => {
       )}
 
       {activeTab === 'participants' && (
-        <ParticipantsTab participants={participantsList} />
+        <ParticipantsTab
+          participants={participantsList}
+          onAssignParticipant={handleAssignParticipant}
+          onRemoveParticipant={handleRemoveParticipant}
+          isSubmitting={isSubmittingParticipant}
+        />
       )}
 
       {activeTab === 'timeline' && (
-        <div className="iceberg-card p-6 space-y-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-            Append-Only Audit Timeline
-          </h3>
-          <div className="space-y-3">
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs flex justify-between">
-              <div>
-                <strong className="text-slate-900">Case Initialized:</strong>{' '}
-                {snapshot.title}
-              </div>
-              <span className="text-slate-400 font-mono text-[10px]">
-                {new Date(snapshot.updatedAt).toLocaleDateString('en-GB', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </span>
-            </div>
-          </div>
-        </div>
+        <NotesTab
+          notes={snapshot.notes || []}
+          onAddNote={handleAddNote}
+          isSubmitting={isSubmittingNote}
+        />
       )}
     </div>
   );

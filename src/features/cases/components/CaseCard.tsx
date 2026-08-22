@@ -132,8 +132,7 @@ export const CaseCard: React.FC<CaseCardProps> = ({
         <div className="space-y-1">
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] text-slate-500">
-              {progress.completedSteps} of{' '}
-              {progress.totalSteps} steps
+              {progress.completedSteps} of {progress.totalSteps} steps
             </span>
             <span className="font-extrabold text-xs text-[#E1007A]">
               {progress.percentage}%
