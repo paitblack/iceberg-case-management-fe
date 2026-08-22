@@ -70,22 +70,24 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
                     : 'text-slate-900'
               }`}
             >
-              {workItem.title}
+              {workItem.name || workItem.title}
             </span>
 
             {/* Badges */}
-            <Badge
-              variant={
-                workItem.tag === 'Key Date'
-                  ? 'keyDate'
-                  : workItem.tag === 'Document Upload'
-                    ? 'info'
-                    : 'manual'
-              }
-              size="xs"
-            >
-              {workItem.tag}
-            </Badge>
+            {workItem.tag && (
+              <Badge
+                variant={
+                  workItem.tag === 'Key Date'
+                    ? 'keyDate'
+                    : workItem.tag === 'Document Upload'
+                      ? 'info'
+                      : 'manual'
+                }
+                size="xs"
+              >
+                {workItem.tag}
+              </Badge>
+            )}
 
             <Badge
               variant={
@@ -103,10 +105,12 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
 
           {/* Assigned Role & Completion Info */}
           <div className="flex flex-wrap items-center gap-x-3 text-[10px] text-slate-500">
-            <span className="flex items-center gap-1 text-slate-600 font-medium">
-              <Shield className="w-3 h-3 text-slate-400" />
-              Role: {workItem.role}
-            </span>
+            {(workItem.role || workItem.ownerRoleId) && (
+              <span className="flex items-center gap-1 text-slate-600 font-medium">
+                <Shield className="w-3 h-3 text-slate-400" />
+                Role: {workItem.role || workItem.ownerRoleId}
+              </span>
+            )}
 
             {workItem.isKeyDate && (
               <span className="flex items-center gap-1 text-amber-600 font-bold">

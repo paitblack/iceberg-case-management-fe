@@ -435,8 +435,8 @@ export async function executeStepAction(
 
 export async function executeWorkItemAction(
   caseId: string,
-  workItemId: string,
   stepId: string,
+  workItemId: string,
   action: WorkItemActionType,
 ): Promise<{ success: boolean; resourceVersion?: number }> {
   return apiPost<{ success: boolean; resourceVersion?: number }>(

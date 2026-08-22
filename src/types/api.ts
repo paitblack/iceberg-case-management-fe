@@ -248,14 +248,19 @@ export interface BffDashboardSnapshot {
 
 export interface BffWorkspaceWorkItem {
   id: string;
-  stepId: string;
-  title: string;
+  stepId?: string;
+  workItemDefinitionId?: string;
+  title?: string;
+  name?: string;
   description?: string;
   status: WorkItemExecutionStatus;
-  tag: WorkItemTag;
+  statusLabel?: string;
+  tag?: WorkItemTag;
   requirement: WorkItemRequirement;
-  role: string;
+  role?: string;
+  ownerRoleId?: string;
   isKeyDate?: boolean;
+  evidenceRequired?: boolean;
   allowedActions: WorkItemActionType[];
   completedAt?: string;
   completedByUserName?: string;
