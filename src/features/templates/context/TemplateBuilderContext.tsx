@@ -23,8 +23,11 @@ export type CompletionRuleOption =
 export interface BuilderWorkItem {
   id: string;
   name: string;
+  description?: string;
+  condition?: string;
   requiredRole: string;
   requirement: 'required' | 'optional' | 'conditional';
+  evidenceRequired?: boolean;
   isKeyDate?: boolean;
 }
 
@@ -57,8 +60,11 @@ export interface BackendDraftPayload {
     workItems: {
       id: string;
       name: string;
+      description?: string;
+      condition?: string;
       requiredRole: string;
       requirement?: string;
+      evidenceRequired?: boolean;
       isKeyDate?: boolean;
     }[];
   }[];
@@ -694,8 +700,11 @@ export const TemplateBuilderProvider: React.FC<{
           const newWorkItem: BuilderWorkItem = {
             id: `ui-wi-${Date.now()}`,
             name: initialData?.name || 'New required action',
+            description: initialData?.description || '',
+            condition: initialData?.condition || '',
             requiredRole: initialData?.requiredRole || 'Sales Progressor',
             requirement: initialData?.requirement || 'required',
+            evidenceRequired: initialData?.evidenceRequired || false,
             isKeyDate: initialData?.isKeyDate || false,
           };
           return {
@@ -760,8 +769,14 @@ export const TemplateBuilderProvider: React.FC<{
             id: wi.id,
             stepId: s.id,
             name: wi.name,
+            description: wi.description?.trim() || undefined,
             requirement: wi.requirement,
-            evidenceRequired: false,
+            condition:
+              wi.requirement === 'conditional'
+                ? wi.condition?.trim() || 'Conditional requirement'
+                : undefined,
+            evidenceRequired: wi.evidenceRequired || false,
+            ownerRoleId: wi.requiredRole || undefined,
           })),
         ),
         edges: nextEdges.map((e) => ({
@@ -878,9 +893,9 @@ export const TemplateBuilderProvider: React.FC<{
         setCategory('Valuation & Listing');
         setSteps(APPRAISAL_STEPS);
       } else if (presetKey === 'commercial') {
-        setName('Commercial Lease Conveyancing');
+        setName('Commercial Property Acquisition');
         setDescription(
-          'Commercial lease negotiations, tenant referencing, draft lease terms, and guarantor verification.',
+          'Commercial lease due diligence, structural survey, local planning review, and board approval.',
         );
         setCategory('Commercial');
         setSteps(COMMERCIAL_STEPS);
@@ -901,8 +916,12 @@ export const TemplateBuilderProvider: React.FC<{
         workItems: step.workItems.map((wi) => ({
           id: wi.id,
           name: wi.name,
+          description: wi.description || undefined,
+          condition:
+            wi.requirement === 'conditional' ? wi.condition : undefined,
           requiredRole: wi.requiredRole,
           requirement: wi.requirement,
+          evidenceRequired: wi.evidenceRequired || false,
           isKeyDate: wi.isKeyDate,
         })),
       })),
@@ -914,6 +933,19 @@ export const TemplateBuilderProvider: React.FC<{
     setIsSaving(true);
     try {
       const activeCaseTypeId = caseTypeId;
+
+      // Validate that all conditional work items specify a condition rule
+      for (const s of steps) {
+        for (const wi of s.workItems) {
+          if (wi.requirement === 'conditional' && !wi.condition?.trim()) {
+            const err = new Error(
+              `Task "${wi.name || 'Untitled'}" in milestone "${s.name}" is set to Conditional, but no condition rule was specified. Please provide a condition rule before saving.`,
+            );
+            setBackendDagError(err.message);
+            throw err;
+          }
+        }
+      }
 
       const dto = {
         steps: steps.map((s) => ({
@@ -928,8 +960,14 @@ export const TemplateBuilderProvider: React.FC<{
             id: wi.id,
             stepId: s.id,
             name: wi.name,
+            description: wi.description?.trim() || undefined,
             requirement: wi.requirement,
-            evidenceRequired: false,
+            condition:
+              wi.requirement === 'conditional'
+                ? wi.condition?.trim()
+                : undefined,
+            evidenceRequired: wi.evidenceRequired || false,
+            ownerRoleId: wi.requiredRole || undefined,
           })),
         ),
         edges: edges.map((e) => ({

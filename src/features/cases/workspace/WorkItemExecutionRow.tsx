@@ -104,8 +104,23 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
             </Badge>
           </div>
 
+          {/* Optional Task Description */}
+          {workItem.description && (
+            <p className="text-[11px] text-slate-500 line-clamp-2">
+              {workItem.description}
+            </p>
+          )}
+
+          {/* Conditional Task Rule Notice */}
+          {workItem.requirement === 'conditional' && workItem.condition && (
+            <div className="text-[10px] text-amber-800 bg-amber-50/90 border border-amber-200/80 rounded-md px-2 py-0.5 w-fit font-medium flex items-center gap-1 my-0.5">
+              <span className="font-bold">Condition:</span>
+              <span>{workItem.condition}</span>
+            </div>
+          )}
+
           {/* Assigned Role & Completion Info */}
-          <div className="flex flex-wrap items-center gap-x-3 text-[10px] text-slate-500">
+          <div className="flex flex-wrap items-center gap-x-3 text-[10px] text-slate-500 pt-0.5">
             {workItem.assignee ? (
               <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-pink-50/80 border border-pink-200/70 text-[#E1007A] font-bold text-[10px]">
                 <User className="w-3 h-3 text-[#E1007A] shrink-0" />

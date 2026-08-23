@@ -141,4 +141,51 @@ describe('TemplateBuilderContext & State Management', () => {
     expect(typeof firstStep.completionRule.type).toBe('string');
     expect(['ALL', 'ANY']).toContain(firstStep.dependencyJoinType);
   });
+
+  it('validates that conditional work items must have a condition rule before saving', async () => {
+    const { result } = renderHook(() => useTemplateBuilder(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoadingCaseTypes).toBe(false);
+    });
+
+    const firstStep = result.current.steps[0];
+
+    // Add a conditional work item without a condition
+    act(() => {
+      result.current.addWorkItem(firstStep.id, {
+        name: 'Chase Mortgage Offer',
+        requirement: 'conditional',
+        condition: '',
+        description: 'Formal bank mortgage offer letter must be uploaded.',
+      });
+    });
+
+    // Attempting to save should fail validation
+    await act(async () => {
+      await expect(result.current.saveDraft()).rejects.toThrow(
+        /is set to Conditional, but no condition rule was specified/i,
+      );
+    });
+
+    // Provide the condition rule
+    const addedWi = result.current.steps[0].workItems.find(
+      (w) => w.name === 'Chase Mortgage Offer',
+    );
+    expect(addedWi).toBeDefined();
+
+    act(() => {
+      if (addedWi) {
+        result.current.updateWorkItem(firstStep.id, addedWi.id, {
+          condition: 'Only mandatory if the buyer is obtaining a mortgage loan',
+          evidenceRequired: true,
+        });
+      }
+    });
+
+    // Now save should proceed and pass condition and description
+    await act(async () => {
+      await expect(result.current.saveDraft()).resolves.toBeDefined();
+    });
+  });
 });

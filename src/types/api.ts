@@ -261,6 +261,7 @@ export interface BffWorkspaceWorkItem {
   title?: string;
   name?: string;
   description?: string;
+  condition?: string;
   status: WorkItemExecutionStatus;
   statusLabel?: string;
   tag?: WorkItemTag;
