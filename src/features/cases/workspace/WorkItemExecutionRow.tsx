@@ -6,32 +6,68 @@ import {
   Shield,
   FileCheck,
   Slash,
-  User,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import type {
   BffWorkspaceWorkItem,
+  BffCaseDocument,
   WorkItemActionType,
 } from '../../../types/api';
 
 interface WorkItemExecutionRowProps {
   workItem: BffWorkspaceWorkItem;
+  documents?: BffCaseDocument[];
   onAction: (workItemId: string, action: WorkItemActionType) => Promise<void>;
   isLoading: boolean;
 }
 
+function formatRoleDisplayName(role?: string, ownerRoleId?: string): string {
+  const roleText = role || ownerRoleId;
+  if (!roleText) return 'Unassigned Role';
+
+  const standardRoleMap: Record<string, string> = {
+    'role-estate-agent': 'Estate Agent / Progressor',
+    'role-vendor-solicitor': "Seller's Conveyancer / Solicitor",
+    'role-buyer-solicitor': "Buyer's Conveyancer / Solicitor",
+    'role-vendor': 'Seller / Vendor',
+    'role-buyer': 'Buyer / Purchaser',
+    'role-mortgage-broker': 'Mortgage Broker / Advisor',
+    'role-surveyor': 'RICS Surveyor / Valuer',
+  };
+
+  if (standardRoleMap[roleText]) {
+    return standardRoleMap[roleText];
+  }
+
+  if (!roleText.startsWith('role-')) {
+    return roleText;
+  }
+
+  // If it's a slug like "role-halay-basi-12345", format it nicely
+  const withoutPrefix = roleText.replace(/^role-/, '');
+  const parts = withoutPrefix
+    .split('-')
+    .filter((p) => !/^[a-z0-9]{6,}$/i.test(p));
+  if (parts.length > 0) {
+    return parts.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+  return roleText;
+}
+
 export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
   workItem,
+  documents = [],
   onAction,
   isLoading,
 }) => {
   const isCompleted = workItem.status === 'Completed';
   const isWaived = workItem.status === 'Waived';
-  const isPending = workItem.status === 'Pending';
 
   const canComplete = workItem.allowedActions?.includes('COMPLETE');
   const canWaive = workItem.allowedActions?.includes('WAIVE');
+
+  const linkedDoc = documents.find((d) => d.workItemId === workItem.id);
 
   return (
     <div
@@ -102,42 +138,68 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
             >
               {workItem.requirement}
             </Badge>
+
+            {workItem.evidenceRequired &&
+              (linkedDoc ? (
+                linkedDoc.downloadUrl ? (
+                  <a
+                    href={linkedDoc.downloadUrl}
+                    download
+                    className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200/80 rounded-md px-1.5 py-0.5 font-bold hover:underline"
+                  >
+                    <FileCheck className="w-3 h-3 text-emerald-600" />
+                    <span>Evidence: {linkedDoc.fileName}</span>
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200/80 rounded-md px-1.5 py-0.5 font-bold">
+                    <FileCheck className="w-3 h-3 text-emerald-600" />
+                    <span>Evidence: {linkedDoc.fileName}</span>
+                  </span>
+                )
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200/80 rounded-md px-1.5 py-0.5 font-medium">
+                  <FileCheck className="w-3 h-3 text-amber-500" />
+                  <span>Evidence Required</span>
+                </span>
+              ))}
           </div>
 
           {/* Optional Task Description */}
           {workItem.description && (
-            <p className="text-[11px] text-slate-500 line-clamp-2">
+            <p className="text-[11px] text-slate-600 line-clamp-2 leading-relaxed">
               {workItem.description}
             </p>
           )}
 
           {/* Conditional Task Rule Notice */}
           {workItem.requirement === 'conditional' && workItem.condition && (
-            <div className="text-[10px] text-amber-800 bg-amber-50/90 border border-amber-200/80 rounded-md px-2 py-0.5 w-fit font-medium flex items-center gap-1 my-0.5">
-              <span className="font-bold">Condition:</span>
+            <div className="text-[10px] text-amber-800 bg-amber-50/90 border border-amber-200/80 rounded-md px-2 py-0.5 w-fit font-medium flex items-center gap-1.5 my-0.5">
+              <span className="font-bold">Condition Rule:</span>
               <span>{workItem.condition}</span>
             </div>
           )}
 
-          {/* Assigned Role & Completion Info */}
+          {/* Assigned Role & Assignee */}
           <div className="flex flex-wrap items-center gap-x-3 text-[10px] text-slate-500 pt-0.5">
-            {workItem.assignee ? (
-              <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-pink-50/80 border border-pink-200/70 text-[#E1007A] font-bold text-[10px]">
-                <User className="w-3 h-3 text-[#E1007A] shrink-0" />
+            {(workItem.role || workItem.ownerRoleId || workItem.assignee) && (
+              <span className="flex items-center gap-1.5 text-slate-600 font-medium">
+                <Shield className="w-3 h-3 text-slate-400 shrink-0" />
                 <span>
-                  {workItem.assignee.name}
-                  {workItem.assignee.companyName
-                    ? ` (${workItem.assignee.companyName})`
-                    : ''}
+                  Role:{' '}
+                  <span className="font-semibold text-slate-800">
+                    {formatRoleDisplayName(workItem.role, workItem.ownerRoleId)}
+                  </span>
+                  {workItem.assignee && (
+                    <span className="ml-1 text-[#E1007A] font-bold">
+                      ({workItem.assignee.name}
+                      {workItem.assignee.companyName
+                        ? ` - ${workItem.assignee.companyName}`
+                        : ''}
+                      )
+                    </span>
+                  )}
                 </span>
               </span>
-            ) : (
-              (workItem.role || workItem.ownerRoleId) && (
-                <span className="flex items-center gap-1 text-slate-600 font-medium">
-                  <Shield className="w-3 h-3 text-slate-400" />
-                  Role: {workItem.role || workItem.ownerRoleId}
-                </span>
-              )
             )}
 
             {workItem.isKeyDate && (
@@ -158,40 +220,54 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
             )}
 
             {isWaived && (
-              <span className="text-slate-400 italic">Waived by Authority</span>
+              <span className="flex items-center gap-1 text-slate-500 font-medium italic">
+                <Slash className="w-3 h-3" />
+                Waived / Not required
+              </span>
             )}
           </div>
         </div>
       </div>
 
-      {/* Right Action Buttons */}
-      {isPending && (
-        <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-          {canWaive && (
-            <Button
-              variant="ghost"
-              size="xs"
-              isLoading={isLoading}
-              onClick={() => onAction(workItem.id, 'WAIVE')}
-              className="text-slate-500 hover:text-slate-800"
-            >
-              Waive
-            </Button>
-          )}
+      {/* Right: Task Actions */}
+      <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+        {canWaive && (
+          <Button
+            variant="ghost"
+            size="xs"
+            isLoading={isLoading}
+            onClick={() => onAction(workItem.id, 'WAIVE')}
+            className="text-[11px] font-semibold text-slate-500 hover:text-slate-800"
+          >
+            Waive
+          </Button>
+        )}
 
-          {canComplete && (
-            <Button
-              variant="primary"
-              size="xs"
-              isLoading={isLoading}
-              onClick={() => onAction(workItem.id, 'COMPLETE')}
-              leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
-            >
-              Complete Task
-            </Button>
-          )}
-        </div>
-      )}
+        {canComplete && (
+          <Button
+            variant="primary"
+            size="xs"
+            isLoading={isLoading}
+            onClick={() => onAction(workItem.id, 'COMPLETE')}
+            leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+            className="font-bold text-[11px]"
+          >
+            Complete Task
+          </Button>
+        )}
+
+        {isCompleted && (
+          <Badge variant="success" size="xs">
+            ✓ Done
+          </Badge>
+        )}
+
+        {isWaived && (
+          <Badge variant="default" size="xs">
+            Waived
+          </Badge>
+        )}
+      </div>
     </div>
   );
 };

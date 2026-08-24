@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 import { Lock, ShieldAlert, Sparkles, AlertCircle } from 'lucide-react';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
-import { useTemplateBuilder } from '../context/TemplateBuilderContext';
+import {
+  useTemplateBuilder,
+  formatDagError,
+} from '../context/TemplateBuilderContext';
 import { ApiError } from '../../../lib/api-client';
 
 interface PublishModalProps {
@@ -26,9 +29,11 @@ export const PublishModal: React.FC<PublishModalProps> = ({
       onClose();
     } catch (err: unknown) {
       if (err instanceof ApiError) {
-        setPublishError(err.problem.detail || err.message);
+        setPublishError(
+          formatDagError(err.problem.detail || err.message, steps),
+        );
       } else if (err instanceof Error) {
-        setPublishError(err.message);
+        setPublishError(formatDagError(err.message, steps));
       } else {
         setPublishError('Failed to publish template version.');
       }

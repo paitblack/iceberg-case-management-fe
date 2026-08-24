@@ -5,6 +5,7 @@ import {
   Trash2,
   Plus,
   CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import { WorkItemRow } from './WorkItemRow';
 import { DependencyPicker } from './DependencyPicker';
@@ -36,6 +37,20 @@ export const StepCard: React.FC<StepCardProps> = ({
     setStepDependencies,
     setStepDependencyJoinType,
   } = useTemplateBuilder();
+
+  const isMultiStep = steps.length > 1;
+  const incomingDependenciesCount = step.dependencies.length;
+  const outgoingDependenciesCount = steps.filter((s) =>
+    s.dependencies.includes(step.id),
+  ).length;
+
+  const isStandalone =
+    isMultiStep &&
+    incomingDependenciesCount === 0 &&
+    outgoingDependenciesCount === 0;
+
+  const isInitialEntry =
+    incomingDependenciesCount === 0 && outgoingDependenciesCount > 0;
 
   return (
     <div className="iceberg-card p-5 md:p-6 space-y-4 border border-slate-200/90 shadow-xs hover:border-slate-300 transition-all">
@@ -90,6 +105,27 @@ export const StepCard: React.FC<StepCardProps> = ({
         </div>
       </div>
 
+      {/* Standalone Step Warning Banner */}
+      {isStandalone && (
+        <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-50/90 border border-amber-300 text-amber-900 text-xs font-semibold shadow-2xs animate-in fade-in duration-150">
+          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>
+            ⚠️ Standalone Step: This step is not connected to any prerequisite
+            or subsequent steps.
+          </span>
+        </div>
+      )}
+
+      {/* Initial Entry Step Indicator */}
+      {isInitialEntry && (
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium w-fit">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+          <span>
+            🟢 Initial Entry Step (Active immediately upon case creation)
+          </span>
+        </div>
+      )}
+
       {/* Description & Completion Rule Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
         <div className="md:col-span-2 space-y-1.5">
@@ -102,8 +138,8 @@ export const StepCard: React.FC<StepCardProps> = ({
             onChange={(e) =>
               updateStep(step.id, { description: e.target.value })
             }
-            placeholder="Explain the required outcome and legal constraints of this step..."
-            className="w-full bg-slate-50 border border-slate-200/90 rounded-xl px-3.5 py-2 text-xs text-slate-800 focus:bg-white focus:border-[#E1007A] focus:outline-none transition-colors"
+            placeholder="e.g. Confirm both legal parties instructed and TA6/TA10 protocol forms issued..."
+            className="w-full bg-slate-50 border border-slate-200/90 rounded-xl px-3.5 py-2 text-xs text-slate-800 placeholder:text-slate-400 placeholder:italic focus:bg-white focus:border-[#E1007A] focus:outline-none transition-colors"
           />
         </div>
 

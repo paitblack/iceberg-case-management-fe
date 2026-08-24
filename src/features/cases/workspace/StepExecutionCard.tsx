@@ -13,12 +13,14 @@ import { Button } from '../../../components/ui/Button';
 import { WorkItemExecutionRow } from './WorkItemExecutionRow';
 import type {
   BffWorkspaceStep,
+  BffCaseDocument,
   StepActionType,
   WorkItemActionType,
 } from '../../../types/api';
 
 interface StepExecutionCardProps {
   step: BffWorkspaceStep;
+  documents?: BffCaseDocument[];
   onStepAction: (stepId: string, action: StepActionType) => Promise<void>;
   onWorkItemAction: (
     stepId: string,
@@ -31,6 +33,7 @@ interface StepExecutionCardProps {
 
 export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
   step,
+  documents = [],
   onStepAction,
   onWorkItemAction,
   loadingStepId,
@@ -132,7 +135,7 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
             </div>
 
             {step.description && (
-              <p className="text-xs text-slate-500 line-clamp-1">
+              <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed font-normal">
                 {step.description}
               </p>
             )}
@@ -202,6 +205,7 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                 <WorkItemExecutionRow
                   key={wi.id}
                   workItem={wi}
+                  documents={documents}
                   isLoading={loadingWorkItemId === wi.id}
                   onAction={(workItemId, action) =>
                     onWorkItemAction(step.id, workItemId, action)

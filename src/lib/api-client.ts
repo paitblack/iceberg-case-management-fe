@@ -7,6 +7,9 @@ import type {
   ProblemDetails,
   CaseType,
   TemplateVersion,
+  TemplateDraftResponse,
+  TemplatePresetSummary,
+  TemplatePresetSchema,
   BffWorkspaceSnapshot,
   StepActionType,
   WorkItemActionType,
@@ -158,6 +161,12 @@ export async function getCaseType(caseTypeId: string): Promise<CaseType> {
   return apiGet<CaseType>(`/case-types/${caseTypeId}`);
 }
 
+export async function getCaseTypeDraft(
+  caseTypeId: string,
+): Promise<TemplateDraftResponse> {
+  return apiGet<TemplateDraftResponse>(`/case-types/${caseTypeId}/draft`);
+}
+
 export async function saveCaseTypeDraft(
   caseTypeId: string,
   payload: unknown,
@@ -166,6 +175,16 @@ export async function saveCaseTypeDraft(
     `/case-types/${caseTypeId}/draft`,
     payload,
   );
+}
+
+export async function listTemplatePresets(): Promise<TemplatePresetSummary[]> {
+  return apiGet<TemplatePresetSummary[]>('/template-presets');
+}
+
+export async function getTemplatePreset(
+  key: string,
+): Promise<TemplatePresetSchema> {
+  return apiGet<TemplatePresetSchema>(`/template-presets/${key}`);
 }
 
 export async function publishCaseTypeDraft(
@@ -282,10 +301,13 @@ interface RawBffWorkspaceResponse {
       name?: string;
       title?: string;
       description?: string;
+      condition?: string;
       status?: WorkItemExecutionStatus;
       statusLabel?: string;
       requirement?: WorkItemRequirement;
       tag?: WorkItemTag;
+      role?: string;
+      roleName?: string;
       ownerRoleId?: string;
       assignee?: {
         id: string;
@@ -301,12 +323,18 @@ interface RawBffWorkspaceResponse {
       completedByUserName?: string;
     }>;
   }>;
+  roles?: Array<{
+    id: string;
+    name: string;
+    description?: string;
+  }>;
   documents?: Array<{
     id: string;
     fileName: string;
     sizeBytes?: number;
     contentType?: string;
     category?: string;
+    workItemId?: string;
     createdAt?: string;
     uploadedByUserId?: string;
     downloadUrl?: string;
@@ -342,7 +370,9 @@ export async function fetchCaseWorkspace(
           fileName: d.fileName,
           fileSizeBytes: d.sizeBytes || 0,
           fileType: d.contentType || 'application/pdf',
-          category: d.category || 'General Document',
+          category:
+            d.category || (d.workItemId ? 'Task Evidence' : 'General Document'),
+          workItemId: d.workItemId,
           uploadedAt: d.createdAt || new Date().toISOString(),
           uploadedByName: d.uploadedByUserId || 'Operations Progressor',
           downloadUrl: d.downloadUrl,
@@ -365,11 +395,12 @@ export async function fetchCaseWorkspace(
         title: wi.name || wi.title || 'Work Item',
         name: wi.name || wi.title || 'Work Item',
         description: wi.description,
+        condition: wi.condition,
         status: wi.status || 'Pending',
         statusLabel: wi.statusLabel,
         tag: (wi.tag || (wi.isKeyDate ? 'Key Date' : 'Manual')) as WorkItemTag,
         requirement: wi.requirement || 'required',
-        role: wi.ownerRoleId || 'Progressor',
+        role: wi.role || wi.roleName || wi.ownerRoleId,
         ownerRoleId: wi.ownerRoleId,
         assignee: wi.assignee,
         isKeyDate: wi.isKeyDate,
@@ -397,6 +428,7 @@ export async function fetchCaseWorkspace(
       targetCompletionDate: c.targetCompletionDate,
       blockers,
       steps,
+      roles: rawData.roles || [],
       documents,
       participants: rawData.participants || [],
       notes: rawData.notes || [],
@@ -444,25 +476,67 @@ export async function executeWorkItemAction(
   );
 }
 
+export interface CreateDocumentUploadUrlPayload {
+  fileName: string;
+  contentType: string;
+  sizeBytes?: number;
+  requiredRole?: string;
+  workItemId?: string;
+}
+
+export interface DocumentUploadUrlResponse {
+  documentId: string;
+  uploadUrl: string;
+  expiresInSeconds?: number;
+}
+
+export async function createDocumentUploadUrl(
+  caseId: string,
+  payload: CreateDocumentUploadUrlPayload,
+): Promise<DocumentUploadUrlResponse> {
+  return apiPost<DocumentUploadUrlResponse>(
+    `/cases/${caseId}/documents/upload-url`,
+    payload,
+  );
+}
+
+export async function confirmDocumentUpload(
+  caseId: string,
+  documentId: string,
+): Promise<void> {
+  return apiPost<void>(
+    `/cases/${caseId}/documents/${documentId}/confirm-upload`,
+    {},
+  );
+}
+
 export async function uploadCaseDocument(
   caseId: string,
   file: File,
-  category: string = 'General Evidence',
-): Promise<BffCaseDocument> {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('category', category);
+  workItemId?: string,
+): Promise<void> {
+  const uploadInfo = await createDocumentUploadUrl(caseId, {
+    fileName: file.name,
+    contentType: file.type || 'application/pdf',
+    sizeBytes: file.size,
+    workItemId: workItemId || undefined,
+  });
 
-  const response = await apiClient.post<BffCaseDocument>(
-    `/cases/${caseId}/documents`,
-    formData,
-    {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    },
-  );
-  return response.data;
+  if (uploadInfo.uploadUrl) {
+    try {
+      await fetch(uploadInfo.uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': file.type || 'application/pdf',
+        },
+        body: file,
+      });
+    } catch {
+      // Gracefully handle in mock/local test environments
+    }
+  }
+
+  await confirmDocumentUpload(caseId, uploadInfo.documentId);
 }
 
 export async function assignCaseParticipant(

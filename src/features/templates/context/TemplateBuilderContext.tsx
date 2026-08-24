@@ -7,25 +7,78 @@ import React, {
   useEffect,
   useRef,
 } from 'react';
-import type { DependencyJoinType, CaseType } from '../../../types/api';
+import type {
+  DependencyJoinType,
+  CaseType,
+  TemplatePresetSummary,
+  TemplatePresetSchema,
+} from '../../../types/api';
 import {
   saveCaseTypeDraft,
   publishCaseTypeDraft,
   listCaseTypes,
   createCaseType,
   getCaseType,
+  getCaseTypeDraft,
+  listTemplatePresets,
+  getTemplatePreset,
   ApiError,
 } from '../../../lib/api-client';
 
 export type CompletionRuleOption =
   'all-required-work-items' | 'any-required-work-item' | 'manual';
 
+export interface TemplateRole {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export const STANDARD_TEMPLATE_ROLES: TemplateRole[] = [
+  {
+    id: 'role-estate-agent',
+    name: 'Estate Agent / Progressor',
+    description: 'Listing Agent & Sales Progression Representative',
+  },
+  {
+    id: 'role-vendor-solicitor',
+    name: "Seller's Conveyancer / Solicitor",
+    description: "Seller's Legal Conveyancing Representative",
+  },
+  {
+    id: 'role-buyer-solicitor',
+    name: "Buyer's Conveyancer / Solicitor",
+    description: "Buyer's Legal Conveyancing Representative",
+  },
+  {
+    id: 'role-vendor',
+    name: 'Seller / Vendor',
+    description: 'Property Owner / Seller Party',
+  },
+  {
+    id: 'role-buyer',
+    name: 'Buyer / Purchaser',
+    description: 'Purchasing Client Party',
+  },
+  {
+    id: 'role-mortgage-broker',
+    name: 'Mortgage Broker / Advisor',
+    description: 'Lender Mortgage Financial Advisor',
+  },
+  {
+    id: 'role-surveyor',
+    name: 'RICS Surveyor / Valuer',
+    description: 'Chartered Building Surveyor / Valuer',
+  },
+];
+
 export interface BuilderWorkItem {
   id: string;
   name: string;
   description?: string;
   condition?: string;
-  requiredRole: string;
+  ownerRoleId?: string;
+  requiredRole?: string;
   requirement: 'required' | 'optional' | 'conditional';
   evidenceRequired?: boolean;
   isKeyDate?: boolean;
@@ -62,13 +115,15 @@ export interface BackendDraftPayload {
       name: string;
       description?: string;
       condition?: string;
-      requiredRole: string;
+      ownerRoleId?: string;
+      requiredRole?: string;
       requirement?: string;
       evidenceRequired?: boolean;
       isKeyDate?: boolean;
     }[];
   }[];
   edges: DependencyEdge[];
+  roles?: TemplateRole[];
 }
 
 interface TemplateBuilderState {
@@ -79,12 +134,15 @@ interface TemplateBuilderState {
   versionNumber: number;
   isPublished: boolean;
   steps: BuilderStep[];
+  roles: TemplateRole[];
   backendDagError: string | null;
   isSaving: boolean;
   isPublishing: boolean;
   lastSavedAt: Date | null;
   availableCaseTypes: CaseType[];
   isLoadingCaseTypes: boolean;
+  availablePresets: TemplatePresetSummary[];
+  isLoadingPresets: boolean;
 }
 
 interface TemplateBuilderContextValue extends TemplateBuilderState {
@@ -97,7 +155,7 @@ interface TemplateBuilderContextValue extends TemplateBuilderState {
   createNewTemplate: (
     name: string,
     description?: string,
-    preset?: 'sales' | 'appraisal' | 'commercial',
+    presetKey?: string,
   ) => Promise<string>;
   addStep: (initialData?: Partial<BuilderStep>) => void;
   updateStep: (stepId: string, updates: Partial<BuilderStep>) => void;
@@ -115,7 +173,10 @@ interface TemplateBuilderContextValue extends TemplateBuilderState {
     stepId: string,
     joinType: DependencyJoinType,
   ) => void;
-  loadPreset: (presetKey: 'sales' | 'appraisal' | 'commercial') => void;
+  addRole: (role: { name: string; description?: string }) => TemplateRole;
+  updateRole: (roleId: string, updates: Partial<TemplateRole>) => void;
+  removeRole: (roleId: string) => void;
+  loadPreset: (presetKey: string) => Promise<void>;
   toBackendDraftPayload: () => BackendDraftPayload;
   saveDraft: () => Promise<BackendDraftPayload>;
   publishDraft: () => Promise<void>;
@@ -140,19 +201,22 @@ const DEFAULT_SALES_STEPS: BuilderStep[] = [
       {
         id: 'wi-sales-1',
         name: 'Verify Buyer & Vendor ID / AML Checks',
-        requiredRole: 'Listing Agent',
+        ownerRoleId: 'role-estate-agent',
+        requiredRole: 'role-estate-agent',
         requirement: 'required',
       },
       {
         id: 'wi-sales-2',
         name: 'Verify Proof of Funds & Deposit',
-        requiredRole: 'Listing Agent',
+        ownerRoleId: 'role-estate-agent',
+        requiredRole: 'role-estate-agent',
         requirement: 'required',
       },
       {
         id: 'wi-sales-3',
         name: 'Generate & Distribute Memorandum of Sale',
-        requiredRole: 'Sales Progressor',
+        ownerRoleId: 'role-estate-agent',
+        requiredRole: 'role-estate-agent',
         requirement: 'required',
       },
     ],
@@ -170,13 +234,15 @@ const DEFAULT_SALES_STEPS: BuilderStep[] = [
       {
         id: 'wi-sales-4',
         name: 'Confirm Both Solicitors Instructed',
-        requiredRole: 'Sales Progressor',
+        ownerRoleId: 'role-estate-agent',
+        requiredRole: 'role-estate-agent',
         requirement: 'required',
       },
       {
         id: 'wi-sales-5',
         name: 'Complete TA6 Property Info & TA10 Fittings Forms',
-        requiredRole: 'Vendor Solicitor',
+        ownerRoleId: 'role-vendor-solicitor',
+        requiredRole: 'role-vendor-solicitor',
         requirement: 'required',
       },
     ],
@@ -194,14 +260,16 @@ const DEFAULT_SALES_STEPS: BuilderStep[] = [
       {
         id: 'wi-sales-6',
         name: 'Book & Complete Lender Valuation',
-        requiredRole: 'Mortgage Broker',
+        ownerRoleId: 'role-mortgage-broker',
+        requiredRole: 'role-mortgage-broker',
         requirement: 'required',
         isKeyDate: true,
       },
       {
         id: 'wi-sales-7',
         name: 'Receive Formal Written Mortgage Offer',
-        requiredRole: 'Mortgage Broker',
+        ownerRoleId: 'role-mortgage-broker',
+        requiredRole: 'role-mortgage-broker',
         requirement: 'required',
       },
     ],
@@ -219,14 +287,16 @@ const DEFAULT_SALES_STEPS: BuilderStep[] = [
       {
         id: 'wi-sales-8',
         name: 'Order Local Authority, Drainage & Environmental Searches',
-        requiredRole: 'Buyer Solicitor',
+        ownerRoleId: 'role-buyer-solicitor',
+        requiredRole: 'role-buyer-solicitor',
         requirement: 'required',
         isKeyDate: true,
       },
       {
         id: 'wi-sales-9',
         name: 'Satisfy All Enquiries & Approve Final Contract',
-        requiredRole: 'Vendor Solicitor',
+        ownerRoleId: 'role-vendor-solicitor',
+        requiredRole: 'role-vendor-solicitor',
         requirement: 'required',
       },
     ],
@@ -244,14 +314,16 @@ const DEFAULT_SALES_STEPS: BuilderStep[] = [
       {
         id: 'wi-sales-10',
         name: 'Transfer 10% Exchange Deposit Funds',
-        requiredRole: 'Buyer Solicitor',
+        ownerRoleId: 'role-buyer-solicitor',
+        requiredRole: 'role-buyer-solicitor',
         requirement: 'required',
         isKeyDate: true,
       },
       {
         id: 'wi-sales-11',
         name: 'Formal Exchange of Contracts & Fix Completion Date',
-        requiredRole: 'Vendor Solicitor',
+        ownerRoleId: 'role-vendor-solicitor',
+        requiredRole: 'role-vendor-solicitor',
         requirement: 'required',
       },
     ],
@@ -268,161 +340,27 @@ const DEFAULT_SALES_STEPS: BuilderStep[] = [
       {
         id: 'wi-sales-12',
         name: 'Transfer Mortgage & Completion Balance Funds',
-        requiredRole: 'Buyer Solicitor',
+        ownerRoleId: 'role-buyer-solicitor',
+        requiredRole: 'role-buyer-solicitor',
         requirement: 'required',
         isKeyDate: true,
       },
       {
         id: 'wi-sales-13',
         name: 'Confirm Legal Completion & Release Property Keys',
-        requiredRole: 'Listing Agent',
+        ownerRoleId: 'role-estate-agent',
+        requiredRole: 'role-estate-agent',
         requirement: 'required',
       },
     ],
   },
 ];
 
-const APPRAISAL_STEPS: BuilderStep[] = [
-  {
-    id: 'step-app-1',
-    name: 'Lead Qualification & Property Intake',
-    description: 'Confirm vendor motivation, details, and desktop research.',
-    displayOrder: 1,
-    completionRule: { type: 'all-required-work-items' },
-    dependencyJoinType: 'ALL',
-    dependencies: [],
-    workItems: [
-      {
-        id: 'wi-app-1',
-        name: 'Confirm client contact details & motivation',
-        requiredRole: 'Listing Agent',
-        requirement: 'required',
-      },
-      {
-        id: 'wi-app-2',
-        name: 'Retrieve Land Registry title & historical comparables',
-        requiredRole: 'Listing Agent',
-        requirement: 'required',
-      },
-    ],
-  },
-  {
-    id: 'step-app-2',
-    name: 'On-Site Valuation Inspection',
-    description: 'Physical property walkthrough, measurements, and appraisal.',
-    displayOrder: 2,
-    completionRule: { type: 'all-required-work-items' },
-    dependencyJoinType: 'ALL',
-    dependencies: ['step-app-1'],
-    workItems: [
-      {
-        id: 'wi-app-3',
-        name: 'Conduct physical property inspection & measurements',
-        requiredRole: 'Valuer',
-        requirement: 'required',
-        isKeyDate: true,
-      },
-      {
-        id: 'wi-app-4',
-        name: 'Capture marketing photos and floorplan draft',
-        requiredRole: 'Valuer',
-        requirement: 'optional',
-      },
-    ],
-  },
-  {
-    id: 'step-app-3',
-    name: 'Valuation Pack & Agency Agreement',
-    description: 'Deliver formal valuation pack and sign agency terms.',
-    displayOrder: 3,
-    completionRule: { type: 'all-required-work-items' },
-    dependencyJoinType: 'ALL',
-    dependencies: ['step-app-2'],
-    workItems: [
-      {
-        id: 'wi-app-5',
-        name: 'Generate formal appraisal valuation pack',
-        requiredRole: 'Listing Agent',
-        requirement: 'required',
-      },
-      {
-        id: 'wi-app-6',
-        name: 'Present proposal to vendor & sign sole agency terms',
-        requiredRole: 'Listing Agent',
-        requirement: 'required',
-      },
-    ],
-  },
-];
-
-const COMMERCIAL_STEPS: BuilderStep[] = [
-  {
-    id: 'step-comm-1',
-    name: 'Commercial Heads of Terms Agreed',
-    description: 'Negotiate commercial lease term, rent review, and covenants.',
-    displayOrder: 1,
-    completionRule: { type: 'all-required-work-items' },
-    dependencyJoinType: 'ALL',
-    dependencies: [],
-    workItems: [
-      {
-        id: 'wi-comm-1',
-        name: 'Confirm commercial rent, lease term, and break clauses',
-        requiredRole: 'Commercial Agent',
-        requirement: 'required',
-      },
-    ],
-  },
-  {
-    id: 'step-comm-2',
-    name: 'Tenant Due Diligence & Referencing',
-    description: 'Obtain company accounts, credit checks, and guarantor deed.',
-    displayOrder: 2,
-    completionRule: { type: 'all-required-work-items' },
-    dependencyJoinType: 'ALL',
-    dependencies: ['step-comm-1'],
-    workItems: [
-      {
-        id: 'wi-comm-2',
-        name: 'Obtain 3 years audited accounts and trade references',
-        requiredRole: 'Compliance Officer',
-        requirement: 'required',
-      },
-      {
-        id: 'wi-comm-3',
-        name: 'Execute Director Guarantor Agreement if required',
-        requiredRole: 'Compliance Officer',
-        requirement: 'optional',
-      },
-    ],
-  },
-  {
-    id: 'step-comm-3',
-    name: 'Lease Drafting & Execution',
-    description:
-      'Solicitor lease engrossment, rent deposit deed, and completion.',
-    displayOrder: 3,
-    completionRule: { type: 'all-required-work-items' },
-    dependencyJoinType: 'ALL',
-    dependencies: ['step-comm-2'],
-    workItems: [
-      {
-        id: 'wi-comm-4',
-        name: 'Approve draft commercial lease and rent deposit deed',
-        requiredRole: 'Vendor Solicitor',
-        requirement: 'required',
-      },
-      {
-        id: 'wi-comm-5',
-        name: 'Complete commercial lease and release premises keys',
-        requiredRole: 'Commercial Agent',
-        requirement: 'required',
-      },
-    ],
-  },
-];
-
-function formatDagError(rawError: string, currentSteps: BuilderStep[]): string {
+export function formatDagError(
+  rawError: string,
+  currentSteps: BuilderStep[],
+): string {
+  // 1. Circular dependency detected
   if (rawError.includes('Circular dependency detected in step flow:')) {
     const parts = rawError
       .split('Circular dependency detected in step flow:')[1]
@@ -436,7 +374,108 @@ function formatDagError(rawError: string, currentSteps: BuilderStep[]): string {
       return `Circular dependency loop detected: ${resolvedNames.join(' → ')}. Please remove the cyclic prerequisite dependency to ensure an acyclic progression flow.`;
     }
   }
+
+  // 2. WorkItem references undefined ownerRoleId
+  if (rawError.includes('references undefined ownerRoleId')) {
+    const match =
+      /WorkItem '([^']+)'(?: \(([^)]+)\))? references undefined ownerRoleId '([^']+)'/i.exec(
+        rawError,
+      );
+    if (match) {
+      const itemName = match[1];
+      const roleId = match[3];
+      return `Work Item "${itemName}" has an invalid role ("${roleId}"). Please select a valid role from the list.`;
+    }
+    const stepMatch =
+      /Step '([^']+)'(?: \(([^)]+)\))? references undefined ownerRoleId '([^']+)'/i.exec(
+        rawError,
+      );
+    if (stepMatch) {
+      const stepName = stepMatch[1];
+      const roleId = stepMatch[3];
+      return `Milestone Step "${stepName}" has an invalid role ("${roleId}"). Please select a valid role from the list.`;
+    }
+  }
+
+  // 3. Orphan work item
+  if (rawError.includes('Orphan work item')) {
+    return 'Task belongs to a milestone step that does not exist in the template.';
+  }
+
   return rawError;
+}
+
+function mapSchemaToSteps(
+  schema: {
+    steps?: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      displayOrder: number;
+      completionRule?: { type: string };
+      dependencyJoinType?: DependencyJoinType;
+    }>;
+    workItems?: Array<{
+      id: string;
+      stepId: string;
+      name: string;
+      description?: string;
+      requirement: 'required' | 'optional' | 'conditional';
+      condition?: string | null;
+      evidenceRequired?: boolean;
+      ownerRoleId?: string | null;
+    }>;
+    edges?: Array<{ fromStepId: string; toStepId: string }>;
+  },
+  validRoles?: TemplateRole[],
+): BuilderStep[] {
+  const roleIdSet = new Set(validRoles?.map((r) => r.id) || []);
+  return (schema.steps || [])
+    .slice()
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+    .map((s) => {
+      const preds = (schema.edges || [])
+        .filter((e) => e.toStepId === s.id)
+        .map((e) => e.fromStepId);
+
+      const stepWorkItems: BuilderWorkItem[] = (schema.workItems || [])
+        .filter((wi) => wi.stepId === s.id)
+        .map((wi) => {
+          const rawRole = wi.ownerRoleId || undefined;
+          const safeRole =
+            rawRole && (roleIdSet.size === 0 || roleIdSet.has(rawRole))
+              ? rawRole
+              : validRoles && validRoles.length > 0
+                ? validRoles[0].id
+                : undefined;
+
+          return {
+            id: wi.id,
+            name: wi.name,
+            description: wi.description || '',
+            condition: wi.condition || '',
+            ownerRoleId: safeRole,
+            requiredRole: safeRole,
+            requirement: wi.requirement,
+            evidenceRequired: wi.evidenceRequired || false,
+          };
+        });
+
+      return {
+        id: s.id,
+        name: s.name,
+        description: s.description || '',
+        displayOrder: s.displayOrder,
+        completionRule: {
+          type:
+            (s.completionRule?.type as CompletionRuleOption) ||
+            'all-required-work-items',
+        },
+        dependencyJoinType: s.dependencyJoinType || 'ALL',
+        dependencies: preds,
+        workItems: stepWorkItems,
+      };
+    });
 }
 
 export const TemplateBuilderProvider: React.FC<{
@@ -455,6 +494,11 @@ export const TemplateBuilderProvider: React.FC<{
   const [availableCaseTypes, setAvailableCaseTypes] = useState<CaseType[]>([]);
   const [isLoadingCaseTypes, setIsLoadingCaseTypes] = useState<boolean>(true);
 
+  const [availablePresets, setAvailablePresets] = useState<
+    TemplatePresetSummary[]
+  >([]);
+  const [isLoadingPresets, setIsLoadingPresets] = useState<boolean>(true);
+
   const [caseTypeId, setCaseTypeId] = useState<string>(initialCaseTypeId || '');
   const [name, setName] = useState<string>('UK Residential Sales Progression');
   const [description, setDescription] = useState<string>(
@@ -464,9 +508,11 @@ export const TemplateBuilderProvider: React.FC<{
   const [versionNumber, setVersionNumber] = useState<number>(2);
   const [isPublished, setIsPublished] = useState<boolean>(false);
   const [steps, setSteps] = useState<BuilderStep[]>(DEFAULT_SALES_STEPS);
+  const [roles, setRoles] = useState<TemplateRole[]>(STANDARD_TEMPLATE_ROLES);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isPublishing, setIsPublishing] = useState<boolean>(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [backendDagError, setBackendDagError] = useState<string | null>(null);
 
   const refreshCaseTypes = useCallback(async () => {
     if (!isMountedRef.current) return;
@@ -494,50 +540,152 @@ export const TemplateBuilderProvider: React.FC<{
     }
   }, []);
 
+  const refreshPresets = useCallback(async () => {
+    if (!isMountedRef.current) return;
+    setIsLoadingPresets(true);
+    try {
+      const presets = await listTemplatePresets();
+      if (!isMountedRef.current) return;
+      if (presets && presets.length > 0) {
+        setAvailablePresets(presets);
+      }
+    } catch {
+      if (isMountedRef.current) {
+        setAvailablePresets([]);
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsLoadingPresets(false);
+      }
+    }
+  }, []);
+
   useEffect(() => {
-    refreshCaseTypes();
-  }, [refreshCaseTypes]);
+    void refreshCaseTypes();
+    void refreshPresets();
+  }, [refreshCaseTypes, refreshPresets]);
 
-  const selectCaseType = useCallback(
-    async (selectedId: string) => {
-      setCaseTypeId(selectedId);
-      try {
-        const ct = await getCaseType(selectedId);
-        if (ct) {
-          setName(ct.name);
-          if (ct.description) setDescription(ct.description);
-          setVersionNumber(ct.publishedVersionCount || 1);
-          setIsPublished(ct.publishedVersionCount > 0);
+  const selectCaseType = useCallback(async (selectedId: string) => {
+    setCaseTypeId(selectedId);
+    try {
+      const [ct, draft] = await Promise.all([
+        getCaseType(selectedId).catch(() => null),
+        getCaseTypeDraft(selectedId).catch(() => null),
+      ]);
 
-          // Infer steps based on name or default
-          if (ct.name.toLowerCase().includes('appraisal')) {
-            setSteps(APPRAISAL_STEPS);
-            setCategory('Valuation & Listing');
-          } else if (ct.name.toLowerCase().includes('commercial')) {
-            setSteps(COMMERCIAL_STEPS);
-            setCategory('Commercial');
-          } else {
-            setSteps(DEFAULT_SALES_STEPS);
-            setCategory('Sales Progression');
-          }
-        }
-      } catch {
-        const matched = availableCaseTypes.find((t) => t.id === selectedId);
-        if (matched) {
-          setName(matched.name);
-          if (matched.description) setDescription(matched.description);
-          setVersionNumber(matched.publishedVersionCount || 1);
+      if (!isMountedRef.current) return;
+
+      if (ct) {
+        setName(ct.name);
+        if (ct.description) setDescription(ct.description);
+        setVersionNumber(ct.publishedVersionCount || 1);
+        setIsPublished(ct.publishedVersionCount > 0);
+      }
+
+      if (draft) {
+        if (draft.name) setName(draft.name);
+        if (draft.description) setDescription(draft.description);
+        const loadedRoles =
+          draft.roles && draft.roles.length > 0
+            ? draft.roles.map((r) => ({
+                id: r.id,
+                name: r.name,
+                description: r.description || '',
+              }))
+            : STANDARD_TEMPLATE_ROLES;
+
+        setRoles(loadedRoles);
+
+        if (draft.steps && draft.steps.length > 0) {
+          const mappedSteps = mapSchemaToSteps(draft, loadedRoles);
+          setSteps(mappedSteps);
         }
       }
+    } catch (err) {
+      console.warn('Failed to load case type draft:', err);
+    }
+  }, []);
+
+  const addRole = useCallback(
+    (roleData: { name: string; description?: string }): TemplateRole => {
+      const slug = roleData.name
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+      const newRole: TemplateRole = {
+        id: `role-${slug || 'custom'}-${Date.now().toString(36)}`,
+        name: roleData.name.trim(),
+        description: roleData.description?.trim() || roleData.name.trim(),
+      };
+      setRoles((prev) => [...prev, newRole]);
+      return newRole;
     },
-    [availableCaseTypes],
+    [],
   );
+
+  const updateRole = useCallback(
+    (roleId: string, updates: Partial<TemplateRole>) => {
+      setRoles((prev) =>
+        prev.map((r) => (r.id === roleId ? { ...r, ...updates } : r)),
+      );
+    },
+    [],
+  );
+
+  const removeRole = useCallback((roleId: string) => {
+    setRoles((prev) => {
+      const nextRoles = prev.filter((r) => r.id !== roleId);
+      const fallbackId = nextRoles[0]?.id || undefined;
+      setSteps((prevSteps) =>
+        prevSteps.map((step) => ({
+          ...step,
+          workItems: step.workItems.map((wi) =>
+            wi.ownerRoleId === roleId || wi.requiredRole === roleId
+              ? {
+                  ...wi,
+                  ownerRoleId: fallbackId,
+                  requiredRole: fallbackId,
+                }
+              : wi,
+          ),
+        })),
+      );
+      return nextRoles;
+    });
+  }, []);
+
+  const loadPreset = useCallback(async (presetKey: string) => {
+    try {
+      const schema: TemplatePresetSchema = await getTemplatePreset(presetKey);
+      if (!isMountedRef.current) return;
+
+      setName(schema.name);
+      setDescription(schema.description || '');
+      setCategory(schema.category || 'Sales Progression');
+
+      const loadedRoles =
+        schema.roles && schema.roles.length > 0
+          ? schema.roles.map((r) => ({
+              id: r.id,
+              name: r.name,
+              description: r.description || '',
+            }))
+          : STANDARD_TEMPLATE_ROLES;
+
+      setRoles(loadedRoles);
+      const mappedSteps = mapSchemaToSteps(schema, loadedRoles);
+      setSteps(mappedSteps);
+    } catch (err) {
+      console.warn(`Failed to load preset '${presetKey}':`, err);
+    }
+  }, []);
 
   const createNewTemplate = useCallback(
     async (
       newName: string,
       newDesc?: string,
-      preset?: 'sales' | 'appraisal' | 'commercial',
+      presetKey?: string,
     ): Promise<string> => {
       setIsSaving(true);
       try {
@@ -553,19 +701,54 @@ export const TemplateBuilderProvider: React.FC<{
         setVersionNumber(1);
         setIsPublished(false);
 
-        let initialSteps = DEFAULT_SALES_STEPS;
-        let cat = 'Sales Progression';
-        if (preset === 'appraisal') {
-          initialSteps = APPRAISAL_STEPS;
-          cat = 'Valuation & Listing';
-        } else if (preset === 'commercial') {
-          initialSteps = COMMERCIAL_STEPS;
-          cat = 'Commercial';
+        let initialRoles: TemplateRole[] = STANDARD_TEMPLATE_ROLES;
+        let initialSteps: BuilderStep[] = [
+          {
+            id: `step-${Date.now()}-1`,
+            name: 'Initial Milestone Step',
+            description: '',
+            displayOrder: 1,
+            completionRule: { type: 'all-required-work-items' },
+            dependencyJoinType: 'ALL',
+            dependencies: [],
+            workItems: [
+              {
+                id: `wi-${Date.now()}-1`,
+                name: 'Initial required check',
+                ownerRoleId: initialRoles[0]?.id || undefined,
+                requiredRole: initialRoles[0]?.id || undefined,
+                requirement: 'required',
+              },
+            ],
+          },
+        ];
+        let initialCategory = 'Custom Workflow';
+
+        if (presetKey) {
+          try {
+            const schema = await getTemplatePreset(presetKey);
+            if (schema) {
+              initialCategory = schema.category;
+              if (schema.roles && schema.roles.length > 0) {
+                initialRoles = schema.roles.map((r) => ({
+                  id: r.id,
+                  name: r.name,
+                  description: r.description || '',
+                }));
+              }
+              initialSteps = mapSchemaToSteps(schema, initialRoles);
+            }
+          } catch {
+            // fallback to default
+          }
         }
+
+        setRoles(initialRoles);
         setSteps(initialSteps);
-        setCategory(cat);
+        setCategory(initialCategory);
 
         // Save initial draft immediately to the new CaseType
+        const validRoleIds = new Set(initialRoles.map((r) => r.id));
         const dto = {
           steps: initialSteps.map((s) => ({
             id: s.id,
@@ -575,16 +758,30 @@ export const TemplateBuilderProvider: React.FC<{
             dependencyJoinType: s.dependencyJoinType,
           })),
           workItems: initialSteps.flatMap((s) =>
-            s.workItems.map((wi) => ({
-              id: wi.id,
-              stepId: s.id,
-              name: wi.name,
-              requirement: wi.requirement,
-              evidenceRequired: false,
-            })),
+            s.workItems.map((wi) => {
+              const safeRole =
+                wi.ownerRoleId && validRoleIds.has(wi.ownerRoleId)
+                  ? wi.ownerRoleId
+                  : initialRoles[0]?.id || undefined;
+
+              return {
+                id: wi.id,
+                stepId: s.id,
+                name: wi.name,
+                description: wi.description?.trim() || undefined,
+                requirement: wi.requirement,
+                condition: wi.condition?.trim() || undefined,
+                ownerRoleId: safeRole,
+                evidenceRequired: wi.evidenceRequired || false,
+              };
+            }),
           ),
           edges: [],
-          roles: [],
+          roles: initialRoles.map((r) => ({
+            id: r.id,
+            name: r.name,
+            description: r.description || r.name,
+          })),
           customFields: [],
         };
 
@@ -625,31 +822,36 @@ export const TemplateBuilderProvider: React.FC<{
     [],
   );
 
-  const addStep = useCallback((initialData?: Partial<BuilderStep>) => {
-    setSteps((prev) => {
-      const nextOrder = prev.length + 1;
-      const newStep: BuilderStep = {
-        id: `ui-step-${Date.now()}`,
-        name: initialData?.name || `Step ${nextOrder}: New Milestone`,
-        description: initialData?.description || '',
-        displayOrder: nextOrder,
-        completionRule: initialData?.completionRule || {
-          type: 'all-required-work-items',
-        },
-        dependencyJoinType: initialData?.dependencyJoinType || 'ALL',
-        dependencies: initialData?.dependencies || [],
-        workItems: initialData?.workItems || [
-          {
-            id: `ui-wi-${Date.now()}-1`,
-            name: 'Initial action item',
-            requiredRole: 'Sales Progressor',
-            requirement: 'required',
+  const addStep = useCallback(
+    (initialData?: Partial<BuilderStep>) => {
+      setSteps((prev) => {
+        const nextOrder = prev.length + 1;
+        const defaultRoleId = roles[0]?.id || undefined;
+        const newStep: BuilderStep = {
+          id: `ui-step-${Date.now()}`,
+          name: initialData?.name || `Step ${nextOrder}: New Milestone`,
+          description: initialData?.description || '',
+          displayOrder: nextOrder,
+          completionRule: initialData?.completionRule || {
+            type: 'all-required-work-items',
           },
-        ],
-      };
-      return [...prev, newStep];
-    });
-  }, []);
+          dependencyJoinType: initialData?.dependencyJoinType || 'ALL',
+          dependencies: initialData?.dependencies || [],
+          workItems: initialData?.workItems || [
+            {
+              id: `ui-wi-${Date.now()}-1`,
+              name: 'Initial action item',
+              ownerRoleId: defaultRoleId,
+              requiredRole: defaultRoleId,
+              requirement: 'required',
+            },
+          ],
+        };
+        return [...prev, newStep];
+      });
+    },
+    [roles],
+  );
 
   const updateStep = useCallback(
     (stepId: string, updates: Partial<BuilderStep>) => {
@@ -697,12 +899,20 @@ export const TemplateBuilderProvider: React.FC<{
       setSteps((prev) =>
         prev.map((step) => {
           if (step.id !== stepId) return step;
+          const defaultRoleId = roles[0]?.id || undefined;
           const newWorkItem: BuilderWorkItem = {
             id: `ui-wi-${Date.now()}`,
             name: initialData?.name || 'New required action',
             description: initialData?.description || '',
             condition: initialData?.condition || '',
-            requiredRole: initialData?.requiredRole || 'Sales Progressor',
+            ownerRoleId:
+              initialData?.ownerRoleId ||
+              initialData?.requiredRole ||
+              defaultRoleId,
+            requiredRole:
+              initialData?.ownerRoleId ||
+              initialData?.requiredRole ||
+              defaultRoleId,
             requirement: initialData?.requirement || 'required',
             evidenceRequired: initialData?.evidenceRequired || false,
             isKeyDate: initialData?.isKeyDate || false,
@@ -714,7 +924,7 @@ export const TemplateBuilderProvider: React.FC<{
         }),
       );
     },
-    [],
+    [roles],
   );
 
   const updateWorkItem = useCallback(
@@ -746,8 +956,6 @@ export const TemplateBuilderProvider: React.FC<{
     );
   }, []);
 
-  const [backendDagError, setBackendDagError] = useState<string | null>(null);
-
   const checkBackendDraft = useCallback(
     async (nextSteps: BuilderStep[], nextEdges: DependencyEdge[]) => {
       let activeId = caseTypeId;
@@ -755,6 +963,14 @@ export const TemplateBuilderProvider: React.FC<{
         activeId = availableCaseTypes[0].id;
       }
       if (!activeId) return;
+
+      const validRoleIds = new Set(roles.map((r) => r.id));
+      const getValidRoleId = (roleId?: string): string | undefined => {
+        if (roleId && validRoleIds.has(roleId)) {
+          return roleId;
+        }
+        return roles[0]?.id || undefined;
+      };
 
       const dto = {
         steps: nextSteps.map((s) => ({
@@ -776,14 +992,18 @@ export const TemplateBuilderProvider: React.FC<{
                 ? wi.condition?.trim() || 'Conditional requirement'
                 : undefined,
             evidenceRequired: wi.evidenceRequired || false,
-            ownerRoleId: wi.requiredRole || undefined,
+            ownerRoleId: getValidRoleId(wi.ownerRoleId || wi.requiredRole),
           })),
         ),
         edges: nextEdges.map((e) => ({
           fromStepId: e.fromStepId,
           toStepId: e.toStepId,
         })),
-        roles: [],
+        roles: roles.map((r) => ({
+          id: r.id,
+          name: r.name,
+          description: r.description || r.name,
+        })),
         customFields: [],
       };
 
@@ -834,7 +1054,7 @@ export const TemplateBuilderProvider: React.FC<{
         }
       }
     },
-    [caseTypeId, availableCaseTypes],
+    [caseTypeId, availableCaseTypes, roles],
   );
 
   const setStepDependencies = useCallback(
@@ -876,35 +1096,15 @@ export const TemplateBuilderProvider: React.FC<{
     [],
   );
 
-  const loadPreset = useCallback(
-    (presetKey: 'sales' | 'appraisal' | 'commercial') => {
-      if (presetKey === 'sales') {
-        setName('UK Residential Sales Progression');
-        setDescription(
-          'Standard England & Wales conveyance and sales progression workflow with AML, searches, mortgage offer, and exchange.',
-        );
-        setCategory('Sales Progression');
-        setSteps(DEFAULT_SALES_STEPS);
-      } else if (presetKey === 'appraisal') {
-        setName('Market Appraisal & Valuation Flow');
-        setDescription(
-          'Lead qualification, desktop valuation, on-site physical inspection, and proposal generation flow.',
-        );
-        setCategory('Valuation & Listing');
-        setSteps(APPRAISAL_STEPS);
-      } else if (presetKey === 'commercial') {
-        setName('Commercial Property Acquisition');
-        setDescription(
-          'Commercial lease due diligence, structural survey, local planning review, and board approval.',
-        );
-        setCategory('Commercial');
-        setSteps(COMMERCIAL_STEPS);
-      }
-    },
-    [],
-  );
-
   const toBackendDraftPayload = useCallback((): BackendDraftPayload => {
+    const validRoleIds = new Set(roles.map((r) => r.id));
+    const getValidRoleId = (roleId?: string): string | undefined => {
+      if (roleId && validRoleIds.has(roleId)) {
+        return roleId;
+      }
+      return roles[0]?.id || undefined;
+    };
+
     return {
       steps: steps.map((step) => ({
         id: step.id,
@@ -913,21 +1113,26 @@ export const TemplateBuilderProvider: React.FC<{
         displayOrder: step.displayOrder,
         completionRule: { type: step.completionRule.type },
         dependencyJoinType: step.dependencyJoinType,
-        workItems: step.workItems.map((wi) => ({
-          id: wi.id,
-          name: wi.name,
-          description: wi.description || undefined,
-          condition:
-            wi.requirement === 'conditional' ? wi.condition : undefined,
-          requiredRole: wi.requiredRole,
-          requirement: wi.requirement,
-          evidenceRequired: wi.evidenceRequired || false,
-          isKeyDate: wi.isKeyDate,
-        })),
+        workItems: step.workItems.map((wi) => {
+          const safeRole = getValidRoleId(wi.ownerRoleId || wi.requiredRole);
+          return {
+            id: wi.id,
+            name: wi.name,
+            description: wi.description || undefined,
+            condition:
+              wi.requirement === 'conditional' ? wi.condition : undefined,
+            ownerRoleId: safeRole,
+            requiredRole: safeRole,
+            requirement: wi.requirement,
+            evidenceRequired: wi.evidenceRequired || false,
+            isKeyDate: wi.isKeyDate,
+          };
+        }),
       })),
       edges: edges,
+      roles: roles,
     };
-  }, [steps, edges]);
+  }, [steps, edges, roles]);
 
   const saveDraft = useCallback(async (): Promise<BackendDraftPayload> => {
     setIsSaving(true);
@@ -946,6 +1151,14 @@ export const TemplateBuilderProvider: React.FC<{
           }
         }
       }
+
+      const validRoleIds = new Set(roles.map((r) => r.id));
+      const getValidRoleId = (roleId?: string): string | undefined => {
+        if (roleId && validRoleIds.has(roleId)) {
+          return roleId;
+        }
+        return roles[0]?.id || undefined;
+      };
 
       const dto = {
         steps: steps.map((s) => ({
@@ -967,14 +1180,18 @@ export const TemplateBuilderProvider: React.FC<{
                 ? wi.condition?.trim()
                 : undefined,
             evidenceRequired: wi.evidenceRequired || false,
-            ownerRoleId: wi.requiredRole || undefined,
+            ownerRoleId: getValidRoleId(wi.ownerRoleId || wi.requiredRole),
           })),
         ),
         edges: edges.map((e) => ({
           fromStepId: e.fromStepId,
           toStepId: e.toStepId,
         })),
-        roles: [],
+        roles: roles.map((r) => ({
+          id: r.id,
+          name: r.name,
+          description: r.description || r.name,
+        })),
         customFields: [],
       };
 
@@ -996,7 +1213,7 @@ export const TemplateBuilderProvider: React.FC<{
     } finally {
       setIsSaving(false);
     }
-  }, [caseTypeId, steps, edges, toBackendDraftPayload]);
+  }, [caseTypeId, steps, edges, roles, toBackendDraftPayload]);
 
   const publishDraft = useCallback(async (): Promise<void> => {
     setIsPublishing(true);
@@ -1026,6 +1243,7 @@ export const TemplateBuilderProvider: React.FC<{
       versionNumber,
       isPublished,
       steps,
+      roles,
       edges,
       backendDagError,
       isSaving,
@@ -1033,6 +1251,8 @@ export const TemplateBuilderProvider: React.FC<{
       lastSavedAt,
       availableCaseTypes,
       isLoadingCaseTypes,
+      availablePresets,
+      isLoadingPresets,
       setCaseTypeMeta,
       selectCaseType,
       createNewTemplate,
@@ -1045,6 +1265,9 @@ export const TemplateBuilderProvider: React.FC<{
       removeWorkItem,
       setStepDependencies,
       setStepDependencyJoinType,
+      addRole,
+      updateRole,
+      removeRole,
       loadPreset,
       toBackendDraftPayload,
       saveDraft,
@@ -1059,6 +1282,7 @@ export const TemplateBuilderProvider: React.FC<{
       versionNumber,
       isPublished,
       steps,
+      roles,
       edges,
       backendDagError,
       isSaving,
@@ -1066,6 +1290,8 @@ export const TemplateBuilderProvider: React.FC<{
       lastSavedAt,
       availableCaseTypes,
       isLoadingCaseTypes,
+      availablePresets,
+      isLoadingPresets,
       setCaseTypeMeta,
       selectCaseType,
       createNewTemplate,
@@ -1078,6 +1304,9 @@ export const TemplateBuilderProvider: React.FC<{
       removeWorkItem,
       setStepDependencies,
       setStepDependencyJoinType,
+      addRole,
+      updateRole,
+      removeRole,
       loadPreset,
       toBackendDraftPayload,
       saveDraft,
