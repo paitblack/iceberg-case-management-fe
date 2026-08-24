@@ -144,11 +144,11 @@ export const CaseWorkspacePage: React.FC = () => {
     }
   };
 
-  const handleUploadDocument = async (file: File) => {
+  const handleUploadDocument = async (file: File, workItemId?: string) => {
     if (!caseId) return;
     setIsUploadingDoc(true);
     try {
-      await uploadCaseDocument(caseId, file);
+      await uploadCaseDocument(caseId, file, workItemId);
       showToast('success', `Document "${file.name}" uploaded successfully.`);
       await loadWorkspace();
     } catch (err) {
@@ -413,6 +413,7 @@ export const CaseWorkspacePage: React.FC = () => {
               <StepExecutionCard
                 key={step.id}
                 step={step}
+                documents={documentsList}
                 onStepAction={handleStepAction}
                 onWorkItemAction={handleWorkItemAction}
                 loadingStepId={loadingStepId}
@@ -426,6 +427,7 @@ export const CaseWorkspacePage: React.FC = () => {
       {activeTab === 'documents' && (
         <DocumentsTab
           documents={documentsList}
+          steps={stepsList}
           onUploadDocument={handleUploadDocument}
           isUploading={isUploadingDoc}
         />
@@ -434,6 +436,7 @@ export const CaseWorkspacePage: React.FC = () => {
       {activeTab === 'participants' && (
         <ParticipantsTab
           participants={participantsList}
+          roles={snapshot.roles || []}
           onAssignParticipant={handleAssignParticipant}
           onRemoveParticipant={handleRemoveParticipant}
           isSubmitting={isSubmittingParticipant}

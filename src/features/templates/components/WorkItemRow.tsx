@@ -7,7 +7,10 @@ import {
   AlertCircle,
   FileCheck2,
 } from 'lucide-react';
-import type { BuilderWorkItem } from '../context/TemplateBuilderContext';
+import {
+  useTemplateBuilder,
+  type BuilderWorkItem,
+} from '../context/TemplateBuilderContext';
 
 interface WorkItemRowProps {
   workItem: BuilderWorkItem;
@@ -15,25 +18,23 @@ interface WorkItemRowProps {
   onRemove: () => void;
 }
 
-const ROLES = [
-  'Sales Progressor',
-  'Listing Agent',
-  'Compliance Officer',
-  'Valuer',
-  'Branch Manager',
-  'Buyer Solicitor',
-  'Seller Solicitor',
-  'Mortgage Broker',
-  'Surveyor',
-];
-
 export const WorkItemRow: React.FC<WorkItemRowProps> = ({
   workItem,
   onUpdate,
   onRemove,
 }) => {
+  const { roles } = useTemplateBuilder();
   const isConditional = workItem.requirement === 'conditional';
   const isMissingCondition = isConditional && !workItem.condition?.trim();
+
+  const hasValidRole = Boolean(
+    workItem.ownerRoleId && roles.some((r) => r.id === workItem.ownerRoleId),
+  );
+  const selectedRoleId = hasValidRole
+    ? (workItem.ownerRoleId as string)
+    : roles.length > 0
+      ? roles[0].id
+      : '';
 
   return (
     <div
@@ -61,17 +62,23 @@ export const WorkItemRow: React.FC<WorkItemRowProps> = ({
 
         {/* Right Controls: Role, Requirement, Key Date, Delete */}
         <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-          {/* Role Selector */}
+          {/* Role Selector with value={role.id} and label={role.name} */}
           <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
             <Shield className="w-3 h-3 text-slate-400" />
             <select
-              value={workItem.requiredRole}
-              onChange={(e) => onUpdate({ requiredRole: e.target.value })}
-              className="bg-transparent text-[11px] font-medium text-slate-700 focus:outline-none cursor-pointer"
+              value={selectedRoleId}
+              onChange={(e) =>
+                onUpdate({
+                  ownerRoleId: e.target.value || undefined,
+                  requiredRole: e.target.value || undefined,
+                })
+              }
+              className="bg-transparent text-[11px] font-medium text-slate-700 focus:outline-none cursor-pointer max-w-[150px] truncate"
             >
-              {ROLES.map((role) => (
-                <option key={role} value={role}>
-                  {role}
+              {roles.length === 0 && <option value="">No roles defined</option>}
+              {roles.map((role) => (
+                <option key={role.id} value={role.id}>
+                  {role.name}
                 </option>
               ))}
             </select>
@@ -132,8 +139,8 @@ export const WorkItemRow: React.FC<WorkItemRowProps> = ({
             type="text"
             value={workItem.description || ''}
             onChange={(e) => onUpdate({ description: e.target.value })}
-            placeholder="Description / Task Scope (e.g. Formal bank mortgage offer letter must be uploaded to evidence files)"
-            className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200/90 text-xs text-slate-700 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-[#E1007A] focus:ring-1 focus:ring-[#E1007A]/20 transition-all"
+            placeholder="e.g. Formal bank mortgage offer letter must be uploaded to evidence files"
+            className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200/90 text-xs text-slate-700 placeholder:text-slate-400 placeholder:italic focus:bg-white focus:outline-none focus:border-[#E1007A] focus:ring-1 focus:ring-[#E1007A]/20 transition-all"
           />
         </div>
 

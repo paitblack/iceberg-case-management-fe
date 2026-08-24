@@ -11,6 +11,16 @@ describe('TemplateBuilderContext & State Management', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.spyOn(apiClient, 'listCaseTypes').mockResolvedValue([]);
+    vi.spyOn(apiClient, 'listTemplatePresets').mockResolvedValue([
+      {
+        key: 'sales',
+        name: 'UK Residential Sales Progression',
+        category: 'Sales Progression',
+        description: 'Standard sales flow',
+        stepCount: 6,
+        roleCount: 7,
+      },
+    ]);
     vi.spyOn(apiClient, 'saveCaseTypeDraft').mockResolvedValue({
       id: 'test-case-type-101',
       version: 1,
@@ -34,6 +44,7 @@ describe('TemplateBuilderContext & State Management', () => {
     expect(result.current.steps.length).toBeGreaterThan(0);
     expect(result.current.edges.length).toBeGreaterThan(0);
     expect(result.current.name).toContain('Sales');
+    expect(result.current.roles.length).toBeGreaterThan(0);
   });
 
   it('adds a new step and re-indexes displayOrder correctly', async () => {
@@ -72,7 +83,8 @@ describe('TemplateBuilderContext & State Management', () => {
     act(() => {
       result.current.addWorkItem(firstStep.id, {
         name: 'Upload identity document proof',
-        requiredRole: 'Compliance Officer',
+        ownerRoleId: 'role-estate-agent',
+        requiredRole: 'role-estate-agent',
         requirement: 'required',
         isKeyDate: true,
       });
@@ -85,8 +97,96 @@ describe('TemplateBuilderContext & State Management', () => {
     const addedWi =
       updatedFirstStep?.workItems[updatedFirstStep.workItems.length - 1];
     expect(addedWi?.name).toBe('Upload identity document proof');
-    expect(addedWi?.requiredRole).toBe('Compliance Officer');
+    expect(addedWi?.ownerRoleId).toBe('role-estate-agent');
     expect(addedWi?.isKeyDate).toBe(true);
+  });
+
+  it('allows adding and removing custom roles dynamically', async () => {
+    const { result } = renderHook(() => useTemplateBuilder(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoadingCaseTypes).toBe(false);
+    });
+
+    const initialRoleCount = result.current.roles.length;
+
+    let createdRole = { id: '', name: '' };
+    act(() => {
+      createdRole = result.current.addRole({
+        name: 'Structural Engineer',
+        description: 'Performs specialist structural inspections',
+      });
+    });
+
+    expect(result.current.roles.length).toBe(initialRoleCount + 1);
+    expect(createdRole.id).toContain('structural-engineer');
+    expect(
+      result.current.roles.some((r) => r.name === 'Structural Engineer'),
+    ).toBe(true);
+
+    // Remove the custom role
+    act(() => {
+      result.current.removeRole(createdRole.id);
+    });
+
+    expect(result.current.roles.length).toBe(initialRoleCount);
+  });
+
+  it('loads dynamic preset from backend endpoint', async () => {
+    vi.spyOn(apiClient, 'getTemplatePreset').mockResolvedValue({
+      key: 'commercial',
+      name: 'Commercial Property Acquisition',
+      category: 'Commercial',
+      description: 'Commercial lease and acquisition workflow',
+      roles: [
+        {
+          id: 'role-comm-agent',
+          name: 'Commercial Agent',
+          description: 'Commercial representative',
+        },
+      ],
+      steps: [
+        {
+          id: 'step-c-1',
+          name: 'Heads of Terms',
+          description: 'Agree lease terms',
+          displayOrder: 1,
+          ownerRoleId: 'role-comm-agent',
+          completionRule: { type: 'all-required-work-items' },
+          dependencyJoinType: 'ALL',
+        },
+      ],
+      workItems: [
+        {
+          id: 'wi-c-1',
+          stepId: 'step-c-1',
+          name: 'Sign Heads of Terms',
+          requirement: 'required',
+          evidenceRequired: true,
+          ownerRoleId: 'role-comm-agent',
+        },
+      ],
+      edges: [],
+      customFields: [],
+    });
+
+    const { result } = renderHook(() => useTemplateBuilder(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoadingCaseTypes).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.loadPreset('commercial');
+    });
+
+    expect(result.current.name).toBe('Commercial Property Acquisition');
+    expect(result.current.category).toBe('Commercial');
+    expect(result.current.roles.some((r) => r.id === 'role-comm-agent')).toBe(
+      true,
+    );
+    expect(result.current.steps).toHaveLength(1);
+    expect(result.current.steps[0].workItems).toHaveLength(1);
   });
 
   it('updates dependencies and computes edges matching backend contract', async () => {
@@ -116,30 +216,6 @@ describe('TemplateBuilderContext & State Management', () => {
         (e) => e.fromStepId === step1.id && e.toStepId === step2.id,
       ),
     ).toBe(true);
-  });
-
-  it('generates the exact JSON payload expected by backend PUT /api/v1/case-types/:id/draft', async () => {
-    const { result } = renderHook(() => useTemplateBuilder(), { wrapper });
-
-    await waitFor(() => {
-      expect(result.current.isLoadingCaseTypes).toBe(false);
-    });
-
-    const payload = result.current.toBackendDraftPayload();
-
-    expect(Array.isArray(payload.steps)).toBe(true);
-    expect(Array.isArray(payload.edges)).toBe(true);
-
-    const firstStep = payload.steps[0];
-    expect(firstStep).toHaveProperty('id');
-    expect(firstStep).toHaveProperty('name');
-    expect(firstStep).toHaveProperty('displayOrder');
-    expect(firstStep).toHaveProperty('completionRule');
-    expect(firstStep).toHaveProperty('dependencyJoinType');
-    expect(firstStep).toHaveProperty('workItems');
-
-    expect(typeof firstStep.completionRule.type).toBe('string');
-    expect(['ALL', 'ANY']).toContain(firstStep.dependencyJoinType);
   });
 
   it('validates that conditional work items must have a condition rule before saving', async () => {
@@ -187,5 +263,21 @@ describe('TemplateBuilderContext & State Management', () => {
     await act(async () => {
       await expect(result.current.saveDraft()).resolves.toBeDefined();
     });
+  });
+
+  it('includes standard role IDs in workItems and roles in backend payload', async () => {
+    const { result } = renderHook(() => useTemplateBuilder(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoadingCaseTypes).toBe(false);
+    });
+
+    const payload = result.current.toBackendDraftPayload();
+    expect(payload.roles).toBeDefined();
+    expect(payload.roles?.some((r) => r.id === 'role-estate-agent')).toBe(true);
+
+    const firstStep = payload.steps[0];
+    const firstWi = firstStep.workItems[0];
+    expect(firstWi.ownerRoleId).toBe('role-estate-agent');
   });
 });

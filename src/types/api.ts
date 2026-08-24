@@ -154,6 +154,87 @@ export interface CaseType {
   updatedAt: string;
 }
 
+export interface TemplatePresetSummary {
+  key: string;
+  name: string;
+  category: string;
+  description: string;
+  stepCount: number;
+  roleCount: number;
+}
+
+export interface TemplatePresetSchema {
+  key: string;
+  name: string;
+  category: string;
+  description: string;
+  roles: Array<{ id: string; name: string; description?: string }>;
+  steps: Array<{
+    id: string;
+    name: string;
+    description: string;
+    displayOrder: number;
+    ownerRoleId: string | null;
+    completionRule: { type: string };
+    dependencyJoinType: DependencyJoinType;
+  }>;
+  edges: Array<{ id?: string; fromStepId: string; toStepId: string }>;
+  workItems: Array<{
+    id: string;
+    stepId: string;
+    name: string;
+    description?: string;
+    requirement: WorkItemRequirement;
+    condition?: string;
+    evidenceRequired: boolean;
+    ownerRoleId: string | null;
+  }>;
+  customFields: Array<{
+    id: string;
+    name: string;
+    fieldType: string;
+    required: boolean;
+    options?: string[];
+  }>;
+}
+
+export interface TemplateDraftResponse {
+  id: string;
+  companyId: number;
+  caseTypeId: string;
+  name: string;
+  description: string;
+  version: number;
+  roles: Array<{ id: string; name: string; description?: string }>;
+  steps: Array<{
+    id: string;
+    name: string;
+    description: string;
+    displayOrder: number;
+    ownerRoleId: string | null;
+    completionRule: { type: string };
+    dependencyJoinType: DependencyJoinType;
+  }>;
+  workItems: Array<{
+    id: string;
+    stepId: string;
+    name: string;
+    description?: string;
+    requirement: WorkItemRequirement;
+    condition?: string | null;
+    evidenceRequired: boolean;
+    ownerRoleId: string | null;
+  }>;
+  edges: Array<{ id?: string; fromStepId: string; toStepId: string }>;
+  customFields: Array<{
+    id: string;
+    name: string;
+    fieldType: string;
+    required: boolean;
+    options?: string[];
+  }>;
+}
+
 /**
  * BFF Snapshots & View Models (PAI-15, PAI-17, PAI-18, Dashboard)
  */
@@ -295,6 +376,7 @@ export interface BffCaseDocument {
   fileSizeBytes: number;
   fileType: string;
   category: string;
+  workItemId?: string;
   uploadedAt: string;
   uploadedByName: string;
   downloadUrl?: string;
@@ -362,6 +444,7 @@ export interface BffWorkspaceSnapshot {
   targetCompletionDate?: string;
   blockers: string[];
   steps: BffWorkspaceStep[];
+  roles?: Array<{ id: string; name: string; description?: string }>;
   documents: BffCaseDocument[];
   participants: BffParticipant[];
   notes?: BffCaseNote[];

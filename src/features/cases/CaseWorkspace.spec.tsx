@@ -182,8 +182,7 @@ describe('Case Workspace Components', () => {
       />,
     );
 
-    expect(
-      screen.getByText(/David Reynolds \(Reynolds & Co Legal\)/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Seller's Conveyancer/i)).toBeInTheDocument();
+    expect(screen.getByText(/David Reynolds/i)).toBeInTheDocument();
   });
 });

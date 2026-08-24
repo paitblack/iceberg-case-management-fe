@@ -58,6 +58,7 @@ export const STANDARD_STAKEHOLDER_ROLES = [
 
 interface ParticipantsTabProps {
   participants?: BffParticipant[];
+  roles?: Array<{ id: string; name: string; description?: string }>;
   onAssignParticipant: (payload: AssignParticipantPayload) => Promise<void>;
   onRemoveParticipant: (participantId: string) => Promise<void>;
   isSubmitting?: boolean;
@@ -65,6 +66,7 @@ interface ParticipantsTabProps {
 
 export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
   participants = [],
+  roles = [],
   onAssignParticipant,
   onRemoveParticipant,
   isSubmitting = false,
@@ -72,8 +74,19 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  const availableRoles =
+    roles && roles.length > 0
+      ? roles.map((r) => ({
+          id: r.id,
+          label: r.name,
+          name: r.name,
+        }))
+      : STANDARD_STAKEHOLDER_ROLES;
+
   // Form state
-  const [roleId, setRoleId] = useState<string>('role-vendor-solicitor');
+  const [roleId, setRoleId] = useState<string>(
+    availableRoles[0]?.id || 'role-vendor-solicitor',
+  );
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -81,8 +94,17 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
   const [isPrimary, setIsPrimary] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (
+      availableRoles.length > 0 &&
+      !availableRoles.some((r) => r.id === roleId)
+    ) {
+      setRoleId(availableRoles[0].id);
+    }
+  }, [availableRoles, roleId]);
+
   const getRoleLabel = (rId: string, fallbackName?: string) => {
-    const found = STANDARD_STAKEHOLDER_ROLES.find((r) => r.id === rId);
+    const found = availableRoles.find((r) => r.id === rId);
     if (found) return found.name;
     return fallbackName || rId;
   };
@@ -333,7 +355,7 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
               onChange={(e) => setRoleId(e.target.value)}
               className="w-full rounded-xl bg-white border border-slate-200 p-2.5 text-xs font-bold text-slate-900 focus:border-[#E1007A] focus:outline-none"
             >
-              {STANDARD_STAKEHOLDER_ROLES.map((r) => (
+              {availableRoles.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.label}
                 </option>
