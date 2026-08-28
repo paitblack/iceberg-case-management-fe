@@ -185,4 +185,89 @@ describe('Case Workspace Components', () => {
     expect(screen.getByText(/Seller's Conveyancer/i)).toBeInTheDocument();
     expect(screen.getByText(/David Reynolds/i)).toBeInTheDocument();
   });
+
+  it('renders pending StepExecutionCard with locked indicator and expands to show read-only work items', async () => {
+    const mockPendingStep: BffWorkspaceStep = {
+      id: 'step-pending-1',
+      stepDefinitionId: 'step-def-pending',
+      name: 'Exchange of Contracts',
+      description: 'Formal contract exchange and deposit transfer.',
+      status: 'Pending',
+      displayOrder: 3,
+      dependencyJoinType: 'ALL',
+      dependencies: ['step-test-1'],
+      allowedActions: [],
+      workItems: [
+        {
+          id: 'wi-locked-1',
+          name: 'Deposit funds verified',
+          status: 'Pending',
+          requirement: 'required',
+          ownerRoleId: 'role-buyer-solicitor',
+          allowedActions: ['COMPLETE'],
+        },
+      ],
+    };
+
+    render(
+      <StepExecutionCard
+        step={mockPendingStep}
+        onStepAction={vi.fn()}
+        onWorkItemAction={vi.fn()}
+        loadingStepId={null}
+        loadingWorkItemId={null}
+      />,
+    );
+
+    // Header shows locked step notice
+    expect(screen.getByText('Exchange of Contracts')).toBeInTheDocument();
+    expect(screen.getByText('This step is not active yet')).toBeInTheDocument();
+
+    // Click step to expand
+    const toggleBtn = screen.getByRole('button', { name: /Expand step/i });
+    fireEvent.click(toggleBtn);
+
+    // Shows locked info banner and read-only work item
+    expect(
+      screen.getByText(
+        /Complete all prerequisite predecessor milestones to unlock task execution/i,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Deposit funds verified')).toBeInTheDocument();
+    expect(screen.getByText('Locked')).toBeInTheDocument();
+
+    // No complete button is rendered
+    expect(
+      screen.queryByRole('button', { name: /Complete Task/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders WorkItemExecutionRow in isReadOnly mode without action buttons', () => {
+    const mockWorkItem: BffWorkspaceWorkItem = {
+      id: 'wi-readonly-1',
+      name: 'Final Completion Statement',
+      status: 'Pending',
+      requirement: 'required',
+      ownerRoleId: 'role-estate-agent',
+      allowedActions: ['COMPLETE', 'WAIVE'],
+    };
+
+    render(
+      <WorkItemExecutionRow
+        workItem={mockWorkItem}
+        isReadOnly={true}
+        onAction={vi.fn()}
+        isLoading={false}
+      />,
+    );
+
+    expect(screen.getByText('Final Completion Statement')).toBeInTheDocument();
+    expect(screen.getByText('Locked')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Complete Task/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Waive/i }),
+    ).not.toBeInTheDocument();
+  });
 });

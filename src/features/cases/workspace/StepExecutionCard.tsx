@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   CheckCircle2,
-  Clock,
   Lock,
   ChevronDown,
   ChevronUp,
@@ -118,14 +117,19 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                     ? 'success'
                     : isInProgress
                       ? 'required'
-                      : isPending
-                        ? 'default'
-                        : 'default'
+                      : 'default'
                 }
                 size="xs"
               >
                 {step.status}
               </Badge>
+
+              {isPending && (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/70 px-2 py-0.5 rounded-md">
+                  <Lock className="w-3 h-3 text-amber-600 shrink-0" />
+                  This step is not active yet
+                </span>
+              )}
 
               {step.workItems.length > 0 && (
                 <span className="text-[11px] font-semibold text-slate-500">
@@ -174,6 +178,7 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+            aria-label={isExpanded ? 'Collapse step' : 'Expand step'}
           >
             {isExpanded ? (
               <ChevronUp className="w-4 h-4" />
@@ -187,17 +192,19 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
       {/* Expandable Work Items Section */}
       {isExpanded && (
         <div className="p-4 md:p-5 pt-0 space-y-2.5 border-t border-slate-100/80 bg-slate-50/40">
-          {isPending ? (
-            <div className="p-4 rounded-xl bg-slate-100/80 border border-slate-200 flex items-center gap-3 text-xs text-slate-500">
-              <Clock className="w-4 h-4 text-slate-400 shrink-0" />
+          {isPending && (
+            <div className="p-3.5 mt-3 rounded-xl bg-amber-50/80 border border-amber-200/80 flex items-center gap-2.5 text-xs text-amber-900 font-medium">
+              <Lock className="w-4 h-4 text-amber-600 shrink-0" />
               <span>
-                This milestone is currently locked. Complete all prerequisite
-                predecessor tasks to unlock execution.
+                This step is not active yet. Complete all prerequisite
+                predecessor milestones to unlock task execution.
               </span>
             </div>
-          ) : step.workItems.length === 0 ? (
-            <div className="p-4 rounded-xl text-center text-xs text-slate-400 bg-white border border-dashed border-slate-200">
-              No specific work items required for this step.
+          )}
+
+          {step.workItems.length === 0 ? (
+            <div className="p-4 rounded-xl text-center text-xs text-slate-400 bg-white border border-dashed border-slate-200 mt-3">
+              No specific work items defined for this step.
             </div>
           ) : (
             <div className="space-y-2 pt-3">
@@ -206,6 +213,7 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                   key={wi.id}
                   workItem={wi}
                   documents={documents}
+                  isReadOnly={isPending}
                   isLoading={loadingWorkItemId === wi.id}
                   onAction={(workItemId, action) =>
                     onWorkItemAction(step.id, workItemId, action)
