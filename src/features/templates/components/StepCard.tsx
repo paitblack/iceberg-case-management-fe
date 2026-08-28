@@ -42,6 +42,7 @@ export const StepCard: React.FC<StepCardProps> = ({
 
   return (
     <div
+      id={`step-card-${step.id}`}
       className={`iceberg-card p-5 md:p-6 space-y-4 border transition-all ${
         step.isStandalone
           ? 'border-amber-200 bg-amber-50/10 shadow-xs'

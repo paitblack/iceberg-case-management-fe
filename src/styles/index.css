@@ -106,3 +106,30 @@
 .toggle-switch.active .toggle-knob {
   transform: translateX(1.05rem);
 }
+
+/* Workflow DAG Animated Graph */
+@keyframes flowDash {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+@keyframes pulseGlow {
+  0%,
+  100% {
+    opacity: 0.8;
+    filter: drop-shadow(0 0 3px rgba(225, 0, 122, 0.4));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 8px rgba(225, 0, 122, 0.8));
+  }
+}
+
+.animate-flow-dash {
+  animation: flowDash 1.2s linear infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2s ease-in-out infinite;
+}

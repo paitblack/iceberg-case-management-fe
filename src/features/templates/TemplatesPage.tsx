@@ -5,6 +5,7 @@ import {
 } from './context/TemplateBuilderContext';
 import { TemplateSidebar } from './components/TemplateSidebar';
 import { StepCard } from './components/StepCard';
+import { WorkflowGraphPreview } from './components/WorkflowGraphPreview';
 import { Layers, Plus, ArrowDown } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 
@@ -12,7 +13,10 @@ const TemplateCanvas: React.FC = () => {
   const { steps, addStep } = useTemplateBuilder();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* Animated Live Workflow DAG Graph Preview */}
+      {steps.length > 0 && <WorkflowGraphPreview />}
+
       {/* Step Cards Flow */}
       {steps.length === 0 ? (
         <div className="p-12 text-center rounded-2xl bg-white border border-dashed border-slate-200 space-y-3 shadow-2xs">
