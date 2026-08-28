@@ -306,6 +306,28 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
               </div>
             );
           })}
+
+          {/* Add Another Stakeholder Card in Grid */}
+          <button
+            type="button"
+            onClick={() => {
+              setFormError(null);
+              setIsAddModalOpen(true);
+            }}
+            className="p-5 rounded-2xl border-2 border-dashed border-slate-200 hover:border-[#E1007A] bg-slate-50/40 hover:bg-pink-50/20 transition-all flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-[#E1007A] min-h-[140px] cursor-pointer group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 group-hover:border-pink-200 group-hover:bg-pink-50 text-slate-400 group-hover:text-[#E1007A] flex items-center justify-center shadow-2xs transition-colors">
+              <UserPlus className="w-5 h-5" />
+            </div>
+            <div className="text-center">
+              <span className="text-xs font-bold text-slate-700 group-hover:text-[#E1007A] block">
+                Assign Stakeholder
+              </span>
+              <span className="text-[10px] text-slate-400 group-hover:text-slate-500">
+                Add solicitor, buyer, seller, or agent
+              </span>
+            </div>
+          </button>
         </div>
       )}
 
