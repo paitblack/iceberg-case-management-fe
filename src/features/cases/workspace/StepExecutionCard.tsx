@@ -124,6 +124,18 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                 {step.status}
               </Badge>
 
+              {step.isStandalone && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-300/80 px-2 py-0.5 rounded-md">
+                  Standalone
+                </span>
+              )}
+
+              {step.isOptional && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md">
+                  (Optional)
+                </span>
+              )}
+
               {isPending && (
                 <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/70 px-2 py-0.5 rounded-md">
                   <Lock className="w-3 h-3 text-amber-600 shrink-0" />

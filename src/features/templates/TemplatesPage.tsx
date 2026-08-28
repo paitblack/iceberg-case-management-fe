@@ -12,40 +12,17 @@ const TemplateCanvas: React.FC = () => {
   const { steps, addStep } = useTemplateBuilder();
 
   return (
-    <div className="space-y-6">
-      {/* Canvas Top Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
-        <div>
-          <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-            <Layers className="w-4 h-4 text-[#E1007A]" />
-            Workflow Progression Canvas (DAG Node Sequence)
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Configure sequential or parallel progression steps, prerequisite
-            dependencies, and work item rules.
-          </p>
-        </div>
-
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => addStep()}
-          leftIcon={<Plus className="w-3.5 h-3.5" />}
-        >
-          Add Step
-        </Button>
-      </div>
-
+    <div className="space-y-4">
       {/* Step Cards Flow */}
       {steps.length === 0 ? (
-        <div className="p-12 text-center rounded-2xl bg-white border border-dashed border-slate-200 space-y-3">
+        <div className="p-12 text-center rounded-2xl bg-white border border-dashed border-slate-200 space-y-3 shadow-2xs">
           <Layers className="w-10 h-10 text-slate-300 mx-auto" />
           <h3 className="text-sm font-bold text-slate-700">
             No Workflow Steps Configured
           </h3>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            Click &ldquo;Add Step&rdquo; or load a quick preset from the sidebar
-            to start configuring the workflow.
+            Click &ldquo;Create First Step&rdquo; or load a quick preset from
+            the sidebar to start configuring the workflow.
           </p>
           <Button variant="primary" size="sm" onClick={() => addStep()}>
             Create First Step
@@ -65,6 +42,20 @@ const TemplateCanvas: React.FC = () => {
               )}
             </React.Fragment>
           ))}
+
+          {/* Add Step Button Below the Last Step */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => addStep()}
+              className="w-full py-4 rounded-2xl border-2 border-dashed border-slate-200 hover:border-[#E1007A] bg-white hover:bg-pink-50/20 text-slate-500 hover:text-[#E1007A] transition-all flex items-center justify-center gap-2 text-xs font-bold cursor-pointer group shadow-2xs"
+            >
+              <div className="w-6 h-6 rounded-lg bg-slate-100 border border-slate-200 group-hover:border-pink-200 group-hover:bg-pink-50 flex items-center justify-center text-slate-400 group-hover:text-[#E1007A] transition-colors">
+                <Plus className="w-4 h-4" />
+              </div>
+              <span>Add Step</span>
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -74,14 +65,14 @@ const TemplateCanvas: React.FC = () => {
 export const TemplatesPage: React.FC = () => {
   return (
     <TemplateBuilderProvider>
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start pb-12">
-        {/* Left Column: Sidebar / Settings / Toolbox (4 cols) */}
-        <div className="lg:col-span-4 sticky top-24">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start h-auto lg:h-[calc(100vh-5.5rem)]">
+        {/* Left Column: Sidebar / Settings / Toolbox (4 cols) with independent scroll */}
+        <div className="lg:col-span-4 h-full lg:overflow-y-auto lg:pr-2 custom-scrollbar">
           <TemplateSidebar />
         </div>
 
-        {/* Right Column: Main Canvas / Step Cards Flow (8 cols) */}
-        <div className="lg:col-span-8">
+        {/* Right Column: Main Canvas / Step Cards Flow (8 cols) with independent scroll */}
+        <div className="lg:col-span-8 h-full lg:overflow-y-auto lg:pr-2 custom-scrollbar pb-10">
           <TemplateCanvas />
         </div>
       </div>

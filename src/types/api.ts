@@ -106,6 +106,8 @@ export interface StepDefinition {
   displayOrder: number;
   completionRule?: CompletionRuleType;
   dependencyJoinType?: DependencyJoinType;
+  isOptional?: boolean;
+  isStandalone?: boolean;
   requirement?: WorkItemRequirement;
   workItems: WorkItemDefinition[];
   status?: StepExecutionStatus;
@@ -177,6 +179,8 @@ export interface TemplatePresetSchema {
     ownerRoleId: string | null;
     completionRule: { type: string };
     dependencyJoinType: DependencyJoinType;
+    isOptional?: boolean;
+    isStandalone?: boolean;
   }>;
   edges: Array<{ id?: string; fromStepId: string; toStepId: string }>;
   workItems: Array<{
@@ -214,6 +218,8 @@ export interface TemplateDraftResponse {
     ownerRoleId: string | null;
     completionRule: { type: string };
     dependencyJoinType: DependencyJoinType;
+    isOptional?: boolean;
+    isStandalone?: boolean;
   }>;
   workItems: Array<{
     id: string;
@@ -366,6 +372,8 @@ export interface BffWorkspaceStep {
   displayOrder: number;
   dependencyJoinType: DependencyJoinType;
   dependencies: string[];
+  isOptional?: boolean;
+  isStandalone?: boolean;
   allowedActions: StepActionType[];
   workItems: BffWorkspaceWorkItem[];
 }

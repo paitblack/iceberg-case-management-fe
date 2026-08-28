@@ -11,9 +11,21 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   snapshot,
 }) => {
   const steps = snapshot.steps || [];
-  const completedStepsCount = steps.filter(
-    (s) => s.status === 'Completed',
+  const mandatorySteps = steps.filter((s) => !s.isOptional);
+  const completedMandatorySteps = mandatorySteps.filter(
+    (s) => s.status === 'Completed' || s.status === 'Skipped',
+  );
+  const optionalStepsCount = steps.filter((s) => s.isOptional).length;
+  const completedOptionalStepsCount = steps.filter(
+    (s) => s.isOptional && (s.status === 'Completed' || s.status === 'Skipped'),
   ).length;
+
+  const progressPercentage =
+    mandatorySteps.length > 0
+      ? Math.round(
+          (completedMandatorySteps.length / mandatorySteps.length) * 100,
+        )
+      : snapshot.progressPercentage;
 
   return (
     <div className="iceberg-card p-6 space-y-5 border border-slate-200/90 shadow-xs">
@@ -87,17 +99,25 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
       {/* Progress Bar Section */}
       <div className="pt-2 border-t border-slate-100 space-y-2">
         <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <TrendingUp className="w-4 h-4 text-[#E1007A]" />
             <span className="font-bold text-slate-800">
               Workflow Progression Status
             </span>
             <span className="text-slate-500 text-[11px]">
-              ({completedStepsCount} of {steps.length} milestones complete)
+              ({completedMandatorySteps.length} of {mandatorySteps.length}{' '}
+              mandatory milestones complete
+              {progressPercentage === 100 && ' — 100% Ready'})
             </span>
+            {optionalStepsCount > 0 && (
+              <span className="text-[10px] text-slate-400 font-medium">
+                ({completedOptionalStepsCount}/{optionalStepsCount} optional
+                done)
+              </span>
+            )}
           </div>
           <span className="font-extrabold text-sm text-[#E1007A]">
-            {snapshot.progressPercentage}%
+            {progressPercentage}%
           </span>
         </div>
 
@@ -105,7 +125,7 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
         <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/80">
           <div
             className="h-full rounded-full bg-gradient-to-r from-[#E1007A] to-[#FF4B9E] transition-all duration-700 ease-out shadow-xs"
-            style={{ width: `${Math.max(snapshot.progressPercentage, 3)}%` }}
+            style={{ width: `${Math.max(progressPercentage, 3)}%` }}
           />
         </div>
       </div>
