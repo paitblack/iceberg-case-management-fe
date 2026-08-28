@@ -390,7 +390,7 @@ export const TemplateSidebar: React.FC = () => {
           </span>
           {backendDagError ? (
             <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full border border-rose-300 animate-pulse">
-              ⚠️ Backend: DAG Cycle Detected
+              Backend: DAG Cycle Detected
             </span>
           ) : (
             <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">

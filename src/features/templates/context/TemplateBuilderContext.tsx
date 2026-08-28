@@ -94,6 +94,8 @@ export interface BuilderStep {
   };
   dependencyJoinType: DependencyJoinType;
   dependencies: string[]; // predecessor step IDs
+  isOptional?: boolean;
+  isStandalone?: boolean;
   workItems: BuilderWorkItem[];
 }
 
@@ -110,6 +112,8 @@ export interface BackendDraftPayload {
     displayOrder: number;
     completionRule: { type: string };
     dependencyJoinType: DependencyJoinType;
+    isOptional?: boolean;
+    isStandalone?: boolean;
     workItems: {
       id: string;
       name: string;
@@ -181,13 +185,13 @@ interface TemplateBuilderContextValue extends TemplateBuilderState {
   saveDraft: () => Promise<BackendDraftPayload>;
   publishDraft: () => Promise<void>;
   edges: DependencyEdge[];
-  refreshCaseTypes: () => Promise<void>;
+  refreshCaseTypes: () => Promise<CaseType[]>;
 }
 
 const TemplateBuilderContext =
   createContext<TemplateBuilderContextValue | null>(null);
 
-const DEFAULT_SALES_STEPS: BuilderStep[] = [
+export const DEFAULT_SALES_STEPS: BuilderStep[] = [
   {
     id: 'step-sales-1',
     name: 'Offer Accepted & Onboarding',
@@ -414,6 +418,8 @@ function mapSchemaToSteps(
       displayOrder: number;
       completionRule?: { type: string };
       dependencyJoinType?: DependencyJoinType;
+      isOptional?: boolean;
+      isStandalone?: boolean;
     }>;
     workItems?: Array<{
       id: string;
@@ -472,7 +478,9 @@ function mapSchemaToSteps(
             'all-required-work-items',
         },
         dependencyJoinType: s.dependencyJoinType || 'ALL',
-        dependencies: preds,
+        dependencies: s.isStandalone ? [] : preds,
+        isOptional: s.isOptional ?? false,
+        isStandalone: s.isStandalone ?? false,
         workItems: stepWorkItems,
       };
     });
@@ -500,39 +508,84 @@ export const TemplateBuilderProvider: React.FC<{
   const [isLoadingPresets, setIsLoadingPresets] = useState<boolean>(true);
 
   const [caseTypeId, setCaseTypeId] = useState<string>(initialCaseTypeId || '');
-  const [name, setName] = useState<string>('UK Residential Sales Progression');
-  const [description, setDescription] = useState<string>(
-    'Standard England & Wales conveyance and sales progression workflow with AML, searches, mortgage offer, and exchange.',
-  );
-  const [category, setCategory] = useState<string>('Sales Progression');
-  const [versionNumber, setVersionNumber] = useState<number>(2);
+  const [name, setName] = useState<string>('');
+  const [description, setDescription] = useState<string>('');
+  const [category, setCategory] = useState<string>('Custom');
+  const [versionNumber, setVersionNumber] = useState<number>(1);
   const [isPublished, setIsPublished] = useState<boolean>(false);
-  const [steps, setSteps] = useState<BuilderStep[]>(DEFAULT_SALES_STEPS);
-  const [roles, setRoles] = useState<TemplateRole[]>(STANDARD_TEMPLATE_ROLES);
+  const [steps, setSteps] = useState<BuilderStep[]>([]);
+  const [roles, setRoles] = useState<TemplateRole[]>([]);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isPublishing, setIsPublishing] = useState<boolean>(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [backendDagError, setBackendDagError] = useState<string | null>(null);
 
-  const refreshCaseTypes = useCallback(async () => {
-    if (!isMountedRef.current) return;
+  const selectCaseType = useCallback(async (selectedId: string) => {
+    if (!selectedId) return;
+    setCaseTypeId(selectedId);
+    setBackendDagError(null);
+    try {
+      const [ct, draft] = await Promise.all([
+        getCaseType(selectedId).catch((e) => {
+          console.warn('Failed to getCaseType:', e);
+          return null;
+        }),
+        getCaseTypeDraft(selectedId).catch((e) => {
+          console.warn('Failed to getCaseTypeDraft:', e);
+          return null;
+        }),
+      ]);
+
+      if (!isMountedRef.current) return;
+
+      if (ct) {
+        setName(ct.name);
+        setDescription(ct.description || '');
+        setVersionNumber(ct.publishedVersionCount || 1);
+        setIsPublished(ct.publishedVersionCount > 0);
+      } else if (draft?.name) {
+        setName(draft.name);
+        if (draft.description) setDescription(draft.description);
+      }
+
+      if (draft) {
+        const loadedRoles: TemplateRole[] = (draft.roles || []).map((r) => ({
+          id: r.id,
+          name: r.name,
+          description: r.description || '',
+        }));
+
+        setRoles(loadedRoles);
+
+        if (draft.steps && draft.steps.length > 0) {
+          const mappedSteps = mapSchemaToSteps(draft, loadedRoles);
+          setSteps(mappedSteps);
+        } else {
+          setSteps([]);
+        }
+      } else if (ct) {
+        setRoles([]);
+        setSteps([]);
+      }
+    } catch (err) {
+      console.warn('Failed to load case type draft:', err);
+    }
+  }, []);
+
+  const refreshCaseTypes = useCallback(async (): Promise<CaseType[]> => {
+    if (!isMountedRef.current) return [];
     setIsLoadingCaseTypes(true);
     try {
       const types = await listCaseTypes();
-      if (!isMountedRef.current) return;
-      if (types && types.length > 0) {
-        setAvailableCaseTypes(types);
-        setCaseTypeId((prevId) => {
-          if (!prevId || !types.some((t) => t.id === prevId)) {
-            return types[0].id;
-          }
-          return prevId;
-        });
-      }
+      if (!isMountedRef.current) return [];
+      const safeTypes = types || [];
+      setAvailableCaseTypes(safeTypes);
+      return safeTypes;
     } catch {
       if (isMountedRef.current) {
         setAvailableCaseTypes([]);
       }
+      return [];
     } finally {
       if (isMountedRef.current) {
         setIsLoadingCaseTypes(false);
@@ -540,19 +593,22 @@ export const TemplateBuilderProvider: React.FC<{
     }
   }, []);
 
-  const refreshPresets = useCallback(async () => {
-    if (!isMountedRef.current) return;
+  const refreshPresets = useCallback(async (): Promise<
+    TemplatePresetSummary[]
+  > => {
+    if (!isMountedRef.current) return [];
     setIsLoadingPresets(true);
     try {
       const presets = await listTemplatePresets();
-      if (!isMountedRef.current) return;
-      if (presets && presets.length > 0) {
-        setAvailablePresets(presets);
-      }
+      if (!isMountedRef.current) return [];
+      const safePresets = presets || [];
+      setAvailablePresets(safePresets);
+      return safePresets;
     } catch {
       if (isMountedRef.current) {
         setAvailablePresets([]);
       }
+      return [];
     } finally {
       if (isMountedRef.current) {
         setIsLoadingPresets(false);
@@ -561,50 +617,19 @@ export const TemplateBuilderProvider: React.FC<{
   }, []);
 
   useEffect(() => {
-    void refreshCaseTypes();
-    void refreshPresets();
-  }, [refreshCaseTypes, refreshPresets]);
-
-  const selectCaseType = useCallback(async (selectedId: string) => {
-    setCaseTypeId(selectedId);
-    try {
-      const [ct, draft] = await Promise.all([
-        getCaseType(selectedId).catch(() => null),
-        getCaseTypeDraft(selectedId).catch(() => null),
-      ]);
-
-      if (!isMountedRef.current) return;
-
-      if (ct) {
-        setName(ct.name);
-        if (ct.description) setDescription(ct.description);
-        setVersionNumber(ct.publishedVersionCount || 1);
-        setIsPublished(ct.publishedVersionCount > 0);
+    const init = async () => {
+      const types = await refreshCaseTypes();
+      void refreshPresets();
+      if (types && types.length > 0) {
+        const targetId =
+          initialCaseTypeId && types.some((t) => t.id === initialCaseTypeId)
+            ? initialCaseTypeId
+            : types[0].id;
+        await selectCaseType(targetId);
       }
-
-      if (draft) {
-        if (draft.name) setName(draft.name);
-        if (draft.description) setDescription(draft.description);
-        const loadedRoles =
-          draft.roles && draft.roles.length > 0
-            ? draft.roles.map((r) => ({
-                id: r.id,
-                name: r.name,
-                description: r.description || '',
-              }))
-            : STANDARD_TEMPLATE_ROLES;
-
-        setRoles(loadedRoles);
-
-        if (draft.steps && draft.steps.length > 0) {
-          const mappedSteps = mapSchemaToSteps(draft, loadedRoles);
-          setSteps(mappedSteps);
-        }
-      }
-    } catch (err) {
-      console.warn('Failed to load case type draft:', err);
-    }
-  }, []);
+    };
+    void init();
+  }, [refreshCaseTypes, refreshPresets, selectCaseType, initialCaseTypeId]);
 
   const addRole = useCallback(
     (roleData: { name: string; description?: string }): TemplateRole => {
@@ -755,7 +780,10 @@ export const TemplateBuilderProvider: React.FC<{
             name: s.name,
             description: s.description || s.name,
             displayOrder: s.displayOrder,
+            completionRule: s.completionRule,
             dependencyJoinType: s.dependencyJoinType,
+            isOptional: s.isOptional ?? false,
+            isStandalone: s.isStandalone ?? false,
           })),
           workItems: initialSteps.flatMap((s) =>
             s.workItems.map((wi) => {
@@ -792,12 +820,13 @@ export const TemplateBuilderProvider: React.FC<{
         }
 
         await refreshCaseTypes();
+        await selectCaseType(newId);
         return newId;
       } finally {
         setIsSaving(false);
       }
     },
-    [refreshCaseTypes],
+    [refreshCaseTypes, selectCaseType],
   );
 
   // Compute edges automatically from step dependencies
@@ -827,6 +856,7 @@ export const TemplateBuilderProvider: React.FC<{
       setSteps((prev) => {
         const nextOrder = prev.length + 1;
         const defaultRoleId = roles[0]?.id || undefined;
+        const isStandalone = initialData?.isStandalone ?? false;
         const newStep: BuilderStep = {
           id: `ui-step-${Date.now()}`,
           name: initialData?.name || `Step ${nextOrder}: New Milestone`,
@@ -836,7 +866,9 @@ export const TemplateBuilderProvider: React.FC<{
             type: 'all-required-work-items',
           },
           dependencyJoinType: initialData?.dependencyJoinType || 'ALL',
-          dependencies: initialData?.dependencies || [],
+          dependencies: isStandalone ? [] : initialData?.dependencies || [],
+          isOptional: initialData?.isOptional ?? false,
+          isStandalone: isStandalone,
           workItems: initialData?.workItems || [
             {
               id: `ui-wi-${Date.now()}-1`,
@@ -855,11 +887,30 @@ export const TemplateBuilderProvider: React.FC<{
 
   const updateStep = useCallback(
     (stepId: string, updates: Partial<BuilderStep>) => {
-      setSteps((prev) =>
-        prev.map((step) =>
-          step.id === stepId ? { ...step, ...updates } : step,
-        ),
-      );
+      setSteps((prev) => {
+        return prev.map((step) => {
+          if (step.id === stepId) {
+            const nextIsStandalone =
+              updates.isStandalone !== undefined
+                ? updates.isStandalone
+                : step.isStandalone;
+            return {
+              ...step,
+              ...updates,
+              dependencies: nextIsStandalone
+                ? []
+                : (updates.dependencies ?? step.dependencies),
+            };
+          }
+          if (updates.isStandalone === true) {
+            return {
+              ...step,
+              dependencies: step.dependencies.filter((dep) => dep !== stepId),
+            };
+          }
+          return step;
+        });
+      });
     },
     [],
   );
@@ -958,10 +1009,7 @@ export const TemplateBuilderProvider: React.FC<{
 
   const checkBackendDraft = useCallback(
     async (nextSteps: BuilderStep[], nextEdges: DependencyEdge[]) => {
-      let activeId = caseTypeId;
-      if (!activeId && availableCaseTypes.length > 0) {
-        activeId = availableCaseTypes[0].id;
-      }
+      const activeId = caseTypeId;
       if (!activeId) return;
 
       const validRoleIds = new Set(roles.map((r) => r.id));
@@ -979,6 +1027,8 @@ export const TemplateBuilderProvider: React.FC<{
           description: s.description || s.name,
           displayOrder: s.displayOrder,
           dependencyJoinType: s.dependencyJoinType,
+          isOptional: s.isOptional ?? false,
+          isStandalone: s.isStandalone ?? false,
         })),
         workItems: nextSteps.flatMap((s) =>
           s.workItems.map((wi) => ({
@@ -1113,6 +1163,8 @@ export const TemplateBuilderProvider: React.FC<{
         displayOrder: step.displayOrder,
         completionRule: { type: step.completionRule.type },
         dependencyJoinType: step.dependencyJoinType,
+        isOptional: step.isOptional ?? false,
+        isStandalone: step.isStandalone ?? false,
         workItems: step.workItems.map((wi) => {
           const safeRole = getValidRoleId(wi.ownerRoleId || wi.requiredRole);
           return {
@@ -1167,6 +1219,8 @@ export const TemplateBuilderProvider: React.FC<{
           description: s.description || s.name,
           displayOrder: s.displayOrder,
           dependencyJoinType: s.dependencyJoinType,
+          isOptional: s.isOptional ?? false,
+          isStandalone: s.isStandalone ?? false,
         })),
         workItems: steps.flatMap((s) =>
           s.workItems.map((wi) => ({

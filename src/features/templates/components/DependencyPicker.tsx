@@ -23,8 +23,13 @@ export const DependencyPicker: React.FC<DependencyPickerProps> = ({
 }) => {
   const { backendDagError } = useTemplateBuilder();
 
-  // Candidate predecessor steps: any step except the current one
-  const candidateSteps = allSteps.filter((s) => s.id !== currentStepId);
+  const currentStep = allSteps.find((s) => s.id === currentStepId);
+  const isCurrentStepStandalone = currentStep?.isStandalone ?? false;
+
+  // Candidate predecessor steps: any step except the current one and non-standalone steps
+  const candidateSteps = allSteps.filter(
+    (s) => s.id !== currentStepId && !s.isStandalone,
+  );
 
   const toggleDependency = (stepId: string) => {
     if (selectedDependencies.includes(stepId)) {
@@ -33,6 +38,18 @@ export const DependencyPicker: React.FC<DependencyPickerProps> = ({
       onChangeDependencies([...selectedDependencies, stepId]);
     }
   };
+
+  if (isCurrentStepStandalone) {
+    return (
+      <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/90 flex items-center gap-2.5 text-xs text-amber-900 font-medium">
+        <GitMerge className="w-4 h-4 text-amber-600 shrink-0" />
+        <span>
+          <strong>Standalone Step:</strong> This step executes in parallel from
+          case start and does not connect to predecessor DAG milestones.
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="p-3.5 rounded-xl bg-slate-50/90 border border-slate-200/80 space-y-2.5">

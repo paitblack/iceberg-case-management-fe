@@ -130,6 +130,20 @@ export const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
           </div>
         </div>
 
+        {action === 'COMPLETE' && (
+          <div className="p-3 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs flex items-start gap-2.5">
+            <CheckCircle className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <p className="font-bold">Completion Eligibility</p>
+              <p className="text-[11px] text-purple-700 leading-relaxed">
+                All mandatory milestone steps are verified. Any remaining
+                optional steps will not block case closure and will be safely
+                archived.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Reason Textarea */}
         <div className="space-y-1.5">
           <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">

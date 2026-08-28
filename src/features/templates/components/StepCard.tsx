@@ -5,7 +5,7 @@ import {
   Trash2,
   Plus,
   CheckCircle2,
-  AlertTriangle,
+  HelpCircle,
 } from 'lucide-react';
 import { WorkItemRow } from './WorkItemRow';
 import { DependencyPicker } from './DependencyPicker';
@@ -38,22 +38,18 @@ export const StepCard: React.FC<StepCardProps> = ({
     setStepDependencyJoinType,
   } = useTemplateBuilder();
 
-  const isMultiStep = steps.length > 1;
-  const incomingDependenciesCount = step.dependencies.length;
-  const outgoingDependenciesCount = steps.filter((s) =>
-    s.dependencies.includes(step.id),
-  ).length;
-
-  const isStandalone =
-    isMultiStep &&
-    incomingDependenciesCount === 0 &&
-    outgoingDependenciesCount === 0;
-
-  const isInitialEntry =
-    incomingDependenciesCount === 0 && outgoingDependenciesCount > 0;
+  const isInitialEntry = !step.isStandalone && step.dependencies.length === 0;
 
   return (
-    <div className="iceberg-card p-5 md:p-6 space-y-4 border border-slate-200/90 shadow-xs hover:border-slate-300 transition-all">
+    <div
+      className={`iceberg-card p-5 md:p-6 space-y-4 border transition-all ${
+        step.isStandalone
+          ? 'border-amber-200 bg-amber-50/10 shadow-xs'
+          : step.isOptional
+            ? 'border-slate-300/80 border-dashed bg-white shadow-xs'
+            : 'border-slate-200/90 shadow-xs hover:border-slate-300'
+      }`}
+    >
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
         {/* Step Badge & Editable Title */}
@@ -70,6 +66,30 @@ export const StepCard: React.FC<StepCardProps> = ({
               className="w-full text-base font-bold text-slate-900 bg-transparent focus:outline-none focus:text-[#E1007A]"
             />
           </div>
+          {isInitialEntry && (
+            <span
+              title="This step has no incoming dependencies and is active immediately upon case creation."
+              className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0"
+            >
+              Initial Step
+            </span>
+          )}
+          {step.isStandalone && (
+            <span
+              title="This step runs in parallel outside the DAG workflow."
+              className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 shrink-0"
+            >
+              Standalone
+            </span>
+          )}
+          {step.isOptional && (
+            <span
+              title="This step is optional and not required for case completion."
+              className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200 shrink-0"
+            >
+              Optional
+            </span>
+          )}
         </div>
 
         {/* Step Actions (Move Up, Move Down, Delete) */}
@@ -105,30 +125,9 @@ export const StepCard: React.FC<StepCardProps> = ({
         </div>
       </div>
 
-      {/* Standalone Step Warning Banner */}
-      {isStandalone && (
-        <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-50/90 border border-amber-300 text-amber-900 text-xs font-semibold shadow-2xs animate-in fade-in duration-150">
-          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-          <span>
-            ⚠️ Standalone Step: This step is not connected to any prerequisite
-            or subsequent steps.
-          </span>
-        </div>
-      )}
-
-      {/* Initial Entry Step Indicator */}
-      {isInitialEntry && (
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium w-fit">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
-          <span>
-            🟢 Initial Entry Step (Active immediately upon case creation)
-          </span>
-        </div>
-      )}
-
-      {/* Description & Completion Rule Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
-        <div className="md:col-span-2 space-y-1.5">
+      {/* Description, Completion Rule & Compact Toggles Row */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 pt-1 items-end">
+        <div className="md:col-span-6 space-y-1.5">
           <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
             Step Description & Operational Scope
           </label>
@@ -143,7 +142,7 @@ export const StepCard: React.FC<StepCardProps> = ({
           />
         </div>
 
-        <div className="space-y-1.5">
+        <div className="md:col-span-3 space-y-1.5">
           <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
             Completion Rule
           </label>
@@ -166,6 +165,49 @@ export const StepCard: React.FC<StepCardProps> = ({
             </option>
             <option value="manual">Manual Authority Sign-off</option>
           </select>
+        </div>
+
+        {/* Compact Checkbox Toggles with Hover Tooltips */}
+        <div className="md:col-span-3 flex items-center gap-2 py-1">
+          <label
+            title="This step is not linked to the workflow DAG. It activates immediately upon case creation and runs in parallel."
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-all ${
+              step.isStandalone
+                ? 'bg-amber-50 text-amber-900 border-amber-300 shadow-2xs'
+                : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={step.isStandalone || false}
+              onChange={(e) =>
+                updateStep(step.id, { isStandalone: e.target.checked })
+              }
+              className="w-3.5 h-3.5 rounded text-[#E1007A] focus:ring-[#E1007A] border-slate-300 cursor-pointer"
+            />
+            <span>Standalone</span>
+            <HelpCircle className="w-3 h-3 text-slate-400 shrink-0" />
+          </label>
+
+          <label
+            title="This step is not mandatory for case completion. The case can be completed even if this step remains unfinished."
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-all ${
+              step.isOptional
+                ? 'bg-purple-50 text-purple-900 border-purple-300 shadow-2xs'
+                : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={step.isOptional || false}
+              onChange={(e) =>
+                updateStep(step.id, { isOptional: e.target.checked })
+              }
+              className="w-3.5 h-3.5 rounded text-[#E1007A] focus:ring-[#E1007A] border-slate-300 cursor-pointer"
+            />
+            <span>Optional</span>
+            <HelpCircle className="w-3 h-3 text-slate-400 shrink-0" />
+          </label>
         </div>
       </div>
 

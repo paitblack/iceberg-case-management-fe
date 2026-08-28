@@ -270,4 +270,90 @@ describe('Case Workspace Components', () => {
       screen.queryByRole('button', { name: /Waive/i }),
     ).not.toBeInTheDocument();
   });
+
+  it('renders Standalone and Optional badges on StepExecutionCard', () => {
+    const mockStandaloneOptionalStep: BffWorkspaceStep = {
+      id: 'step-standalone-1',
+      stepDefinitionId: 'step-def-sa',
+      name: 'Client AML & Identity Verification',
+      status: 'Available',
+      displayOrder: 1,
+      dependencyJoinType: 'ALL',
+      dependencies: [],
+      isStandalone: true,
+      isOptional: true,
+      allowedActions: ['COMPLETE_STEP'],
+      workItems: [],
+    };
+
+    render(
+      <StepExecutionCard
+        step={mockStandaloneOptionalStep}
+        onStepAction={vi.fn()}
+        onWorkItemAction={vi.fn()}
+        loadingStepId={null}
+        loadingWorkItemId={null}
+      />,
+    );
+
+    expect(
+      screen.getByText('Client AML & Identity Verification'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Standalone')).toBeInTheDocument();
+    expect(screen.getByText('(Optional)')).toBeInTheDocument();
+  });
+
+  it('calculates progression percentage on mandatory steps when optional steps exist', () => {
+    const snapshotWithOptionalSteps: BffWorkspaceSnapshot = {
+      ...mockSnapshot,
+      steps: [
+        {
+          id: 'step-1',
+          stepDefinitionId: 'def-1',
+          name: 'Mandatory Step 1',
+          status: 'Completed',
+          displayOrder: 1,
+          dependencyJoinType: 'ALL',
+          dependencies: [],
+          isOptional: false,
+          allowedActions: [],
+          workItems: [],
+        },
+        {
+          id: 'step-2',
+          stepDefinitionId: 'def-2',
+          name: 'Mandatory Step 2',
+          status: 'Available',
+          displayOrder: 2,
+          dependencyJoinType: 'ALL',
+          dependencies: ['step-1'],
+          isOptional: false,
+          allowedActions: [],
+          workItems: [],
+        },
+        {
+          id: 'step-3',
+          stepDefinitionId: 'def-3',
+          name: 'Optional Special Survey',
+          status: 'Pending',
+          displayOrder: 3,
+          dependencyJoinType: 'ALL',
+          dependencies: [],
+          isOptional: true,
+          isStandalone: true,
+          allowedActions: [],
+          workItems: [],
+        },
+      ],
+    };
+
+    render(<WorkspaceHeader snapshot={snapshotWithOptionalSteps} />);
+
+    // 1 of 2 mandatory steps complete = 50%
+    expect(screen.getByText('50%')).toBeInTheDocument();
+    expect(
+      screen.getByText(/1 of 2 mandatory milestones complete/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/0\/1 optional done/i)).toBeInTheDocument();
+  });
 });
