@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Check,
   CheckCircle2,
@@ -6,6 +5,7 @@ import {
   Shield,
   FileCheck,
   Slash,
+  Lock,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -18,6 +18,7 @@ import type {
 interface WorkItemExecutionRowProps {
   workItem: BffWorkspaceWorkItem;
   documents?: BffCaseDocument[];
+  isReadOnly?: boolean;
   onAction: (workItemId: string, action: WorkItemActionType) => Promise<void>;
   isLoading: boolean;
 }
@@ -58,32 +59,40 @@ function formatRoleDisplayName(role?: string, ownerRoleId?: string): string {
 export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
   workItem,
   documents = [],
+  isReadOnly = false,
   onAction,
   isLoading,
 }) => {
   const isCompleted = workItem.status === 'Completed';
   const isWaived = workItem.status === 'Waived';
 
-  const canComplete = workItem.allowedActions?.includes('COMPLETE');
-  const canWaive = workItem.allowedActions?.includes('WAIVE');
+  const canComplete =
+    !isReadOnly && workItem.allowedActions?.includes('COMPLETE');
+  const canWaive = !isReadOnly && workItem.allowedActions?.includes('WAIVE');
 
   const linkedDoc = documents.find((d) => d.workItemId === workItem.id);
 
   return (
     <div
       className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border transition-all ${
-        isCompleted
-          ? 'bg-emerald-50/40 border-emerald-200/80 text-emerald-950'
-          : isWaived
-            ? 'bg-slate-50 border-slate-200 text-slate-400 opacity-75'
-            : 'bg-white border-slate-200/90 hover:border-slate-300 shadow-2xs'
+        isReadOnly
+          ? 'bg-slate-50/70 border-slate-200 text-slate-500 opacity-80 select-none'
+          : isCompleted
+            ? 'bg-emerald-50/40 border-emerald-200/80 text-emerald-950'
+            : isWaived
+              ? 'bg-slate-50 border-slate-200 text-slate-400 opacity-75'
+              : 'bg-white border-slate-200/90 hover:border-slate-300 shadow-2xs'
       }`}
     >
       {/* Left: Status Icon + Title + Metadata */}
       <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
         {/* Status Indicator Checkmark */}
         <div className="shrink-0 mt-0.5 sm:mt-0">
-          {isCompleted ? (
+          {isReadOnly ? (
+            <div className="w-5 h-5 rounded-full border border-slate-300 bg-slate-100 flex items-center justify-center text-slate-400">
+              <Lock className="w-2.5 h-2.5 text-slate-400" />
+            </div>
+          ) : isCompleted ? (
             <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-xs">
               <Check className="w-3.5 h-3.5 stroke-[3]" />
             </div>
@@ -99,12 +108,14 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
         <div className="space-y-0.5 flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className={`text-xs font-bold ${
-                isCompleted
-                  ? 'text-slate-800'
-                  : isWaived
-                    ? 'line-through text-slate-400'
-                    : 'text-slate-900'
+              className={`text-xs ${
+                isReadOnly
+                  ? 'text-slate-600 font-semibold'
+                  : isCompleted
+                    ? 'text-slate-800 font-bold'
+                    : isWaived
+                      ? 'line-through text-slate-400'
+                      : 'text-slate-900 font-bold'
               }`}
             >
               {workItem.name || workItem.title}
@@ -231,6 +242,13 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
 
       {/* Right: Task Actions */}
       <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+        {isReadOnly && (
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 bg-slate-100/90 px-2.5 py-1 rounded-lg border border-slate-200/60">
+            <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+            <span>Locked</span>
+          </div>
+        )}
+
         {canWaive && (
           <Button
             variant="ghost"
@@ -256,13 +274,13 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
           </Button>
         )}
 
-        {isCompleted && (
+        {!isReadOnly && isCompleted && (
           <Badge variant="success" size="xs">
             ✓ Done
           </Badge>
         )}
 
-        {isWaived && (
+        {!isReadOnly && isWaived && (
           <Badge variant="default" size="xs">
             Waived
           </Badge>
