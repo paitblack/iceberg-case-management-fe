@@ -15,7 +15,7 @@ import { BlockersBanner } from './workspace/BlockersBanner';
 import { StepExecutionCard } from './workspace/StepExecutionCard';
 import { DocumentsTab } from './workspace/DocumentsTab';
 import { ParticipantsTab } from './workspace/ParticipantsTab';
-import { NotesTab } from './workspace/NotesTab';
+import { AnnouncementsTab } from './workspace/AnnouncementsTab';
 import { ChangeStatusModal } from './components/ChangeStatusModal';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Spinner';
@@ -27,6 +27,8 @@ import {
   assignCaseParticipant,
   removeCaseParticipant,
   addCaseNote,
+  createCaseAnnouncement,
+  createAnnouncementReply,
   changeCaseStatus,
   ApiError,
 } from '../../lib/api-client';
@@ -36,10 +38,12 @@ import type {
   WorkItemActionType,
   AssignParticipantPayload,
   AddCaseNotePayload,
+  CreateAnnouncementPayload,
+  CreateAnnouncementReplyPayload,
   CaseStatusAction,
 } from '../../types/api';
 
-type WorkspaceTab = 'progression' | 'documents' | 'participants' | 'timeline';
+type WorkspaceTab = 'progression' | 'documents' | 'participants' | 'announcements';
 
 export const CaseWorkspacePage: React.FC = () => {
   const { caseId = '' } = useParams<{ caseId?: string }>();
@@ -60,6 +64,9 @@ export const CaseWorkspacePage: React.FC = () => {
   const [isSubmittingParticipant, setIsSubmittingParticipant] =
     useState<boolean>(false);
   const [isSubmittingNote, setIsSubmittingNote] = useState<boolean>(false);
+  const [isPostingAnnouncement, setIsPostingAnnouncement] =
+    useState<boolean>(false);
+  const [isPostingReply, setIsPostingReply] = useState<boolean>(false);
   const [statusModalAction, setStatusModalAction] =
     useState<CaseStatusAction | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
@@ -215,7 +222,7 @@ export const CaseWorkspacePage: React.FC = () => {
         'success',
         payload.isPrivate
           ? 'Private internal note recorded.'
-          : 'Public update posted to stakeholders.',
+          : 'Step note recorded successfully.',
       );
       await loadWorkspace();
     } catch (err) {
@@ -227,6 +234,49 @@ export const CaseWorkspacePage: React.FC = () => {
       throw err;
     } finally {
       setIsSubmittingNote(false);
+    }
+  };
+
+  const handlePostAnnouncement = async (
+    payload: CreateAnnouncementPayload,
+  ) => {
+    if (!caseId) return;
+    setIsPostingAnnouncement(true);
+    try {
+      await createCaseAnnouncement(caseId, payload);
+      showToast('success', 'Announcement broadcasted to case discussions.');
+      await loadWorkspace();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        showToast('error', err.problem.detail || err.message);
+      } else {
+        showToast('error', 'Failed to broadcast announcement.');
+      }
+      throw err;
+    } finally {
+      setIsPostingAnnouncement(false);
+    }
+  };
+
+  const handlePostReply = async (
+    announcementId: string,
+    payload: CreateAnnouncementReplyPayload,
+  ) => {
+    if (!caseId) return;
+    setIsPostingReply(true);
+    try {
+      await createAnnouncementReply(caseId, announcementId, payload);
+      showToast('success', 'Reply posted to discussion thread.');
+      await loadWorkspace();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        showToast('error', err.problem.detail || err.message);
+      } else {
+        showToast('error', 'Failed to post reply.');
+      }
+      throw err;
+    } finally {
+      setIsPostingReply(false);
     }
   };
 
@@ -418,15 +468,17 @@ export const CaseWorkspacePage: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => setActiveTab('timeline')}
+          onClick={() => setActiveTab('announcements')}
           className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
-            activeTab === 'timeline'
+            activeTab === 'announcements'
               ? 'border-[#E1007A] text-[#E1007A]'
               : 'border-transparent text-slate-500 hover:text-slate-900'
           }`}
         >
           <MessageSquare className="w-4 h-4" />
-          <span>Timeline & Notes ({(snapshot.notes || []).length})</span>
+          <span>
+            Discussions & Announcements ({(snapshot.announcements || []).length})
+          </span>
         </button>
       </div>
 
@@ -450,10 +502,13 @@ export const CaseWorkspacePage: React.FC = () => {
                 key={step.id}
                 step={step}
                 documents={documentsList}
+                participants={participantsList}
                 onStepAction={handleStepAction}
                 onWorkItemAction={handleWorkItemAction}
+                onAddNote={handleAddNote}
                 loadingStepId={loadingStepId}
                 loadingWorkItemId={loadingWorkItemId}
+                isAddingNote={isSubmittingNote}
               />
             ))
           )}
@@ -479,11 +534,14 @@ export const CaseWorkspacePage: React.FC = () => {
         />
       )}
 
-      {activeTab === 'timeline' && (
-        <NotesTab
-          notes={snapshot.notes || []}
-          onAddNote={handleAddNote}
-          isSubmitting={isSubmittingNote}
+      {activeTab === 'announcements' && (
+        <AnnouncementsTab
+          announcements={snapshot.announcements || []}
+          participants={participantsList}
+          onPostAnnouncement={handlePostAnnouncement}
+          onPostReply={handlePostReply}
+          isPostingAnnouncement={isPostingAnnouncement}
+          isPostingReply={isPostingReply}
         />
       )}
 
