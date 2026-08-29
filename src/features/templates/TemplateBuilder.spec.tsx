@@ -376,4 +376,54 @@ describe('TemplateBuilderContext & State Management', () => {
     expect(payloadStep2?.isOptional).toBe(true);
     expect(payload.edges.some((e) => e.toStepId === step2.id)).toBe(false);
   });
+
+  it('manages reopenAllowedRoleIds permissions and cleans up removed roles', async () => {
+    const { result } = renderHook(() => useTemplateBuilder(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoadingCaseTypes).toBe(false);
+    });
+
+    // Configure reopen permissions for estate agent and buyer solicitor
+    act(() => {
+      result.current.setReopenAllowedRoleIds([
+        'role-estate-agent',
+        'role-buyer-solicitor',
+      ]);
+    });
+
+    expect(result.current.reopenAllowedRoleIds).toEqual([
+      'role-estate-agent',
+      'role-buyer-solicitor',
+    ]);
+
+    // Toggle role
+    act(() => {
+      result.current.toggleReopenAllowedRoleId('role-vendor-solicitor');
+    });
+    expect(result.current.reopenAllowedRoleIds).toContain(
+      'role-vendor-solicitor',
+    );
+
+    // Payload includes reopenAllowedRoleIds
+    const payload = result.current.toBackendDraftPayload();
+    expect(payload.reopenAllowedRoleIds).toEqual([
+      'role-estate-agent',
+      'role-buyer-solicitor',
+      'role-vendor-solicitor',
+    ]);
+
+    // Removing role-vendor-solicitor should automatically clean it from reopenAllowedRoleIds
+    act(() => {
+      result.current.removeRole('role-vendor-solicitor');
+    });
+
+    expect(result.current.reopenAllowedRoleIds).not.toContain(
+      'role-vendor-solicitor',
+    );
+    expect(result.current.reopenAllowedRoleIds).toEqual([
+      'role-estate-agent',
+      'role-buyer-solicitor',
+    ]);
+  });
 });

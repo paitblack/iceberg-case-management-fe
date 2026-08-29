@@ -8,6 +8,7 @@ import {
   PlayCircle,
   CheckCircle,
   XCircle,
+  RotateCcw,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import type { BffCaseItem, CaseStatusAction } from '../../../types/api';
@@ -150,6 +151,16 @@ export const CaseCard: React.FC<CaseCardProps> = ({
         {/* Quick Actions Buttons */}
         {allowedActions.length > 0 && onTriggerAction && (
           <div className="flex items-center gap-1.5 flex-wrap pt-1">
+            {allowedActions.includes('REOPEN') && (
+              <button
+                type="button"
+                onClick={(e) => handleAction(e, 'REOPEN')}
+                className="px-2 py-1 rounded-lg text-[10px] font-bold bg-pink-50 text-[#E1007A] hover:bg-pink-100 border border-[#E1007A]/30 transition-colors flex items-center gap-1"
+              >
+                <RotateCcw className="w-3 h-3" /> Reopen
+              </button>
+            )}
+
             {allowedActions.includes('RESUME') && (
               <button
                 type="button"

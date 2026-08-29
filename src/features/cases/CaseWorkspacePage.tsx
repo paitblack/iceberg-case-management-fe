@@ -16,6 +16,7 @@ import { StepExecutionCard } from './workspace/StepExecutionCard';
 import { DocumentsTab } from './workspace/DocumentsTab';
 import { ParticipantsTab } from './workspace/ParticipantsTab';
 import { NotesTab } from './workspace/NotesTab';
+import { ChangeStatusModal } from './components/ChangeStatusModal';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Spinner';
 import {
@@ -26,6 +27,7 @@ import {
   assignCaseParticipant,
   removeCaseParticipant,
   addCaseNote,
+  changeCaseStatus,
   ApiError,
 } from '../../lib/api-client';
 import type {
@@ -34,6 +36,7 @@ import type {
   WorkItemActionType,
   AssignParticipantPayload,
   AddCaseNotePayload,
+  CaseStatusAction,
 } from '../../types/api';
 
 type WorkspaceTab = 'progression' | 'documents' | 'participants' | 'timeline';
@@ -57,6 +60,9 @@ export const CaseWorkspacePage: React.FC = () => {
   const [isSubmittingParticipant, setIsSubmittingParticipant] =
     useState<boolean>(false);
   const [isSubmittingNote, setIsSubmittingNote] = useState<boolean>(false);
+  const [statusModalAction, setStatusModalAction] =
+    useState<CaseStatusAction | null>(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
 
   // Notification Toast state
   const [toastMessage, setToastMessage] = useState<{
@@ -224,6 +230,33 @@ export const CaseWorkspacePage: React.FC = () => {
     }
   };
 
+  const handleConfirmStatusChange = async (
+    targetCaseId: string,
+    action: CaseStatusAction,
+    reason?: string,
+  ) => {
+    setIsUpdatingStatus(true);
+    try {
+      await changeCaseStatus(targetCaseId, { action, reason });
+      showToast(
+        'success',
+        action === 'REOPEN'
+          ? 'Case successfully reopened and returned to Open status.'
+          : `Case status changed successfully (${action}).`,
+      );
+      await loadWorkspace();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        showToast('error', err.problem.detail || err.message);
+      } else {
+        showToast('error', 'Failed to update case status on backend.');
+      }
+      throw err;
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-28 space-y-4">
@@ -334,7 +367,10 @@ export const CaseWorkspacePage: React.FC = () => {
       )}
 
       {/* Main Workspace Header Card */}
-      <WorkspaceHeader snapshot={snapshot} />
+      <WorkspaceHeader
+        snapshot={snapshot}
+        onOpenStatusModal={(action) => setStatusModalAction(action)}
+      />
 
       {/* Blockers Alert Banner */}
       <BlockersBanner blockers={blockersList} />
@@ -450,6 +486,37 @@ export const CaseWorkspacePage: React.FC = () => {
           isSubmitting={isSubmittingNote}
         />
       )}
+
+      {/* Change Status Modal (e.g. Reopen Case) */}
+      <ChangeStatusModal
+        isOpen={statusModalAction !== null}
+        onClose={() => setStatusModalAction(null)}
+        caseItem={
+          snapshot
+            ? {
+                id: snapshot.caseId,
+                caseTypeId: snapshot.caseTypeId,
+                caseTypeName: snapshot.caseTypeName,
+                title: snapshot.title,
+                status: snapshot.status,
+                statusLabel: snapshot.status,
+                progress: {
+                  totalSteps: stepsList.length,
+                  completedSteps: stepsList.filter(
+                    (s) => s.status === 'Completed' || s.status === 'Skipped',
+                  ).length,
+                  percentage: snapshot.progressPercentage,
+                },
+                blockersCount: blockersList.length,
+                createdAt: snapshot.updatedAt,
+                allowedActions: snapshot.allowedActions || [],
+              }
+            : null
+        }
+        action={statusModalAction}
+        onConfirm={handleConfirmStatusChange}
+        isLoading={isUpdatingStatus}
+      />
     </div>
   );
 };

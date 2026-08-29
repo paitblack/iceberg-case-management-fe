@@ -356,4 +356,63 @@ describe('Case Workspace Components', () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/0\/1 optional done/i)).toBeInTheDocument();
   });
+
+  it('renders Reopen Case button on WorkspaceHeader when case is Completed and REOPEN is in allowedActions', () => {
+    const completedSnapshot: BffWorkspaceSnapshot = {
+      ...mockSnapshot,
+      status: 'Completed',
+      allowedActions: ['REOPEN'],
+    };
+
+    const handleOpenModal = vi.fn();
+    render(
+      <WorkspaceHeader
+        snapshot={completedSnapshot}
+        onOpenStatusModal={handleOpenModal}
+      />,
+    );
+
+    const reopenBtn = screen.getByRole('button', { name: /Reopen Case/i });
+    expect(reopenBtn).toBeInTheDocument();
+
+    fireEvent.click(reopenBtn);
+    expect(handleOpenModal).toHaveBeenCalledWith('REOPEN');
+  });
+
+  it('does NOT render Reopen Case button when REOPEN is not allowed for current role', () => {
+    const completedSnapshotWithoutReopen: BffWorkspaceSnapshot = {
+      ...mockSnapshot,
+      status: 'Completed',
+      allowedActions: [],
+    };
+
+    render(
+      <WorkspaceHeader
+        snapshot={completedSnapshotWithoutReopen}
+        onOpenStatusModal={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: /Reopen Case/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders reopened reason banner when case is Open and reopenReason is present', () => {
+    const reopenedSnapshot: BffWorkspaceSnapshot = {
+      ...mockSnapshot,
+      status: 'Open',
+      reopenReason:
+        'Mortgage offer renewed by bank and property chain restored.',
+    };
+
+    render(<WorkspaceHeader snapshot={reopenedSnapshot} />);
+
+    expect(screen.getByText(/This case was reopened/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Mortgage offer renewed by bank and property chain restored./i,
+      ),
+    ).toBeInTheDocument();
+  });
 });

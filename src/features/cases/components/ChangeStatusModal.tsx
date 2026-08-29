@@ -5,6 +5,8 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
+  RotateCcw,
+  Info,
 } from 'lucide-react';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
@@ -34,6 +36,9 @@ export const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
   const [reason, setReason] = useState<string>('');
 
   if (!caseItem || !action) return null;
+
+  const isReopen = action === 'REOPEN';
+  const isReasonTooShort = isReopen && reason.trim().length < 10;
 
   const getActionDetails = () => {
     switch (action) {
@@ -79,12 +84,24 @@ export const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
           reasonPlaceholder:
             'State reason for cancellation (e.g. Vendor withdrew sale)...',
         };
+      case 'REOPEN':
+        return {
+          title: 'Reopen Case',
+          description:
+            'Reopen this closed case and return its workflow progression to Open status.',
+          icon: <RotateCcw className="w-5 h-5 text-[#E1007A]" />,
+          btnText: 'Confirm Reopen',
+          btnVariant: 'primary' as const,
+          reasonPlaceholder:
+            'Please specify the reason for reopening (e.g. buyer mortgage approved, chain restored)...',
+        };
     }
   };
 
   const details = getActionDetails();
 
   const handleConfirm = async () => {
+    if (isReasonTooShort) return;
     await onConfirm(caseItem.id, action, reason.trim() || undefined);
     setReason('');
     onClose();
@@ -109,6 +126,7 @@ export const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
             variant={details.btnVariant}
             size="sm"
             isLoading={isLoading}
+            disabled={isLoading || isReasonTooShort}
             onClick={handleConfirm}
           >
             {details.btnText}
@@ -130,6 +148,20 @@ export const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
           </div>
         </div>
 
+        {isReopen && (
+          <div className="p-3 rounded-xl bg-pink-50 border border-pink-200 text-pink-900 text-xs flex items-start gap-2.5">
+            <Info className="w-4 h-4 text-[#E1007A] shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <p className="font-bold">Reopen Policy</p>
+              <p className="text-[11px] text-pink-700 leading-relaxed">
+                Reopening will return this case to 'Open' status. Completed
+                steps will remain completed, allowing you to proceed with
+                remaining steps.
+              </p>
+            </div>
+          </div>
+        )}
+
         {action === 'COMPLETE' && (
           <div className="p-3 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs flex items-start gap-2.5">
             <CheckCircle className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
@@ -147,17 +179,36 @@ export const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
         {/* Reason Textarea */}
         <div className="space-y-1.5">
           <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            {action === 'CANCEL' || action === 'HOLD'
-              ? 'Reason / Explanation (Recommended)'
-              : 'Optional Audit Notes'}
+            {isReopen ? (
+              <span className="flex items-center gap-1">
+                Reason for reopening this case{' '}
+                <span className="text-[#E1007A]">*</span>
+              </span>
+            ) : action === 'CANCEL' || action === 'HOLD' ? (
+              'Reason / Explanation (Recommended)'
+            ) : (
+              'Optional Audit Notes'
+            )}
           </label>
           <textarea
             rows={3}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder={details.reasonPlaceholder}
-            className="w-full rounded-xl bg-white border border-slate-200 p-3 text-xs text-slate-800 focus:border-[#E1007A] focus:outline-none focus:ring-2 focus:ring-[#E1007A]/15"
+            className={`w-full rounded-xl bg-white border p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 ${
+              isReasonTooShort && reason.length > 0
+                ? 'border-amber-400 focus:border-amber-500 focus:ring-amber-500/15'
+                : 'border-slate-200 focus:border-[#E1007A] focus:ring-[#E1007A]/15'
+            }`}
           />
+          {isReopen &&
+            reason.trim().length > 0 &&
+            reason.trim().length < 10 && (
+              <p className="text-[11px] text-amber-600 font-medium">
+                Please provide at least 10 characters explaining why the case is
+                being reopened ({reason.trim().length}/10).
+              </p>
+            )}
         </div>
 
         {action === 'CANCEL' && (
