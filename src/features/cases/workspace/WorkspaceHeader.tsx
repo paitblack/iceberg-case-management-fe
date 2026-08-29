@@ -1,14 +1,27 @@
 import React from 'react';
-import { MapPin, Calendar, User, Building2, TrendingUp } from 'lucide-react';
+import {
+  MapPin,
+  Calendar,
+  User,
+  Building2,
+  TrendingUp,
+  RotateCcw,
+} from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
-import type { BffWorkspaceSnapshot } from '../../../types/api';
+import { Button } from '../../../components/ui/Button';
+import type {
+  BffWorkspaceSnapshot,
+  CaseStatusAction,
+} from '../../../types/api';
 
 interface WorkspaceHeaderProps {
   snapshot: BffWorkspaceSnapshot;
+  onOpenStatusModal?: (action: CaseStatusAction) => void;
 }
 
 export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   snapshot,
+  onOpenStatusModal,
 }) => {
   const steps = snapshot.steps || [];
   const mandatorySteps = steps.filter((s) => !s.isOptional);
@@ -27,11 +40,15 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
         )
       : snapshot.progressPercentage;
 
+  const canReopen = snapshot.allowedActions?.includes('REOPEN');
+  const isClosed =
+    snapshot.status === 'Completed' || snapshot.status === 'Cancelled';
+
   return (
     <div className="iceberg-card p-6 space-y-5 border border-slate-200/90 shadow-xs">
       {/* Top Meta Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
               {snapshot.reference}
@@ -44,7 +61,8 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
               variant={
                 snapshot.status === 'Open'
                   ? 'success'
-                  : snapshot.status === 'OnHold'
+                  : snapshot.status === 'OnHold' ||
+                      snapshot.status === 'Cancelled'
                     ? 'warning'
                     : 'default'
               }
@@ -54,7 +72,7 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
             </Badge>
           </div>
 
-          <h1 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight truncate">
             {snapshot.title}
           </h1>
 
@@ -83,18 +101,45 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
           </div>
         </div>
 
-        {/* Agreed Price Highlight */}
-        {snapshot.agreedPrice !== undefined && (
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-right shrink-0">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Agreed Sale Price
-            </p>
-            <p className="text-xl font-extrabold text-slate-900">
-              £{snapshot.agreedPrice.toLocaleString('en-GB')}
+        {/* Right Section: Price & Action Buttons */}
+        <div className="flex items-center gap-3 shrink-0 flex-wrap">
+          {isClosed && canReopen && onOpenStatusModal && (
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => onOpenStatusModal('REOPEN')}
+              leftIcon={<RotateCcw className="w-4 h-4 text-[#E1007A]" />}
+              className="font-bold border-[#E1007A]/40 text-[#E1007A] hover:bg-pink-50 shadow-2xs"
+            >
+              Reopen Case
+            </Button>
+          )}
+
+          {snapshot.agreedPrice !== undefined && (
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-right shrink-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Agreed Sale Price
+              </p>
+              <p className="text-xl font-extrabold text-slate-900">
+                £{snapshot.agreedPrice.toLocaleString('en-GB')}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Reopened Notice Banner */}
+      {snapshot.status === 'Open' && snapshot.reopenReason && (
+        <div className="p-3.5 rounded-xl bg-pink-50/80 border border-pink-200 flex items-start gap-2.5 text-xs shadow-2xs">
+          <RotateCcw className="w-4 h-4 text-[#E1007A] shrink-0 mt-0.5" />
+          <div className="space-y-0.5 flex-1 min-w-0">
+            <p className="font-bold text-pink-950">This case was reopened</p>
+            <p className="text-[11px] text-pink-800 leading-relaxed">
+              <strong>Reason:</strong> {snapshot.reopenReason}
             </p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Progress Bar Section */}
       <div className="pt-2 border-t border-slate-100 space-y-2">

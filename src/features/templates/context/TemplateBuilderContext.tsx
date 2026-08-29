@@ -128,6 +128,7 @@ export interface BackendDraftPayload {
   }[];
   edges: DependencyEdge[];
   roles?: TemplateRole[];
+  reopenAllowedRoleIds?: string[];
 }
 
 interface TemplateBuilderState {
@@ -139,6 +140,7 @@ interface TemplateBuilderState {
   isPublished: boolean;
   steps: BuilderStep[];
   roles: TemplateRole[];
+  reopenAllowedRoleIds: string[];
   backendDagError: string | null;
   isSaving: boolean;
   isPublishing: boolean;
@@ -180,6 +182,8 @@ interface TemplateBuilderContextValue extends TemplateBuilderState {
   addRole: (role: { name: string; description?: string }) => TemplateRole;
   updateRole: (roleId: string, updates: Partial<TemplateRole>) => void;
   removeRole: (roleId: string) => void;
+  setReopenAllowedRoleIds: (roleIds: string[]) => void;
+  toggleReopenAllowedRoleId: (roleId: string) => void;
   loadPreset: (presetKey: string) => Promise<void>;
   toBackendDraftPayload: () => BackendDraftPayload;
   saveDraft: () => Promise<BackendDraftPayload>;
@@ -515,13 +519,28 @@ export const TemplateBuilderProvider: React.FC<{
   const [isPublished, setIsPublished] = useState<boolean>(false);
   const [steps, setSteps] = useState<BuilderStep[]>([]);
   const [roles, setRoles] = useState<TemplateRole[]>([]);
+  const [reopenAllowedRoleIds, setReopenAllowedRoleIds] = useState<string[]>(
+    [],
+  );
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isPublishing, setIsPublishing] = useState<boolean>(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [backendDagError, setBackendDagError] = useState<string | null>(null);
+  const isInitialLoadDoneRef = useRef<boolean>(false);
+  const skipNextAutoSaveRef = useRef<boolean>(true);
+
+  const toggleReopenAllowedRoleId = useCallback((roleId: string) => {
+    setReopenAllowedRoleIds((prev) =>
+      prev.includes(roleId)
+        ? prev.filter((id) => id !== roleId)
+        : [...prev, roleId],
+    );
+  }, []);
 
   const selectCaseType = useCallback(async (selectedId: string) => {
     if (!selectedId) return;
+    isInitialLoadDoneRef.current = false;
+    skipNextAutoSaveRef.current = true;
     setCaseTypeId(selectedId);
     setBackendDagError(null);
     try {
@@ -556,6 +575,7 @@ export const TemplateBuilderProvider: React.FC<{
         }));
 
         setRoles(loadedRoles);
+        setReopenAllowedRoleIds(draft.reopenAllowedRoleIds || []);
 
         if (draft.steps && draft.steps.length > 0) {
           const mappedSteps = mapSchemaToSteps(draft, loadedRoles);
@@ -566,7 +586,9 @@ export const TemplateBuilderProvider: React.FC<{
       } else if (ct) {
         setRoles([]);
         setSteps([]);
+        setReopenAllowedRoleIds([]);
       }
+      isInitialLoadDoneRef.current = true;
     } catch (err) {
       console.warn('Failed to load case type draft:', err);
     }
@@ -659,6 +681,7 @@ export const TemplateBuilderProvider: React.FC<{
   );
 
   const removeRole = useCallback((roleId: string) => {
+    setReopenAllowedRoleIds((prev) => prev.filter((id) => id !== roleId));
     setRoles((prev) => {
       const nextRoles = prev.filter((r) => r.id !== roleId);
       const fallbackId = nextRoles[0]?.id || undefined;
@@ -699,6 +722,7 @@ export const TemplateBuilderProvider: React.FC<{
           : STANDARD_TEMPLATE_ROLES;
 
       setRoles(loadedRoles);
+      setReopenAllowedRoleIds(schema.reopenAllowedRoleIds || []);
       const mappedSteps = mapSchemaToSteps(schema, loadedRoles);
       setSteps(mappedSteps);
     } catch (err) {
@@ -1055,6 +1079,9 @@ export const TemplateBuilderProvider: React.FC<{
           description: r.description || r.name,
         })),
         customFields: [],
+        reopenAllowedRoleIds: reopenAllowedRoleIds.filter((id) =>
+          validRoleIds.has(id),
+        ),
       };
 
       try {
@@ -1104,7 +1131,7 @@ export const TemplateBuilderProvider: React.FC<{
         }
       }
     },
-    [caseTypeId, availableCaseTypes, roles],
+    [caseTypeId, availableCaseTypes, roles, reopenAllowedRoleIds],
   );
 
   const setStepDependencies = useCallback(
@@ -1183,8 +1210,11 @@ export const TemplateBuilderProvider: React.FC<{
       })),
       edges: edges,
       roles: roles,
+      reopenAllowedRoleIds: reopenAllowedRoleIds.filter((id) =>
+        validRoleIds.has(id),
+      ),
     };
-  }, [steps, edges, roles]);
+  }, [steps, edges, roles, reopenAllowedRoleIds]);
 
   const saveDraft = useCallback(async (): Promise<BackendDraftPayload> => {
     setIsSaving(true);
@@ -1247,6 +1277,9 @@ export const TemplateBuilderProvider: React.FC<{
           description: r.description || r.name,
         })),
         customFields: [],
+        reopenAllowedRoleIds: reopenAllowedRoleIds.filter((id) =>
+          validRoleIds.has(id),
+        ),
       };
 
       try {
@@ -1267,7 +1300,14 @@ export const TemplateBuilderProvider: React.FC<{
     } finally {
       setIsSaving(false);
     }
-  }, [caseTypeId, steps, edges, roles, toBackendDraftPayload]);
+  }, [
+    caseTypeId,
+    steps,
+    edges,
+    roles,
+    reopenAllowedRoleIds,
+    toBackendDraftPayload,
+  ]);
 
   const publishDraft = useCallback(async (): Promise<void> => {
     setIsPublishing(true);
@@ -1288,6 +1328,20 @@ export const TemplateBuilderProvider: React.FC<{
     }
   }, [caseTypeId, saveDraft, refreshCaseTypes]);
 
+  useEffect(() => {
+    if (!caseTypeId || !isInitialLoadDoneRef.current) return;
+    if (skipNextAutoSaveRef.current) {
+      skipNextAutoSaveRef.current = false;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      void saveDraft().catch(() => {});
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [caseTypeId, steps, roles, edges, reopenAllowedRoleIds, saveDraft]);
+
   const value = useMemo(
     () => ({
       caseTypeId,
@@ -1298,6 +1352,7 @@ export const TemplateBuilderProvider: React.FC<{
       isPublished,
       steps,
       roles,
+      reopenAllowedRoleIds,
       edges,
       backendDagError,
       isSaving,
@@ -1322,6 +1377,8 @@ export const TemplateBuilderProvider: React.FC<{
       addRole,
       updateRole,
       removeRole,
+      setReopenAllowedRoleIds,
+      toggleReopenAllowedRoleId,
       loadPreset,
       toBackendDraftPayload,
       saveDraft,
@@ -1337,6 +1394,7 @@ export const TemplateBuilderProvider: React.FC<{
       isPublished,
       steps,
       roles,
+      reopenAllowedRoleIds,
       edges,
       backendDagError,
       isSaving,
@@ -1361,6 +1419,8 @@ export const TemplateBuilderProvider: React.FC<{
       addRole,
       updateRole,
       removeRole,
+      setReopenAllowedRoleIds,
+      toggleReopenAllowedRoleId,
       loadPreset,
       toBackendDraftPayload,
       saveDraft,

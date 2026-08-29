@@ -8,6 +8,7 @@ import {
   PlayCircle,
   CheckCircle,
   XCircle,
+  RotateCcw,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import type { BffCaseItem, CaseStatusAction } from '../../../types/api';
@@ -153,7 +154,17 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
       {/* Quick Actions Dropdown / Trigger */}
       <td className="py-3.5 px-4 text-right relative">
         <div className="flex items-center justify-end gap-1.5">
-          {/* Quick Action Button (Direct if RESUME or HOLD) */}
+          {/* Quick Action Button (Direct if RESUME or HOLD or REOPEN) */}
+          {allowedActions.includes('REOPEN') && (
+            <button
+              type="button"
+              onClick={(e) => handleActionClick(e, 'REOPEN')}
+              className="px-2 py-1 rounded-lg text-[10px] font-bold bg-pink-50 text-[#E1007A] hover:bg-pink-100 border border-[#E1007A]/30 transition-colors shrink-0 flex items-center gap-1"
+            >
+              <RotateCcw className="w-3 h-3" /> Reopen
+            </button>
+          )}
+
           {allowedActions.includes('RESUME') && (
             <button
               type="button"
@@ -195,6 +206,17 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
                 <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
                   Quick Actions
                 </div>
+
+                {allowedActions.includes('REOPEN') && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleActionClick(e, 'REOPEN')}
+                    className="w-full px-3 py-1.5 text-left text-xs font-semibold text-[#E1007A] hover:bg-pink-50 flex items-center gap-2"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Reopen Case</span>
+                  </button>
+                )}
 
                 {allowedActions.includes('COMPLETE') && (
                   <button

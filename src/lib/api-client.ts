@@ -17,6 +17,7 @@ import type {
   BffCaseListResponse,
   BffCaseListQueryParams,
   ChangeCaseStatusPayload,
+  CaseStatusAction,
   BffDashboardSnapshot,
   CreateCasePayload,
   CreateCaseResponse,
@@ -278,6 +279,8 @@ interface RawBffWorkspaceResponse {
     assignedProgressorName?: string;
     branchName?: string;
     targetCompletionDate?: string;
+    reopenReason?: string;
+    allowedActions?: CaseStatusAction[];
     reference?: string;
   };
   progression?: {
@@ -426,6 +429,8 @@ export async function fetchCaseWorkspace(
         c.assignedProgressorName || 'Operations Progressor',
       branchName: c.branchName || 'Central Office Branch',
       targetCompletionDate: c.targetCompletionDate,
+      reopenReason: c.reopenReason,
+      allowedActions: c.allowedActions || [],
       blockers,
       steps,
       roles: rawData.roles || [],

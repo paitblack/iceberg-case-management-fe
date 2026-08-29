@@ -28,7 +28,8 @@ export type CaseLifecycleStatus = 'Open' | 'OnHold' | 'Completed' | 'Cancelled';
 
 export type StepActionType = 'COMPLETE_STEP' | 'SKIP_STEP';
 export type WorkItemActionType = 'COMPLETE' | 'WAIVE';
-export type CaseStatusAction = 'HOLD' | 'RESUME' | 'COMPLETE' | 'CANCEL';
+export type CaseStatusAction =
+  'HOLD' | 'RESUME' | 'COMPLETE' | 'CANCEL' | 'REOPEN';
 
 export interface ChangeCaseStatusPayload {
   action: CaseStatusAction;
@@ -126,6 +127,7 @@ export interface TemplateDraft {
   edges: DependencyEdge[];
   roles: ParticipantRoleDefinition[];
   customFields: CustomFieldDefinition[];
+  reopenAllowedRoleIds?: string[];
   version: number;
 }
 
@@ -141,6 +143,7 @@ export interface TemplateVersion {
   edges: DependencyEdge[];
   roles: ParticipantRoleDefinition[];
   customFields: CustomFieldDefinition[];
+  reopenAllowedRoleIds?: string[];
   publishedByUserId: string;
   publishedAt: string;
 }
@@ -200,6 +203,7 @@ export interface TemplatePresetSchema {
     required: boolean;
     options?: string[];
   }>;
+  reopenAllowedRoleIds?: string[];
 }
 
 export interface TemplateDraftResponse {
@@ -239,6 +243,7 @@ export interface TemplateDraftResponse {
     required: boolean;
     options?: string[];
   }>;
+  reopenAllowedRoleIds?: string[];
 }
 
 /**
@@ -270,6 +275,7 @@ export interface BffCaseItem {
   blockersCount: number;
   createdAt: string;
   allowedActions: CaseStatusAction[];
+  reopenReason?: string;
   reference?: string;
   propertyAddress?: string;
   price?: number;
@@ -450,6 +456,8 @@ export interface BffWorkspaceSnapshot {
   assignedProgressorName: string;
   branchName: string;
   targetCompletionDate?: string;
+  reopenReason?: string;
+  allowedActions?: CaseStatusAction[];
   blockers: string[];
   steps: BffWorkspaceStep[];
   roles?: Array<{ id: string; name: string; description?: string }>;
