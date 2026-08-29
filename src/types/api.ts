@@ -369,6 +369,63 @@ export interface BffWorkspaceWorkItem {
   completedByUserName?: string;
 }
 
+export interface NoteSnapshot {
+  id: string;
+  caseId: string;
+  stepId?: string;
+  workItemId?: string;
+  authorId: string;
+  authorName: string;
+  authorRole: string;
+  content: string;
+  isPrivate: boolean;
+  visibleToParticipantIds: string[];
+  createdAt: string;
+}
+
+export interface AnnouncementReplySnapshot {
+  id: string;
+  parentId: string;
+  caseId: string;
+  authorId: string;
+  authorName: string;
+  authorRole: string;
+  content: string;
+  isPrivate: boolean;
+  visibleToParticipantIds: string[];
+  mentionedParticipantId?: string;
+  mentionedParticipantName?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface AnnouncementTreeSnapshot {
+  id: string;
+  caseId: string;
+  authorId: string;
+  authorName: string;
+  authorRole: string;
+  content: string;
+  isPrivate: boolean;
+  visibleToParticipantIds: string[];
+  createdAt: string;
+  updatedAt?: string;
+  replies: AnnouncementReplySnapshot[];
+}
+
+export interface CreateAnnouncementPayload {
+  content: string;
+  isPrivate: boolean;
+  visibleToParticipantIds: string[];
+}
+
+export interface CreateAnnouncementReplyPayload {
+  content: string;
+  isPrivate: boolean;
+  visibleToParticipantIds: string[];
+  mentionedParticipantId?: string;
+}
+
 export interface BffWorkspaceStep {
   id: string;
   stepDefinitionId: string;
@@ -380,6 +437,9 @@ export interface BffWorkspaceStep {
   dependencies: string[];
   isOptional?: boolean;
   isStandalone?: boolean;
+  isBlocked?: boolean;
+  blockerReason?: string;
+  notes?: NoteSnapshot[];
   allowedActions: StepActionType[];
   workItems: BffWorkspaceWorkItem[];
 }
@@ -420,22 +480,12 @@ export interface AssignParticipantPayload {
   isPrimary?: boolean;
 }
 
-export interface BffCaseNote {
-  id: string;
-  caseId: string;
-  stepId?: string;
-  workItemId?: string;
-  authorId: string;
-  authorName: string;
-  authorRole: string;
-  content: string;
-  isPrivate: boolean;
-  createdAt: string;
-}
+export type BffCaseNote = NoteSnapshot;
 
 export interface AddCaseNotePayload {
   content: string;
   isPrivate?: boolean;
+  visibleToParticipantIds?: string[];
   stepId?: string;
   workItemId?: string;
   authorName?: string;
@@ -463,7 +513,8 @@ export interface BffWorkspaceSnapshot {
   roles?: Array<{ id: string; name: string; description?: string }>;
   documents: BffCaseDocument[];
   participants: BffParticipant[];
-  notes?: BffCaseNote[];
+  notes?: NoteSnapshot[];
+  announcements?: AnnouncementTreeSnapshot[];
   updatedAt: string;
 }
 

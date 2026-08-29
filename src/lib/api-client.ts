@@ -29,7 +29,11 @@ import type {
   WorkItemRequirement,
   BffParticipant,
   AssignParticipantPayload,
-  BffCaseNote,
+  NoteSnapshot,
+  AnnouncementReplySnapshot,
+  AnnouncementTreeSnapshot,
+  CreateAnnouncementPayload,
+  CreateAnnouncementReplyPayload,
   AddCaseNotePayload,
 } from '../types/api';
 
@@ -297,6 +301,9 @@ interface RawBffWorkspaceResponse {
     displayOrder: number;
     dependencyJoinType?: DependencyJoinType;
     dependencies?: string[];
+    isBlocked?: boolean;
+    blockerReason?: string;
+    notes?: NoteSnapshot[];
     allowedActions?: StepActionType[];
     workItems?: Array<{
       id: string;
@@ -343,7 +350,8 @@ interface RawBffWorkspaceResponse {
     downloadUrl?: string;
   }>;
   participants?: BffWorkspaceSnapshot['participants'];
-  notes?: BffWorkspaceSnapshot['notes'];
+  notes?: NoteSnapshot[];
+  announcements?: AnnouncementTreeSnapshot[];
 }
 
 export async function fetchCaseWorkspace(
@@ -391,6 +399,9 @@ export async function fetchCaseWorkspace(
       displayOrder: step.displayOrder,
       dependencyJoinType: step.dependencyJoinType || 'ALL',
       dependencies: step.dependencies || [],
+      isBlocked: step.isBlocked ?? false,
+      blockerReason: step.blockerReason,
+      notes: step.notes || [],
       allowedActions: step.allowedActions || [],
       workItems: (step.workItems || []).map((wi) => ({
         id: wi.id,
@@ -437,6 +448,7 @@ export async function fetchCaseWorkspace(
       documents,
       participants: rawData.participants || [],
       notes: rawData.notes || [],
+      announcements: rawData.announcements || [],
       updatedAt: rawData.generatedAt || new Date().toISOString(),
     };
   }
@@ -567,10 +579,37 @@ export async function removeCaseParticipant(
 export async function addCaseNote(
   caseId: string,
   payload: AddCaseNotePayload,
-): Promise<BffCaseNote> {
-  return apiPost<BffCaseNote>(`/cases/${caseId}/notes`, payload);
+): Promise<NoteSnapshot> {
+  return apiPost<NoteSnapshot>(`/cases/${caseId}/notes`, payload);
 }
 
-export async function listCaseNotes(caseId: string): Promise<BffCaseNote[]> {
-  return apiGet<BffCaseNote[]>(`/cases/${caseId}/notes`);
+export async function listCaseNotes(caseId: string): Promise<NoteSnapshot[]> {
+  return apiGet<NoteSnapshot[]>(`/cases/${caseId}/notes`);
+}
+
+export async function fetchCaseAnnouncements(
+  caseId: string,
+): Promise<AnnouncementTreeSnapshot[]> {
+  return apiGet<AnnouncementTreeSnapshot[]>(`/cases/${caseId}/announcements`);
+}
+
+export async function createCaseAnnouncement(
+  caseId: string,
+  payload: CreateAnnouncementPayload,
+): Promise<AnnouncementTreeSnapshot> {
+  return apiPost<AnnouncementTreeSnapshot>(
+    `/cases/${caseId}/announcements`,
+    payload,
+  );
+}
+
+export async function createAnnouncementReply(
+  caseId: string,
+  announcementId: string,
+  payload: CreateAnnouncementReplyPayload,
+): Promise<AnnouncementReplySnapshot> {
+  return apiPost<AnnouncementReplySnapshot>(
+    `/cases/${caseId}/announcements/${announcementId}/replies`,
+    payload,
+  );
 }

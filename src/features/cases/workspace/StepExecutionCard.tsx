@@ -10,33 +10,42 @@ import {
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { WorkItemExecutionRow } from './WorkItemExecutionRow';
+import { StepNotesSection } from './StepNotesSection';
 import type {
   BffWorkspaceStep,
   BffCaseDocument,
+  BffParticipant,
   StepActionType,
   WorkItemActionType,
+  AddCaseNotePayload,
 } from '../../../types/api';
 
 interface StepExecutionCardProps {
   step: BffWorkspaceStep;
   documents?: BffCaseDocument[];
+  participants?: BffParticipant[];
   onStepAction: (stepId: string, action: StepActionType) => Promise<void>;
   onWorkItemAction: (
     stepId: string,
     workItemId: string,
     action: WorkItemActionType,
   ) => Promise<void>;
+  onAddNote?: (payload: AddCaseNotePayload) => Promise<void>;
   loadingStepId: string | null;
   loadingWorkItemId: string | null;
+  isAddingNote?: boolean;
 }
 
 export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
   step,
   documents = [],
+  participants = [],
   onStepAction,
   onWorkItemAction,
+  onAddNote,
   loadingStepId,
   loadingWorkItemId,
+  isAddingNote = false,
 }) => {
   const isCompleted = step.status === 'Completed';
   const isInProgress =
@@ -232,6 +241,20 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                   }
                 />
               ))}
+            </div>
+          )}
+
+          {/* Step Operational Notes Accordion */}
+          {onAddNote && (
+            <div className="pt-2">
+              <StepNotesSection
+                stepId={step.id}
+                stepName={step.name}
+                notes={step.notes || []}
+                participants={participants}
+                onAddNote={onAddNote}
+                isLoading={isAddingNote}
+              />
             </div>
           )}
         </div>

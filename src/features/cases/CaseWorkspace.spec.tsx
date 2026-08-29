@@ -156,7 +156,9 @@ describe('Case Workspace Components', () => {
     expect(screen.getAllByText(/Workflow Progression/i)[0]).toBeInTheDocument();
     expect(screen.getByText(/Documents & Evidence/i)).toBeInTheDocument();
     expect(screen.getByText(/Stakeholders & Solicitors/i)).toBeInTheDocument();
-    expect(screen.getByText(/Timeline & Notes/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Discussions & Announcements/i),
+    ).toBeInTheDocument();
   });
 
   it('renders WorkItemExecutionRow with dynamic assignee badge', () => {
