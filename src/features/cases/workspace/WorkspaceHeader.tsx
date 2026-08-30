@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
+import { TrafficLightBadge } from '../../../components/ui/TrafficLightBadge';
 import type {
   BffWorkspaceSnapshot,
   CaseStatusAction,
@@ -70,6 +71,11 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
             >
               {snapshot.status}
             </Badge>
+            <TrafficLightBadge
+              status={snapshot.trafficLight?.status ?? 'green'}
+              reasons={snapshot.trafficLight?.reasons ?? []}
+              size="sm"
+            />
           </div>
 
           <h1 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight truncate">

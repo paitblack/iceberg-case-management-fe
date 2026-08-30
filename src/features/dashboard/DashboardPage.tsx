@@ -14,6 +14,7 @@ import {
 import { Button } from '../../components/ui/Button';
 import { KpiCard } from './components/KpiCard';
 import { PriorityOperationsList } from './components/PriorityOperationsList';
+import { RiskOverviewWidget } from './components/RiskOverviewWidget';
 import { DashboardSkeleton } from './components/DashboardSkeleton';
 import { CreateCaseModal } from '../cases/components/CreateCaseModal';
 import { fetchDashboardSnapshot } from '../../lib/api-client';
@@ -75,21 +76,20 @@ export const DashboardPage: React.FC = () => {
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">
               Operations Portfolio Dashboard
             </h2>
-            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-              <ShieldCheck className="w-3 h-3" /> Live Engine
+            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Live Engine
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Real-time pipeline progression, critical milestone deadlines, and
-            active blocker alerts.
+          <p className="text-xs text-slate-500 mt-1">
+            Real-time pipeline progression, critical milestone deadlines, and active blocker alerts.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 self-end sm:self-center">
           <Button
             variant="secondary"
             size="sm"
@@ -105,8 +105,9 @@ export const DashboardPage: React.FC = () => {
             size="sm"
             leftIcon={<Plus className="w-3.5 h-3.5" />}
             onClick={() => setIsCreateModalOpen(true)}
+            className="font-bold shadow-md shadow-pink-500/10"
           >
-            New Workflow
+            New Case
           </Button>
         </div>
       </div>
@@ -168,17 +169,22 @@ export const DashboardPage: React.FC = () => {
             />
           </div>
 
+          {/* Portfolio Traffic Light SLA Risk Health Overview */}
+          <RiskOverviewWidget
+            riskOverview={data.riskOverview}
+            totalActiveCases={data.activeCasesCount}
+          />
+
           {/* Main Priority Operations Worklist */}
           <div className="space-y-3.5">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                <h3 className="text-sm md:text-base font-extrabold text-slate-900 flex items-center gap-2">
                   <Clock className="w-4 h-4 text-[#E1007A]" />
                   Urgent Progression & Milestone Deadlines
                 </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Critical milestones requiring progressor communication,
-                  evidence verification, or key date actions.
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Critical milestones requiring progressor communication, evidence verification, or key date actions.
                 </p>
               </div>
 
@@ -187,8 +193,9 @@ export const DashboardPage: React.FC = () => {
                 size="xs"
                 rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
                 onClick={() => navigate('/cases')}
+                className="font-bold text-xs text-[#E1007A] hover:text-[#C00068] hover:bg-pink-50"
               >
-                View Full Case Directory
+                View Full Directory
               </Button>
             </div>
 

@@ -30,6 +30,8 @@ import {
   createCaseAnnouncement,
   createAnnouncementReply,
   changeCaseStatus,
+  setStepTargetDate,
+  setWorkItemTargetDate,
   ApiError,
 } from '../../lib/api-client';
 import type {
@@ -280,6 +282,55 @@ export const CaseWorkspacePage: React.FC = () => {
     }
   };
 
+  const handleUpdateStepTargetDate = async (
+    stepId: string,
+    targetDate: string | null,
+  ) => {
+    if (!caseId) return;
+    try {
+      await setStepTargetDate(caseId, stepId, targetDate);
+      showToast(
+        'success',
+        targetDate
+          ? 'Milestone target SLA deadline updated.'
+          : 'Milestone target date cleared.',
+      );
+      await loadWorkspace();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        showToast('error', err.problem.detail || err.message);
+      } else {
+        showToast('error', 'Failed to update milestone target date.');
+      }
+      throw err;
+    }
+  };
+
+  const handleUpdateWorkItemTargetDate = async (
+    _stepId: string,
+    workItemId: string,
+    targetDate: string | null,
+  ) => {
+    if (!caseId) return;
+    try {
+      await setWorkItemTargetDate(caseId, workItemId, targetDate);
+      showToast(
+        'success',
+        targetDate
+          ? 'Task target SLA deadline updated.'
+          : 'Task target date cleared.',
+      );
+      await loadWorkspace();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        showToast('error', err.problem.detail || err.message);
+      } else {
+        showToast('error', 'Failed to update task target date.');
+      }
+      throw err;
+    }
+  };
+
   const handleConfirmStatusChange = async (
     targetCaseId: string,
     action: CaseStatusAction,
@@ -506,6 +557,8 @@ export const CaseWorkspacePage: React.FC = () => {
                 onStepAction={handleStepAction}
                 onWorkItemAction={handleWorkItemAction}
                 onAddNote={handleAddNote}
+                onUpdateStepTargetDate={handleUpdateStepTargetDate}
+                onUpdateWorkItemTargetDate={handleUpdateWorkItemTargetDate}
                 loadingStepId={loadingStepId}
                 loadingWorkItemId={loadingWorkItemId}
                 isAddingNote={isSubmittingNote}

@@ -218,17 +218,16 @@ export const CasesPage: React.FC = () => {
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">
               Case Management Directory
             </h2>
-            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+            <span className="text-xs font-bold text-[#E1007A] bg-pink-50 px-2.5 py-0.5 rounded-full border border-pink-200/70">
               {meta.totalCount} active cases
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Real-time live portfolio tracking, quick operational status
-            transitions, and progression telemetry.
+            Real-time live portfolio tracking, quick operational status transitions, and progression telemetry.
           </p>
         </div>
 
@@ -239,7 +238,7 @@ export const CasesPage: React.FC = () => {
           leftIcon={<Plus className="w-4 h-4" />}
           className="font-bold shadow-md shadow-pink-500/10 shrink-0"
         >
-          + New Case
+          New Case
         </Button>
       </div>
 
@@ -317,8 +316,9 @@ export const CasesPage: React.FC = () => {
                 <tr className="border-b border-slate-200 bg-slate-50/75 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   <th className="py-3 px-4">Case Identity & Title</th>
                   <th className="py-3 px-4">Workflow Type</th>
-                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Status & Risk</th>
                   <th className="py-3 px-4">Progression Milestone</th>
+                  <th className="py-3 px-4">Next SLA Deadline</th>
                   <th className="py-3 px-4">Progress</th>
                   <th className="py-3 px-4 text-right">Quick Actions</th>
                 </tr>

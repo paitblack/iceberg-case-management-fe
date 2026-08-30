@@ -9,8 +9,12 @@ import {
   CheckCircle,
   XCircle,
   RotateCcw,
+  Clock,
+  Home,
+  Calendar,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
+import { TrafficLightBadge } from '../../../components/ui/TrafficLightBadge';
 import type { BffCaseItem, CaseStatusAction } from '../../../types/api';
 
 interface CaseTableRowProps {
@@ -51,34 +55,64 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
     onTriggerAction(caseItem, action);
   };
 
+  const isCancelled = caseItem.status === 'Cancelled';
+  const isCompleted = caseItem.status === 'Completed';
+
   return (
     <tr
       onClick={handleClick}
-      className="hover:bg-pink-50/30 transition-colors cursor-pointer group border-b border-slate-100"
+      className="hover:bg-pink-50/20 transition-all cursor-pointer group border-b border-slate-100 last:border-b-0 relative hover:z-30"
     >
-      {/* Title & Reference */}
-      <td className="py-3.5 px-4 min-w-[220px]">
-        <div className="font-bold text-slate-900 group-hover:text-[#E1007A] transition-colors leading-snug line-clamp-1">
-          {caseItem.title}
-        </div>
-        {caseItem.reference && (
-          <div className="text-[11px] font-mono text-slate-400 mt-0.5">
-            {caseItem.reference}
+      {/* 1. Case Identity & Title */}
+      <td className="py-4 px-4 min-w-[240px]">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-pink-50 to-pink-100/60 border border-pink-200/60 text-[#E1007A] flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+            <Home className="w-4 h-4" />
           </div>
-        )}
+
+          <div className="space-y-1 min-w-0 flex-1">
+            <div className="font-extrabold text-slate-900 group-hover:text-[#E1007A] transition-colors leading-snug line-clamp-1 text-sm">
+              {caseItem.title}
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              {caseItem.reference && (
+                <span className="text-[10px] font-mono font-semibold text-slate-500 bg-slate-100/80 px-1.5 py-0.5 rounded-md border border-slate-200/60">
+                  {caseItem.reference}
+                </span>
+              )}
+              <span className="text-[10px] text-slate-400 flex items-center gap-1 font-medium">
+                <Calendar className="w-3 h-3 text-slate-400" />
+                {new Date(caseItem.createdAt).toLocaleDateString('en-GB', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                })}
+              </span>
+            </div>
+          </div>
+        </div>
       </td>
 
-      {/* Domain / Case Type */}
-      <td className="py-3.5 px-4 whitespace-nowrap">
-        <div className="flex items-center gap-1.5 text-slate-700 font-medium text-xs">
-          <Layers className="w-3.5 h-3.5 text-slate-400" />
+      {/* 2. Workflow Type */}
+      <td className="py-4 px-4 whitespace-nowrap">
+        <div className="inline-flex items-center gap-1.5 text-slate-700 font-semibold text-xs bg-slate-50 border border-slate-200/70 px-2.5 py-1 rounded-xl shadow-2xs">
+          <Layers className="w-3.5 h-3.5 text-[#E1007A]" />
           <span>{caseItem.caseTypeName}</span>
         </div>
       </td>
 
-      {/* Status & Blockers */}
-      <td className="py-3.5 px-4 whitespace-nowrap">
-        <div className="flex items-center gap-1.5">
+      {/* 3. Status & Traffic Light Risk */}
+      <td className="py-4 px-4 whitespace-nowrap relative">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {!isCancelled && !isCompleted && (
+            <TrafficLightBadge
+              status={caseItem.trafficLight?.status ?? 'green'}
+              reasons={caseItem.trafficLight?.reasons ?? []}
+              size="xs"
+            />
+          )}
+
           <Badge
             variant={
               caseItem.status === 'Open'
@@ -95,7 +129,7 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
           {isBlocked && (
             <span
               title="Progression Blocker Active"
-              className="flex items-center gap-1 text-[10px] font-extrabold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-full"
+              className="flex items-center gap-1 text-[10px] font-extrabold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full"
             >
               <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />
               {caseItem.blockersCount}
@@ -104,20 +138,20 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
         </div>
       </td>
 
-      {/* Current Progression Stage */}
-      <td className="py-3.5 px-4 min-w-[180px]">
+      {/* 4. Current Progression Stage */}
+      <td className="py-4 px-4 min-w-[200px]">
         {caseItem.currentStep ? (
           <div className="flex items-center gap-2">
             <span
-              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+              className={`w-2 h-2 rounded-full shrink-0 ${
                 caseItem.currentStep.status === 'Completed'
-                  ? 'bg-emerald-500'
+                  ? 'bg-emerald-500 shadow-xs shadow-emerald-300'
                   : caseItem.currentStep.status === 'InProgress'
-                    ? 'bg-[#E1007A]'
-                    : 'bg-slate-400'
+                    ? 'bg-[#E1007A] shadow-xs shadow-pink-300 animate-pulse'
+                    : 'bg-slate-300'
               }`}
             />
-            <span className="font-semibold text-slate-800 truncate text-xs">
+            <span className="font-bold text-slate-800 truncate text-xs">
               {caseItem.currentStep.name}
             </span>
           </div>
@@ -126,40 +160,69 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
         )}
       </td>
 
-      {/* Progress Bar */}
-      <td className="py-3.5 px-4 min-w-[140px]">
-        <div className="space-y-1">
-          <div className="flex justify-between text-[10px] text-slate-500 font-medium">
-            <span>
+      {/* 5. Next SLA Deadline */}
+      <td className="py-4 px-4 whitespace-nowrap text-xs">
+        {caseItem.sla?.targetDate ? (
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1.5">
+              {caseItem.sla.isOverdue ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md animate-pulse">
+                  <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />
+                  Overdue{' '}
+                  {caseItem.sla.overdueWorkItemCount > 0
+                    ? `(${caseItem.sla.overdueWorkItemCount})`
+                    : ''}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">
+                  <Clock className="w-2.5 h-2.5 text-emerald-600" />
+                  On Track
+                </span>
+              )}
+            </div>
+            <span className="text-[11px] text-slate-600 font-mono font-medium">
+              {new Date(caseItem.sla.targetDate).toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'short',
+              })}
+            </span>
+          </div>
+        ) : (
+          <span className="text-slate-400 text-xs italic font-normal">
+            No SLA set
+          </span>
+        )}
+      </td>
+
+      {/* 6. Progress Bar */}
+      <td className="py-4 px-4 min-w-[140px]">
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-[11px] font-medium text-slate-600">
+            <span className="font-semibold text-slate-700">
               {progress.completedSteps}/{progress.totalSteps} steps
             </span>
-            <span className="font-bold text-[#E1007A]">
+            <span className="font-extrabold text-[#E1007A]">
               {progress.percentage}%
             </span>
           </div>
-          <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/60">
             <div
-              className="h-full bg-[#E1007A] rounded-full transition-all duration-500"
+              className="h-full bg-gradient-to-r from-[#E1007A] to-[#FF4B9E] rounded-full transition-all duration-500"
               style={{ width: `${progress.percentage}%` }}
             />
           </div>
         </div>
       </td>
 
-      {/* Created Date */}
-      <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap text-xs">
-        {new Date(caseItem.createdAt).toLocaleDateString()}
-      </td>
-
-      {/* Quick Actions Dropdown / Trigger */}
-      <td className="py-3.5 px-4 text-right relative">
+      {/* 7. Quick Actions Dropdown / Trigger */}
+      <td className="py-4 px-4 text-right relative">
         <div className="flex items-center justify-end gap-1.5">
-          {/* Quick Action Button (Direct if RESUME or HOLD or REOPEN) */}
+          {/* Quick Action Buttons */}
           {allowedActions.includes('REOPEN') && (
             <button
               type="button"
               onClick={(e) => handleActionClick(e, 'REOPEN')}
-              className="px-2 py-1 rounded-lg text-[10px] font-bold bg-pink-50 text-[#E1007A] hover:bg-pink-100 border border-[#E1007A]/30 transition-colors shrink-0 flex items-center gap-1"
+              className="px-2.5 py-1 rounded-xl text-xs font-bold bg-pink-50 text-[#E1007A] hover:bg-pink-100 border border-[#E1007A]/30 transition-all shrink-0 flex items-center gap-1 shadow-2xs hover:shadow-xs"
             >
               <RotateCcw className="w-3 h-3" /> Reopen
             </button>
@@ -169,7 +232,7 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
             <button
               type="button"
               onClick={(e) => handleActionClick(e, 'RESUME')}
-              className="px-2 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors shrink-0 flex items-center gap-1"
+              className="px-2.5 py-1 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-all shrink-0 flex items-center gap-1 shadow-2xs hover:shadow-xs"
             >
               <PlayCircle className="w-3 h-3" /> Resume
             </button>
@@ -179,13 +242,13 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
             <button
               type="button"
               onClick={(e) => handleActionClick(e, 'HOLD')}
-              className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 transition-colors shrink-0 flex items-center gap-1"
+              className="px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 transition-all shrink-0 flex items-center gap-1 shadow-2xs hover:shadow-xs"
             >
               <PauseCircle className="w-3 h-3" /> Hold
             </button>
           )}
 
-          {/* More Dropdown */}
+          {/* More Menu Popover */}
           <div className="relative">
             <button
               type="button"
@@ -193,7 +256,8 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
                 e.stopPropagation();
                 setIsMenuOpen(!isMenuOpen);
               }}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              title="More Actions"
             >
               <MoreVertical className="w-4 h-4" />
             </button>
@@ -201,17 +265,17 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
             {isMenuOpen && (
               <div
                 onClick={(e) => e.stopPropagation()}
-                className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-30 animate-in fade-in"
+                className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100 ring-1 ring-black/5"
               >
-                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                  Quick Actions
+                <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                  Case Actions
                 </div>
 
                 {allowedActions.includes('REOPEN') && (
                   <button
                     type="button"
                     onClick={(e) => handleActionClick(e, 'REOPEN')}
-                    className="w-full px-3 py-1.5 text-left text-xs font-semibold text-[#E1007A] hover:bg-pink-50 flex items-center gap-2"
+                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-[#E1007A] hover:bg-pink-50 flex items-center gap-2 transition-colors"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Reopen Case</span>
@@ -222,7 +286,7 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
                   <button
                     type="button"
                     onClick={(e) => handleActionClick(e, 'COMPLETE')}
-                    className="w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
                   >
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Complete Case</span>
@@ -233,7 +297,7 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
                   <button
                     type="button"
                     onClick={(e) => handleActionClick(e, 'CANCEL')}
-                    className="w-full px-3 py-1.5 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors"
                   >
                     <XCircle className="w-3.5 h-3.5 text-rose-500" />
                     <span>Cancel Case</span>
@@ -243,10 +307,10 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
                 <button
                   type="button"
                   onClick={handleClick}
-                  className="w-full px-3 py-1.5 text-left text-xs font-semibold text-[#E1007A] hover:bg-pink-50 flex items-center gap-2 border-t border-slate-100 mt-1"
+                  className="w-full px-3.5 py-2 text-left text-xs font-bold text-[#E1007A] hover:bg-pink-50 flex items-center justify-between border-t border-slate-100 mt-1 transition-colors"
                 >
-                  <ChevronRight className="w-3.5 h-3.5" />
                   <span>Open Workspace</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             )}

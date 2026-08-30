@@ -35,6 +35,8 @@ import type {
   CreateAnnouncementPayload,
   CreateAnnouncementReplyPayload,
   AddCaseNotePayload,
+  TrafficLightData,
+  SlaStatus,
 } from '../types/api';
 
 export class ApiError extends Error {
@@ -136,6 +138,15 @@ export async function apiPut<T, B = unknown>(
   config?: AxiosRequestConfig,
 ): Promise<T> {
   const response = await apiClient.put<T>(url, data, config);
+  return response.data;
+}
+
+export async function apiPatch<T, B = unknown>(
+  url: string,
+  data: B = {} as B,
+  config?: AxiosRequestConfig,
+): Promise<T> {
+  const response = await apiClient.patch<T>(url, data, config);
   return response.data;
 }
 
@@ -290,6 +301,7 @@ interface RawBffWorkspaceResponse {
   progression?: {
     overallPercentage?: number;
     completionPercentage?: number;
+    trafficLight?: TrafficLightData;
     blockers?: Array<{ stepName?: string; reason?: string } | string>;
   };
   steps?: Array<{
@@ -303,6 +315,10 @@ interface RawBffWorkspaceResponse {
     dependencies?: string[];
     isBlocked?: boolean;
     blockerReason?: string;
+    targetDate?: string;
+    startedAt?: string;
+    completedAt?: string;
+    slaStatus?: SlaStatus;
     notes?: NoteSnapshot[];
     allowedActions?: StepActionType[];
     workItems?: Array<{
@@ -329,8 +345,11 @@ interface RawBffWorkspaceResponse {
       isKeyDate?: boolean;
       evidenceRequired?: boolean;
       allowedActions?: WorkItemActionType[];
+      targetDate?: string;
       completedAt?: string;
+      completedByUserId?: string;
       completedByUserName?: string;
+      slaStatus?: SlaStatus;
     }>;
   }>;
   roles?: Array<{
@@ -401,6 +420,10 @@ export async function fetchCaseWorkspace(
       dependencies: step.dependencies || [],
       isBlocked: step.isBlocked ?? false,
       blockerReason: step.blockerReason,
+      targetDate: step.targetDate,
+      startedAt: step.startedAt,
+      completedAt: step.completedAt,
+      slaStatus: step.slaStatus,
       notes: step.notes || [],
       allowedActions: step.allowedActions || [],
       workItems: (step.workItems || []).map((wi) => ({
@@ -420,8 +443,11 @@ export async function fetchCaseWorkspace(
         isKeyDate: wi.isKeyDate,
         evidenceRequired: wi.evidenceRequired,
         allowedActions: wi.allowedActions || [],
+        targetDate: wi.targetDate,
         completedAt: wi.completedAt,
+        completedByUserId: wi.completedByUserId,
         completedByUserName: wi.completedByUserName,
+        slaStatus: wi.slaStatus,
       })),
     }));
 
@@ -442,6 +468,7 @@ export async function fetchCaseWorkspace(
       targetCompletionDate: c.targetCompletionDate,
       reopenReason: c.reopenReason,
       allowedActions: c.allowedActions || [],
+      trafficLight: p.trafficLight,
       blockers,
       steps,
       roles: rawData.roles || [],
@@ -490,6 +517,28 @@ export async function executeWorkItemAction(
   return apiPost<{ success: boolean; resourceVersion?: number }>(
     `/cases/${caseId}/work-items/${workItemId}/action`,
     { stepId, action },
+  );
+}
+
+export async function setStepTargetDate(
+  caseId: string,
+  stepId: string,
+  targetDate: string | null,
+): Promise<{ id: string; targetDate: string | null }> {
+  return apiPatch<{ id: string; targetDate: string | null }>(
+    `/cases/${caseId}/steps/${stepId}/target-date`,
+    { targetDate },
+  );
+}
+
+export async function setWorkItemTargetDate(
+  caseId: string,
+  workItemId: string,
+  targetDate: string | null,
+): Promise<{ id: string; targetDate: string | null }> {
+  return apiPatch<{ id: string; targetDate: string | null }>(
+    `/cases/${caseId}/work-items/${workItemId}/target-date`,
+    { targetDate },
   );
 }
 
