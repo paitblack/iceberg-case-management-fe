@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
+import { SlaBadge } from '../../../components/ui/SlaBadge';
+import { InlineTargetDateEditor } from './InlineTargetDateEditor';
 import type {
   BffWorkspaceWorkItem,
   BffCaseDocument,
@@ -20,6 +22,7 @@ interface WorkItemExecutionRowProps {
   documents?: BffCaseDocument[];
   isReadOnly?: boolean;
   onAction: (workItemId: string, action: WorkItemActionType) => Promise<void>;
+  onUpdateTargetDate?: (targetDate: string | null) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -61,6 +64,7 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
   documents = [],
   isReadOnly = false,
   onAction,
+  onUpdateTargetDate,
   isLoading,
 }) => {
   const isCompleted = workItem.status === 'Completed';
@@ -173,6 +177,24 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
                   <span>Evidence Required</span>
                 </span>
               ))}
+
+            {/* SLA Badge & Target Date Selector */}
+            <SlaBadge
+              slaStatus={workItem.slaStatus}
+              targetDate={workItem.targetDate}
+              size="xs"
+              showDate={false}
+            />
+
+            {onUpdateTargetDate && (
+              <InlineTargetDateEditor
+                targetDate={workItem.targetDate}
+                onUpdateTargetDate={onUpdateTargetDate}
+                title="Task Target Date"
+                isReadOnly={isReadOnly || isCompleted || isWaived}
+                size="xs"
+              />
+            )}
           </div>
 
           {/* Optional Task Description */}

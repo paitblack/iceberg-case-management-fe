@@ -246,6 +246,21 @@ export interface TemplateDraftResponse {
   reopenAllowedRoleIds?: string[];
 }
 
+export type TrafficLightStatus = 'green' | 'amber' | 'red';
+
+export interface TrafficLightData {
+  status: TrafficLightStatus;
+  reasons: string[];
+}
+
+export type SlaStatus =
+  | 'ON_TRACK'
+  | 'AT_RISK'
+  | 'OVERDUE'
+  | 'COMPLETED_ON_TIME'
+  | 'COMPLETED_LATE'
+  | 'NONE';
+
 /**
  * BFF Snapshots & View Models (PAI-15, PAI-17, PAI-18, Dashboard)
  */
@@ -263,6 +278,12 @@ export interface BffCaseItemCurrentStep {
   statusLabel: string;
 }
 
+export interface BffCaseItemSla {
+  targetDate?: string;
+  isOverdue: boolean;
+  overdueWorkItemCount: number;
+}
+
 export interface BffCaseItem {
   id: string;
   caseTypeId: string;
@@ -272,6 +293,8 @@ export interface BffCaseItem {
   statusLabel: string;
   progress: BffCaseItemProgress;
   currentStep?: BffCaseItemCurrentStep;
+  trafficLight?: TrafficLightData;
+  sla?: BffCaseItemSla;
   blockersCount: number;
   createdAt: string;
   allowedActions: CaseStatusAction[];
@@ -319,6 +342,7 @@ export interface BffPriorityOperationItem {
   currentStepName: string;
   status: StepExecutionStatus;
   statusLabel: string;
+  trafficLight?: TrafficLightStatus;
   dueDate?: string;
   priority?: 'High' | 'Medium' | 'Low';
 }
@@ -330,11 +354,18 @@ export interface BffDashboardMetrics {
   pipelineValueCurrency: string;
 }
 
+export interface BffDashboardRiskOverview {
+  greenCases: number;
+  amberCases: number;
+  redCases: number;
+}
+
 export interface BffDashboardSnapshot {
   contractVersion: string;
   generatedAt: string;
   activeCasesCount: number;
   activeBlockersCount: number;
+  riskOverview?: BffDashboardRiskOverview;
   priorityOperations: BffPriorityOperationItem[];
   metrics: BffDashboardMetrics;
 }
@@ -365,8 +396,11 @@ export interface BffWorkspaceWorkItem {
   isKeyDate?: boolean;
   evidenceRequired?: boolean;
   allowedActions: WorkItemActionType[];
+  targetDate?: string;
   completedAt?: string;
+  completedByUserId?: string;
   completedByUserName?: string;
+  slaStatus?: SlaStatus;
 }
 
 export interface NoteSnapshot {
@@ -439,6 +473,10 @@ export interface BffWorkspaceStep {
   isStandalone?: boolean;
   isBlocked?: boolean;
   blockerReason?: string;
+  targetDate?: string;
+  startedAt?: string;
+  completedAt?: string;
+  slaStatus?: SlaStatus;
   notes?: NoteSnapshot[];
   allowedActions: StepActionType[];
   workItems: BffWorkspaceWorkItem[];
@@ -508,6 +546,7 @@ export interface BffWorkspaceSnapshot {
   targetCompletionDate?: string;
   reopenReason?: string;
   allowedActions?: CaseStatusAction[];
+  trafficLight?: TrafficLightData;
   blockers: string[];
   steps: BffWorkspaceStep[];
   roles?: Array<{ id: string; name: string; description?: string }>;

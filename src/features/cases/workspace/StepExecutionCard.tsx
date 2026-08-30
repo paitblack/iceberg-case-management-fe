@@ -9,8 +9,10 @@ import {
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
+import { SlaBadge } from '../../../components/ui/SlaBadge';
 import { WorkItemExecutionRow } from './WorkItemExecutionRow';
 import { StepNotesSection } from './StepNotesSection';
+import { InlineTargetDateEditor } from './InlineTargetDateEditor';
 import type {
   BffWorkspaceStep,
   BffCaseDocument,
@@ -31,6 +33,15 @@ interface StepExecutionCardProps {
     action: WorkItemActionType,
   ) => Promise<void>;
   onAddNote?: (payload: AddCaseNotePayload) => Promise<void>;
+  onUpdateStepTargetDate?: (
+    stepId: string,
+    targetDate: string | null,
+  ) => Promise<void>;
+  onUpdateWorkItemTargetDate?: (
+    stepId: string,
+    workItemId: string,
+    targetDate: string | null,
+  ) => Promise<void>;
   loadingStepId: string | null;
   loadingWorkItemId: string | null;
   isAddingNote?: boolean;
@@ -43,6 +54,8 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
   onStepAction,
   onWorkItemAction,
   onAddNote,
+  onUpdateStepTargetDate,
+  onUpdateWorkItemTargetDate,
   loadingStepId,
   loadingWorkItemId,
   isAddingNote = false,
@@ -157,6 +170,29 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                   {completedWorkItemsCount}/{step.workItems.length} tasks
                 </span>
               )}
+
+              {/* Step SLA Badge */}
+              <SlaBadge
+                slaStatus={step.slaStatus}
+                targetDate={step.targetDate}
+                size="xs"
+                showDate={false}
+              />
+
+              {/* Step Target Date Editor */}
+              {onUpdateStepTargetDate && (
+                <div onClick={(e) => e.stopPropagation()}>
+                  <InlineTargetDateEditor
+                    targetDate={step.targetDate}
+                    onUpdateTargetDate={(date) =>
+                      onUpdateStepTargetDate(step.id, date)
+                    }
+                    title="Milestone Target Date"
+                    isReadOnly={isPending || isCompleted || isSkipped}
+                    size="xs"
+                  />
+                </div>
+              )}
             </div>
 
             {step.description && (
@@ -238,6 +274,12 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                   isLoading={loadingWorkItemId === wi.id}
                   onAction={(workItemId, action) =>
                     onWorkItemAction(step.id, workItemId, action)
+                  }
+                  onUpdateTargetDate={
+                    onUpdateWorkItemTargetDate
+                      ? (date) =>
+                          onUpdateWorkItemTargetDate(step.id, wi.id, date)
+                      : undefined
                   }
                 />
               ))}
