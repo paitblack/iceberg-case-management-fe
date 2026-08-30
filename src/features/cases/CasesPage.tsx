@@ -309,7 +309,7 @@ export const CasesPage: React.FC = () => {
         </div>
       ) : (
         /* Table Layout */
-        <div className="iceberg-card overflow-hidden border border-slate-200/90 shadow-2xs">
+        <div className="iceberg-card border border-slate-200/90 shadow-2xs rounded-2xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>

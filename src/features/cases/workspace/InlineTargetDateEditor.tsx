@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Calendar, Check, X, Trash2, Clock } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 
@@ -20,12 +20,12 @@ export const InlineTargetDateEditor: React.FC<InlineTargetDateEditorProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [placement, setPlacement] = useState<'bottom' | 'top'>('bottom');
   const popoverRef = useRef<HTMLDivElement>(null);
 
   // Initialize selectedDate from targetDate
   useEffect(() => {
     if (targetDate) {
-      // Formats to YYYY-MM-DD for standard html date input
       const d = new Date(targetDate);
       if (!isNaN(d.getTime())) {
         setSelectedDate(d.toISOString().split('T')[0] ?? '');
@@ -36,6 +36,21 @@ export const InlineTargetDateEditor: React.FC<InlineTargetDateEditorProps> = ({
       setSelectedDate('');
     }
   }, [targetDate]);
+
+  // Smart placement calculation on open
+  useLayoutEffect(() => {
+    if (!isOpen || !popoverRef.current) return;
+    const rect = popoverRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    // If space below is less than 240px and there is more space above, open upward
+    if (spaceBelow < 240 && spaceAbove > 240) {
+      setPlacement('top');
+    } else {
+      setPlacement('bottom');
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -59,7 +74,6 @@ export const InlineTargetDateEditor: React.FC<InlineTargetDateEditorProps> = ({
     }
     setIsSubmitting(true);
     try {
-      // Format to ISO string at 18:00 (end of workday)
       const isoDate = new Date(`${selectedDate}T18:00:00.000Z`).toISOString();
       await onUpdateTargetDate(isoDate);
       setIsOpen(false);
@@ -98,7 +112,10 @@ export const InlineTargetDateEditor: React.FC<InlineTargetDateEditorProps> = ({
   }[size];
 
   return (
-    <div ref={popoverRef} className="relative inline-flex items-center">
+    <div
+      ref={popoverRef}
+      className={`relative inline-flex items-center ${isOpen ? 'z-[9999]' : 'z-10'}`}
+    >
       <button
         type="button"
         disabled={isReadOnly}
@@ -119,11 +136,14 @@ export const InlineTargetDateEditor: React.FC<InlineTargetDateEditorProps> = ({
         <span>{formatted ? `Target: ${formatted}` : 'Set Target Date'}</span>
       </button>
 
-      {/* Popover Form */}
+      {/* Popover Form with Smart Viewport Placement */}
       {isOpen && !isReadOnly && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute z-50 top-full left-0 mt-2 w-72 rounded-2xl bg-white border border-slate-200 shadow-xl p-3.5 space-y-3 text-xs animate-in fade-in zoom-in-95 duration-150"
+          className={`absolute z-[9999] left-0 w-72 rounded-2xl bg-white border border-slate-200 shadow-2xl p-3.5 space-y-3 text-xs animate-in fade-in zoom-in-95 duration-150 ring-1 ring-black/10 ${
+            placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'
+          }`}
+          style={{ backgroundColor: '#ffffff' }}
         >
           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
             <div className="flex items-center gap-1.5 font-bold text-slate-800">
@@ -143,7 +163,7 @@ export const InlineTargetDateEditor: React.FC<InlineTargetDateEditorProps> = ({
             <div className="space-y-1">
               <label
                 htmlFor="target-date-input"
-                className="block text-[11px] font-bold text-slate-600"
+                className="text-[11px] font-semibold text-slate-500 block"
               >
                 Milestone Deadline
               </label>
@@ -152,20 +172,20 @@ export const InlineTargetDateEditor: React.FC<InlineTargetDateEditorProps> = ({
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#E1007A]/20 focus:border-[#E1007A] text-slate-800 font-medium"
+                className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#E1007A]/20 focus:border-[#E1007A] transition-all"
               />
             </div>
 
-            <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
+            <div className="flex items-center justify-between gap-2 pt-1">
               {targetDate ? (
                 <button
                   type="button"
-                  disabled={isSubmitting}
                   onClick={handleClear}
-                  className="flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                  disabled={isSubmitting}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2 py-1 rounded-lg transition-colors cursor-pointer"
                 >
                   <Trash2 className="w-3 h-3" />
-                  Clear
+                  <span>Clear</span>
                 </button>
               ) : (
                 <div />
@@ -174,16 +194,17 @@ export const InlineTargetDateEditor: React.FC<InlineTargetDateEditorProps> = ({
               <div className="flex items-center gap-1.5">
                 <Button
                   type="button"
-                  variant="secondary"
-                  size="sm"
+                  variant="ghost"
+                  size="xs"
                   onClick={() => setIsOpen(false)}
+                  disabled={isSubmitting}
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   variant="primary"
-                  size="sm"
+                  size="xs"
                   isLoading={isSubmitting}
                   leftIcon={<Check className="w-3 h-3" />}
                 >

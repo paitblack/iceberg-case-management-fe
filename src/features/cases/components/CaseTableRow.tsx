@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import {
+  Home,
   Layers,
-  AlertTriangle,
   ChevronRight,
   MoreVertical,
   PauseCircle,
@@ -9,9 +9,9 @@ import {
   CheckCircle,
   XCircle,
   RotateCcw,
-  Clock,
-  Home,
+  AlertTriangle,
   Calendar,
+  Clock,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { TrafficLightBadge } from '../../../components/ui/TrafficLightBadge';
@@ -34,6 +34,38 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
 }) => {
   const caseItem = item || legacyCaseItem;
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
+  const [menuPlacement, setMenuPlacement] = useState<'bottom' | 'top'>('bottom');
+  const menuContainerRef = useRef<HTMLDivElement>(null);
+
+  // Smart placement for 3-dots menu
+  useLayoutEffect(() => {
+    if (!isMenuOpen || !menuContainerRef.current) return;
+    const rect = menuContainerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    if (spaceBelow < 200 && spaceAbove > 200) {
+      setMenuPlacement('top');
+    } else {
+      setMenuPlacement('bottom');
+    }
+  }, [isMenuOpen]);
+
+  // Click outside listener
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        menuContainerRef.current &&
+        !menuContainerRef.current.contains(event.target as Node)
+      ) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMenuOpen]);
+
   if (!caseItem) return null;
 
   const handleClick = () => {
@@ -128,59 +160,56 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
 
           {isBlocked && (
             <span
-              title="Progression Blocker Active"
-              className="flex items-center gap-1 text-[10px] font-extrabold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full"
+              className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full shadow-2xs"
+              title={`${caseItem.blockersCount} active blocker(s)`}
             >
-              <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />
-              {caseItem.blockersCount}
+              <AlertTriangle className="w-3 h-3 text-rose-600" />
+              <span>{caseItem.blockersCount} Blockers</span>
             </span>
           )}
         </div>
       </td>
 
-      {/* 4. Current Progression Stage */}
+      {/* 4. Active Progression Milestone */}
       <td className="py-4 px-4 min-w-[200px]">
         {caseItem.currentStep ? (
           <div className="flex items-center gap-2">
             <span
-              className={`w-2 h-2 rounded-full shrink-0 ${
+              className={`w-2 h-2 rounded-full shrink-0 shadow-xs ${
                 caseItem.currentStep.status === 'Completed'
-                  ? 'bg-emerald-500 shadow-xs shadow-emerald-300'
+                  ? 'bg-emerald-500 shadow-emerald-200'
                   : caseItem.currentStep.status === 'InProgress'
-                    ? 'bg-[#E1007A] shadow-xs shadow-pink-300 animate-pulse'
-                    : 'bg-slate-300'
+                    ? 'bg-[#E1007A] animate-pulse shadow-pink-300'
+                    : 'bg-slate-400'
               }`}
             />
-            <span className="font-bold text-slate-800 truncate text-xs">
+            <span className="font-bold text-slate-800 text-xs truncate">
               {caseItem.currentStep.name}
             </span>
           </div>
         ) : (
-          <span className="text-slate-400 italic text-xs">Not started</span>
+          <span className="text-slate-400 text-xs italic">
+            No active milestone
+          </span>
         )}
       </td>
 
       {/* 5. Next SLA Deadline */}
-      <td className="py-4 px-4 whitespace-nowrap text-xs">
+      <td className="py-4 px-4 whitespace-nowrap">
         {caseItem.sla?.targetDate ? (
-          <div className="flex flex-col gap-0.5">
-            <div className="flex items-center gap-1.5">
-              {caseItem.sla.isOverdue ? (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md animate-pulse">
-                  <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />
-                  Overdue{' '}
-                  {caseItem.sla.overdueWorkItemCount > 0
-                    ? `(${caseItem.sla.overdueWorkItemCount})`
-                    : ''}
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">
-                  <Clock className="w-2.5 h-2.5 text-emerald-600" />
-                  On Track
-                </span>
-              )}
-            </div>
-            <span className="text-[11px] text-slate-600 font-mono font-medium">
+          <div className="flex items-center gap-1.5">
+            {caseItem.sla.isOverdue ? (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full animate-pulse shadow-2xs">
+                <Clock className="w-3 h-3 text-rose-600" />
+                <span>Overdue</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shadow-2xs">
+                <Clock className="w-3 h-3 text-emerald-600" />
+                <span>On Track</span>
+              </span>
+            )}
+            <span className="font-mono text-slate-600 text-[11px] font-medium">
               {new Date(caseItem.sla.targetDate).toLocaleDateString('en-GB', {
                 day: 'numeric',
                 month: 'short',
@@ -188,24 +217,22 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
             </span>
           </div>
         ) : (
-          <span className="text-slate-400 text-xs italic font-normal">
-            No SLA set
-          </span>
+          <span className="text-slate-400 text-xs italic">No SLA set</span>
         )}
       </td>
 
       {/* 6. Progress Bar */}
-      <td className="py-4 px-4 min-w-[140px]">
+      <td className="py-4 px-4 min-w-[150px]">
         <div className="space-y-1.5">
-          <div className="flex justify-between text-[11px] font-medium text-slate-600">
-            <span className="font-semibold text-slate-700">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-[10px] text-slate-500 font-medium">
               {progress.completedSteps}/{progress.totalSteps} steps
             </span>
-            <span className="font-extrabold text-[#E1007A]">
+            <span className="font-extrabold text-xs text-[#E1007A]">
               {progress.percentage}%
             </span>
           </div>
-          <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/60">
+          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/60">
             <div
               className="h-full bg-gradient-to-r from-[#E1007A] to-[#FF4B9E] rounded-full transition-all duration-500"
               style={{ width: `${progress.percentage}%` }}
@@ -214,10 +241,9 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
         </div>
       </td>
 
-      {/* 7. Quick Actions Dropdown / Trigger */}
-      <td className="py-4 px-4 text-right relative">
+      {/* 7. Quick Operational Actions */}
+      <td className="py-4 px-4 text-right whitespace-nowrap">
         <div className="flex items-center justify-end gap-1.5">
-          {/* Quick Action Buttons */}
           {allowedActions.includes('REOPEN') && (
             <button
               type="button"
@@ -249,14 +275,14 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
           )}
 
           {/* More Menu Popover */}
-          <div className="relative">
+          <div ref={menuContainerRef} className="relative">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsMenuOpen(!isMenuOpen);
               }}
-              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
               title="More Actions"
             >
               <MoreVertical className="w-4 h-4" />
@@ -265,7 +291,10 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
             {isMenuOpen && (
               <div
                 onClick={(e) => e.stopPropagation()}
-                className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100 ring-1 ring-black/5"
+                className={`absolute right-0 w-48 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-[9999] animate-in fade-in zoom-in-95 duration-100 ring-1 ring-black/10 ${
+                  menuPlacement === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+                }`}
+                style={{ backgroundColor: '#ffffff' }}
               >
                 <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
                   Case Actions
@@ -275,7 +304,7 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
                   <button
                     type="button"
                     onClick={(e) => handleActionClick(e, 'REOPEN')}
-                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-[#E1007A] hover:bg-pink-50 flex items-center gap-2 transition-colors"
+                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-[#E1007A] hover:bg-pink-50 flex items-center gap-2 transition-colors cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Reopen Case</span>
@@ -286,7 +315,7 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
                   <button
                     type="button"
                     onClick={(e) => handleActionClick(e, 'COMPLETE')}
-                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
                   >
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Complete Case</span>
@@ -297,7 +326,7 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
                   <button
                     type="button"
                     onClick={(e) => handleActionClick(e, 'CANCEL')}
-                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors"
+                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors cursor-pointer"
                   >
                     <XCircle className="w-3.5 h-3.5 text-rose-500" />
                     <span>Cancel Case</span>
@@ -307,7 +336,7 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
                 <button
                   type="button"
                   onClick={handleClick}
-                  className="w-full px-3.5 py-2 text-left text-xs font-bold text-[#E1007A] hover:bg-pink-50 flex items-center justify-between border-t border-slate-100 mt-1 transition-colors"
+                  className="w-full px-3.5 py-2 text-left text-xs font-bold text-[#E1007A] hover:bg-pink-50 flex items-center justify-between border-t border-slate-100 mt-1 transition-colors cursor-pointer"
                 >
                   <span>Open Workspace</span>
                   <ChevronRight className="w-3.5 h-3.5" />
