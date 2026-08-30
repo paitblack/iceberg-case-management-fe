@@ -37,6 +37,9 @@ import type {
   AddCaseNotePayload,
   TrafficLightData,
   SlaStatus,
+  BffActivityCategory,
+  BffCaseActivityItem,
+  BffCaseActivitiesResponse,
 } from '../types/api';
 
 export class ApiError extends Error {
@@ -371,6 +374,7 @@ interface RawBffWorkspaceResponse {
   participants?: BffWorkspaceSnapshot['participants'];
   notes?: NoteSnapshot[];
   announcements?: AnnouncementTreeSnapshot[];
+  recentActivities?: BffCaseActivityItem[];
 }
 
 export async function fetchCaseWorkspace(
@@ -476,11 +480,25 @@ export async function fetchCaseWorkspace(
       participants: rawData.participants || [],
       notes: rawData.notes || [],
       announcements: rawData.announcements || [],
+      recentActivities: rawData.recentActivities || [],
       updatedAt: rawData.generatedAt || new Date().toISOString(),
     };
   }
 
   return rawData as unknown as BffWorkspaceSnapshot;
+}
+
+export async function fetchCaseActivities(
+  caseId: string,
+  params?: {
+    category?: BffActivityCategory;
+    limit?: number;
+    cursor?: string;
+  },
+): Promise<BffCaseActivitiesResponse> {
+  return apiGet<BffCaseActivitiesResponse>(`/cases/${caseId}/activities`, {
+    params,
+  });
 }
 
 export async function fetchDashboardSnapshot(): Promise<BffDashboardSnapshot> {

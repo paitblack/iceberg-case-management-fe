@@ -5,6 +5,7 @@ import {
   FileText,
   Users,
   MessageSquare,
+  History,
   ArrowLeft,
   RefreshCw,
   AlertCircle,
@@ -16,6 +17,8 @@ import { StepExecutionCard } from './workspace/StepExecutionCard';
 import { DocumentsTab } from './workspace/DocumentsTab';
 import { ParticipantsTab } from './workspace/ParticipantsTab';
 import { AnnouncementsTab } from './workspace/AnnouncementsTab';
+import { ActivityTimelineTab } from './workspace/ActivityTimelineTab';
+import { RecentActivitiesFeed } from './workspace/RecentActivitiesFeed';
 import { ChangeStatusModal } from './components/ChangeStatusModal';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Spinner';
@@ -45,7 +48,12 @@ import type {
   CaseStatusAction,
 } from '../../types/api';
 
-type WorkspaceTab = 'progression' | 'documents' | 'participants' | 'announcements';
+type WorkspaceTab =
+  | 'progression'
+  | 'documents'
+  | 'participants'
+  | 'announcements'
+  | 'activities';
 
 export const CaseWorkspacePage: React.FC = () => {
   const { caseId = '' } = useParams<{ caseId?: string }>();
@@ -531,40 +539,66 @@ export const CaseWorkspacePage: React.FC = () => {
             Discussions & Announcements ({(snapshot.announcements || []).length})
           </span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('activities')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+            activeTab === 'activities'
+              ? 'border-[#E1007A] text-[#E1007A]'
+              : 'border-transparent text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <History className="w-4 h-4" />
+          <span>
+            Activity & Audit Trail
+          </span>
+        </button>
       </div>
 
       {/* Tab Content Render */}
       {activeTab === 'progression' && (
-        <div className="space-y-4">
-          {stepsList.length === 0 ? (
-            <div className="p-12 rounded-2xl bg-white border border-dashed border-slate-200 text-center space-y-2">
-              <Layers className="w-8 h-8 text-slate-300 mx-auto" />
-              <h4 className="text-sm font-bold text-slate-700">
-                No Progression Steps Initialized
-              </h4>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                This case instance is waiting for milestone instantiation from
-                its template version.
-              </p>
-            </div>
-          ) : (
-            stepsList.map((step) => (
-              <StepExecutionCard
-                key={step.id}
-                step={step}
-                documents={documentsList}
-                participants={participantsList}
-                onStepAction={handleStepAction}
-                onWorkItemAction={handleWorkItemAction}
-                onAddNote={handleAddNote}
-                onUpdateStepTargetDate={handleUpdateStepTargetDate}
-                onUpdateWorkItemTargetDate={handleUpdateWorkItemTargetDate}
-                loadingStepId={loadingStepId}
-                loadingWorkItemId={loadingWorkItemId}
-                isAddingNote={isSubmittingNote}
-              />
-            ))
-          )}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          {/* Main Progression Steps Column */}
+          <div className="lg:col-span-2 space-y-4">
+            {stepsList.length === 0 ? (
+              <div className="p-12 rounded-2xl bg-white border border-dashed border-slate-200 text-center space-y-2">
+                <Layers className="w-8 h-8 text-slate-300 mx-auto" />
+                <h4 className="text-sm font-bold text-slate-700">
+                  No Progression Steps Initialized
+                </h4>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  This case instance is waiting for milestone instantiation from
+                  its template version.
+                </p>
+              </div>
+            ) : (
+              stepsList.map((step) => (
+                <StepExecutionCard
+                  key={step.id}
+                  step={step}
+                  documents={documentsList}
+                  participants={participantsList}
+                  onStepAction={handleStepAction}
+                  onWorkItemAction={handleWorkItemAction}
+                  onAddNote={handleAddNote}
+                  onUpdateStepTargetDate={handleUpdateStepTargetDate}
+                  onUpdateWorkItemTargetDate={handleUpdateWorkItemTargetDate}
+                  loadingStepId={loadingStepId}
+                  loadingWorkItemId={loadingWorkItemId}
+                  isAddingNote={isSubmittingNote}
+                />
+              ))
+            )}
+          </div>
+
+          {/* Right Sidebar Quick Feed Column */}
+          <div className="space-y-4 sticky top-6">
+            <RecentActivitiesFeed
+              activities={snapshot.recentActivities || []}
+              onViewFullTimeline={() => setActiveTab('activities')}
+            />
+          </div>
         </div>
       )}
 
@@ -596,6 +630,10 @@ export const CaseWorkspacePage: React.FC = () => {
           isPostingAnnouncement={isPostingAnnouncement}
           isPostingReply={isPostingReply}
         />
+      )}
+
+      {activeTab === 'activities' && (
+        <ActivityTimelineTab caseId={snapshot.caseId} />
       )}
 
       {/* Change Status Modal (e.g. Reopen Case) */}

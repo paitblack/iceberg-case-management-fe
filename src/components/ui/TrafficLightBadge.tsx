@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { AlertTriangle, CheckCircle2, AlertCircle, Shield, X } from 'lucide-react';
 import type { TrafficLightStatus } from '../../types/api';
 
@@ -38,7 +38,23 @@ export const TrafficLightBadge: React.FC<TrafficLightBadgeProps> = ({
   className = '',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [placement, setPlacement] = useState<'bottom' | 'top'>('bottom');
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Smart placement calculation on open
+  useLayoutEffect(() => {
+    if (!isOpen || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    // If space below is limited and space above is plenty, open upward
+    if (spaceBelow < 280 && spaceAbove > 280) {
+      setPlacement('top');
+    } else {
+      setPlacement('bottom');
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -105,7 +121,7 @@ export const TrafficLightBadge: React.FC<TrafficLightBadgeProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative inline-flex items-center ${isOpen ? 'z-50' : 'z-10'} ${className}`}
+      className={`relative inline-flex items-center ${isOpen ? 'z-[9999]' : 'z-10'} ${className}`}
     >
       <button
         type="button"
@@ -132,11 +148,13 @@ export const TrafficLightBadge: React.FC<TrafficLightBadgeProps> = ({
         {showLabel && <span className="tracking-tight">{config.label}</span>}
       </button>
 
-      {/* Solid Opaque Popover Card */}
+      {/* Solid Opaque Popover Card with Smart Viewport Placement */}
       {interactive && isOpen && (
         <div
           onMouseLeave={() => setIsOpen(false)}
-          className={`absolute z-[9999] bottom-full left-0 mb-2 w-80 sm:w-96 rounded-2xl bg-white text-slate-800 shadow-2xl border border-slate-200 ring-1 ring-black/10 p-4 space-y-3 text-xs animate-in fade-in zoom-in-95 duration-150 border-l-4 ${config.accentBorder} opacity-100 backdrop-blur-none`}
+          className={`absolute z-[9999] left-0 w-80 sm:w-96 rounded-2xl bg-white text-slate-800 shadow-2xl border border-slate-200 ring-1 ring-black/10 p-4 space-y-3 text-xs animate-in fade-in zoom-in-95 duration-150 border-l-4 ${config.accentBorder} opacity-100 backdrop-blur-none ${
+            placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'
+          }`}
           style={{ backgroundColor: '#ffffff' }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -158,7 +176,7 @@ export const TrafficLightBadge: React.FC<TrafficLightBadgeProps> = ({
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>

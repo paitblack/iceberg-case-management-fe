@@ -62,7 +62,7 @@ export const PriorityOperationsList: React.FC<PriorityOperationsListProps> = ({
   }
 
   return (
-    <div className="iceberg-card overflow-hidden border border-slate-200/90 shadow-2xs">
+    <div className="iceberg-card border border-slate-200/90 shadow-2xs rounded-2xl">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead className="bg-slate-50/80 text-slate-500 border-b border-slate-200/80 font-bold uppercase tracking-wider text-[10px]">
@@ -82,7 +82,7 @@ export const PriorityOperationsList: React.FC<PriorityOperationsListProps> = ({
                 <tr
                   key={op.caseId}
                   onClick={() => navigate(`/cases/${op.caseId}`)}
-                  className="hover:bg-pink-50/25 transition-colors cursor-pointer group"
+                  className="hover:bg-pink-50/25 transition-colors cursor-pointer group relative hover:z-30"
                 >
                   {/* Case Title with Property Icon */}
                   <td className="py-4 px-4 min-w-[240px]">
@@ -107,7 +107,7 @@ export const PriorityOperationsList: React.FC<PriorityOperationsListProps> = ({
                   </td>
 
                   {/* Status & Traffic Light */}
-                  <td className="py-4 px-4 whitespace-nowrap">
+                  <td className="py-4 px-4 whitespace-nowrap relative">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {op.trafficLight && (
                         <TrafficLightBadge

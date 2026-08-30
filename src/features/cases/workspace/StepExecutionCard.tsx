@@ -81,7 +81,7 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
 
   return (
     <div
-      className={`rounded-2xl border transition-all shadow-xs overflow-hidden ${
+      className={`rounded-2xl border transition-all shadow-xs ${
         isCompleted
           ? 'bg-white border-emerald-200/90'
           : isInProgress
@@ -92,7 +92,7 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
       }`}
     >
       {/* Step Header Banner */}
-      <div className="p-4 md:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+      <div className="p-4 md:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white rounded-t-2xl">
         {/* Step Badge, Status & Title */}
         <div
           className="flex items-center gap-3.5 flex-1 min-w-0 cursor-pointer select-none"
@@ -248,7 +248,7 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
 
       {/* Expandable Work Items Section */}
       {isExpanded && (
-        <div className="p-4 md:p-5 pt-0 space-y-2.5 border-t border-slate-100/80 bg-slate-50/40">
+        <div className="p-4 md:p-5 pt-0 space-y-2.5 border-t border-slate-100/80 bg-slate-50/40 rounded-b-2xl">
           {isPending && (
             <div className="p-3.5 mt-3 rounded-xl bg-amber-50/80 border border-amber-200/80 flex items-center gap-2.5 text-xs text-amber-900 font-medium">
               <Lock className="w-4 h-4 text-amber-600 shrink-0" />

@@ -530,6 +530,44 @@ export interface AddCaseNotePayload {
   authorRole?: string;
 }
 
+export type BffActivityCategory =
+  | 'CASE_LIFECYCLE'
+  | 'STEP'
+  | 'WORK_ITEM'
+  | 'PARTICIPANT'
+  | 'DOCUMENT'
+  | 'COMMUNICATION';
+
+export interface BffActivityActor {
+  id?: string;
+  name: string;
+  role?: string;
+}
+
+export interface BffCaseActivityItem {
+  id: string;
+  caseId: string;
+  category: BffActivityCategory;
+  action: string;
+  title: string;
+  description: string;
+  actor?: BffActivityActor;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface BffCaseActivitiesResponse {
+  contractVersion: string;
+  generatedAt: string;
+  items: BffCaseActivityItem[];
+  meta: {
+    totalCount: number;
+    hasMore: boolean;
+    nextCursor?: string;
+  };
+  availableCategories: BffActivityCategory[];
+}
+
 export interface BffWorkspaceSnapshot {
   caseId: string;
   reference: string;
@@ -554,6 +592,7 @@ export interface BffWorkspaceSnapshot {
   participants: BffParticipant[];
   notes?: NoteSnapshot[];
   announcements?: AnnouncementTreeSnapshot[];
+  recentActivities?: BffCaseActivityItem[];
   updatedAt: string;
 }
 
