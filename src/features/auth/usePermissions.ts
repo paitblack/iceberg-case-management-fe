@@ -144,8 +144,8 @@ export function usePermissions() {
   }, [isSuperUser]);
 
   const canCreatePrivateNote = useMemo(() => {
-    return (): boolean => isSuperUser;
-  }, [isSuperUser]);
+    return (): boolean => true;
+  }, []);
 
   const canReopenCase = useMemo(() => {
     return (caseData?: {
