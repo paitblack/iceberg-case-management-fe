@@ -1,6 +1,7 @@
 import React from 'react';
 import { Globe, Lock, Users, ShieldCheck, CheckSquare, Square } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
+import { usePermissions } from '../../auth/usePermissions';
 import type { BffParticipant } from '../../../types/api';
 
 export interface VisibilitySelectorProps {
@@ -11,6 +12,7 @@ export interface VisibilitySelectorProps {
   participants?: BffParticipant[];
   disabled?: boolean;
   compact?: boolean;
+  canCreatePrivate?: boolean;
 }
 
 export const VisibilitySelector: React.FC<VisibilitySelectorProps> = ({
@@ -21,7 +23,11 @@ export const VisibilitySelector: React.FC<VisibilitySelectorProps> = ({
   participants = [],
   disabled = false,
   compact = false,
+  canCreatePrivate,
 }) => {
+  const { canCreatePrivateNote } = usePermissions();
+  const allowPrivate = canCreatePrivate ?? canCreatePrivateNote();
+
   const toggleParticipant = (participantId: string) => {
     if (disabled) return;
     if (visibleToParticipantIds.includes(participantId)) {
@@ -52,35 +58,42 @@ export const VisibilitySelector: React.FC<VisibilitySelectorProps> = ({
           <span>Access & Visibility</span>
         </label>
 
-        <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200/80">
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => onChangeIsPrivate(false)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              !isPrivate
-                ? 'bg-white text-emerald-700 shadow-xs border border-emerald-200/60'
-                : 'text-slate-500 hover:text-slate-800'
-            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            <Globe className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Public (All Case Parties)</span>
-          </button>
+        {allowPrivate ? (
+          <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200/80">
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onChangeIsPrivate(false)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                !isPrivate
+                  ? 'bg-white text-emerald-700 shadow-xs border border-emerald-200/60'
+                  : 'text-slate-500 hover:text-slate-800'
+              } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <Globe className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Public (All Case Parties)</span>
+            </button>
 
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => onChangeIsPrivate(true)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              isPrivate
-                ? 'bg-white text-amber-800 shadow-xs border border-amber-300/80'
-                : 'text-slate-500 hover:text-slate-800'
-            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            <Lock className="w-3.5 h-3.5 text-amber-600" />
-            <span>Private (Selected Stakeholders)</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onChangeIsPrivate(true)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                isPrivate
+                  ? 'bg-white text-amber-800 shadow-xs border border-amber-300/80'
+                  : 'text-slate-500 hover:text-slate-800'
+              } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <Lock className="w-3.5 h-3.5 text-amber-600" />
+              <span>Private (Selected Stakeholders)</span>
+            </button>
+          </div>
+        ) : (
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+            <Globe className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Public Note (All Stakeholders)</span>
+          </div>
+        )}
       </div>
 
       {/* Expanded Participant Selection Panel for Private Notes */}

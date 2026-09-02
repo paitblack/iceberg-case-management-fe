@@ -10,6 +10,7 @@ import {
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { TrafficLightBadge } from '../../../components/ui/TrafficLightBadge';
+import { usePermissions } from '../../auth/usePermissions';
 import type {
   BffWorkspaceSnapshot,
   CaseStatusAction,
@@ -24,6 +25,7 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   snapshot,
   onOpenStatusModal,
 }) => {
+  const { canReopenCase } = usePermissions();
   const steps = snapshot.steps || [];
   const mandatorySteps = steps.filter((s) => !s.isOptional);
   const completedMandatorySteps = mandatorySteps.filter(
@@ -41,7 +43,10 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
         )
       : snapshot.progressPercentage;
 
-  const canReopen = snapshot.allowedActions?.includes('REOPEN');
+  const canReopen =
+    (snapshot.allowedActions?.includes('REOPEN') ||
+      snapshot.hasReopenPermission) &&
+    canReopenCase(snapshot);
   const isClosed =
     snapshot.status === 'Completed' || snapshot.status === 'Cancelled';
 

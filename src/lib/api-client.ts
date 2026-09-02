@@ -60,9 +60,6 @@ export function createApiClient(baseUrl: string = '/api/v1'): AxiosInstance {
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      'x-mock-company-id': '1',
-      'x-mock-actor-id': 'usr-admin-01',
-      'x-mock-user-role': 'PROGRESSOR',
     },
   });
 
@@ -72,15 +69,22 @@ export function createApiClient(baseUrl: string = '/api/v1'): AxiosInstance {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    const companyId = localStorage.getItem('lifesycle_company_id') || '1';
-    const actorId =
-      localStorage.getItem('lifesycle_actor_id') || 'usr-admin-01';
-    const role = localStorage.getItem('lifesycle_user_role') || 'PROGRESSOR';
+    // In development/local mode or dev fallback, send dynamic mock RBAC headers
+    const companyId = localStorage.getItem('lifesycle_company_id') || '1001';
+    const actorId = localStorage.getItem('lifesycle_actor_id') || 'usr_1';
+    const roles =
+      localStorage.getItem('lifesycle_user_roles') ||
+      localStorage.getItem('lifesycle_user_role') ||
+      'Sales Progressor, Estate Agent';
+    const branchId = localStorage.getItem('lifesycle_branch_id');
 
     if (config.headers) {
       config.headers['x-mock-company-id'] = companyId;
       config.headers['x-mock-actor-id'] = actorId;
-      config.headers['x-mock-user-role'] = role;
+      config.headers['x-mock-roles'] = roles;
+      if (branchId) {
+        config.headers['x-mock-branch-id'] = branchId;
+      }
     }
     return config;
   });
@@ -88,13 +92,38 @@ export function createApiClient(baseUrl: string = '/api/v1'): AxiosInstance {
   client.interceptors.response.use(
     (response) => response,
     (error: AxiosError) => {
+      const status = error.response?.status;
+      if (status === 401) {
+        window.dispatchEvent(
+          new CustomEvent('auth:unauthorized', {
+            detail: {
+              status: 401,
+              message: 'Your session has expired or authentication is invalid.',
+            },
+          }),
+        );
+      } else if (status === 403) {
+        window.dispatchEvent(
+          new CustomEvent('auth:forbidden', {
+            detail: {
+              status: 403,
+              message: 'You do not have permission to perform this action.',
+            },
+          }),
+        );
+      }
+
       if (error.response && error.response.data) {
         const data = error.response.data as Partial<ProblemDetails>;
         const problem: ProblemDetails = {
           type: data.type || 'about:blank',
-          title: data.title || error.message,
-          status: data.status || error.response.status,
-          detail: data.detail || 'An unexpected error occurred.',
+          title: data.title || (status === 403 ? 'Forbidden' : error.message),
+          status: data.status || status || 500,
+          detail:
+            data.detail ||
+            (status === 403
+              ? 'You do not have permission to perform this action.'
+              : 'An unexpected error occurred.'),
           instance: data.instance,
           traceId: data.traceId,
           field: data.field,
@@ -105,9 +134,12 @@ export function createApiClient(baseUrl: string = '/api/v1'): AxiosInstance {
 
       const fallbackProblem: ProblemDetails = {
         type: 'about:blank',
-        title: 'Network Error',
-        status: error.status || 500,
-        detail: error.message || 'Unable to connect to the server.',
+        title: status === 403 ? 'Forbidden' : 'Network Error',
+        status: status || 500,
+        detail:
+          status === 403
+            ? 'You do not have permission to perform this action.'
+            : error.message || 'Unable to connect to the server.',
       };
       return Promise.reject(new ApiError(fallbackProblem));
     },
@@ -410,6 +442,7 @@ export async function fetchCaseWorkspace(
           uploadedAt: d.createdAt || new Date().toISOString(),
           uploadedByName: d.uploadedByUserId || 'Operations Progressor',
           downloadUrl: d.downloadUrl,
+          canDownload: (d as { canDownload?: boolean }).canDownload !== false,
         }))
       : [];
 
@@ -470,6 +503,10 @@ export async function fetchCaseWorkspace(
         c.assignedProgressorName || 'Operations Progressor',
       branchName: c.branchName || 'Central Office Branch',
       targetCompletionDate: c.targetCompletionDate,
+      hasReopenPermission:
+        (c as { hasReopenPermission?: boolean }).hasReopenPermission ??
+        c.allowedActions?.includes('REOPEN') ??
+        false,
       reopenReason: c.reopenReason,
       allowedActions: c.allowedActions || [],
       trafficLight: p.trafficLight,

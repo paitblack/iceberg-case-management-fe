@@ -298,6 +298,7 @@ export interface BffCaseItem {
   blockersCount: number;
   createdAt: string;
   allowedActions: CaseStatusAction[];
+  hasReopenPermission?: boolean;
   reopenReason?: string;
   reference?: string;
   propertyAddress?: string;
@@ -492,6 +493,7 @@ export interface BffCaseDocument {
   uploadedAt: string;
   uploadedByName: string;
   downloadUrl?: string;
+  canDownload?: boolean;
 }
 
 export interface BffParticipant {
@@ -582,6 +584,7 @@ export interface BffWorkspaceSnapshot {
   assignedProgressorName: string;
   branchName: string;
   targetCompletionDate?: string;
+  hasReopenPermission?: boolean;
   reopenReason?: string;
   allowedActions?: CaseStatusAction[];
   trafficLight?: TrafficLightData;
