@@ -18,6 +18,7 @@ interface DocumentsTabProps {
   documents?: BffCaseDocument[];
   steps?: BffWorkspaceStep[];
   onUploadDocument?: (file: File, workItemId?: string) => Promise<void>;
+  onDownloadDocument?: (documentId: string, fileName?: string) => Promise<void>;
   isUploading?: boolean;
 }
 
@@ -57,13 +58,28 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
   documents = [],
   steps = [],
   onUploadDocument,
+  onDownloadDocument,
   isUploading = false,
 }) => {
   const [activeUploadWorkItemId, setActiveUploadWorkItemId] = useState<
     string | null
   >(null);
+  const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
   const generalFileInputRef = useRef<HTMLInputElement>(null);
   const taskFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDownloadClick = async (
+    documentId: string,
+    fileName?: string,
+  ) => {
+    if (!onDownloadDocument) return;
+    setDownloadingDocId(documentId);
+    try {
+      await onDownloadDocument(documentId, fileName);
+    } finally {
+      setDownloadingDocId(null);
+    }
+  };
 
   const docList = documents || [];
 
@@ -333,16 +349,26 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
                                   </span>
                                 </div>
 
-                                {linkedDoc?.downloadUrl && linkedDoc.canDownload !== false ? (
-                                  <a
-                                    href={linkedDoc.downloadUrl}
-                                    download
-                                    className="p-1.5 rounded-lg border border-slate-200 hover:border-[#E1007A] text-slate-600 hover:text-[#E1007A] transition-colors"
+                                {linkedDoc?.canDownload !== false ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleDownloadClick(
+                                        linkedDoc.id,
+                                        linkedDoc.fileName,
+                                      )
+                                    }
+                                    disabled={downloadingDocId === linkedDoc.id}
+                                    className="p-1.5 rounded-lg border border-slate-200 hover:border-[#E1007A] text-slate-600 hover:text-[#E1007A] transition-colors cursor-pointer disabled:opacity-50"
                                     title="Download File"
                                   >
-                                    <Download className="w-3.5 h-3.5" />
-                                  </a>
-                                ) : linkedDoc?.canDownload === false ? (
+                                    {downloadingDocId === linkedDoc.id ? (
+                                      <span className="w-3.5 h-3.5 border-2 border-[#E1007A] border-t-transparent rounded-full animate-spin inline-block" />
+                                    ) : (
+                                      <Download className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
+                                ) : (
                                   <span
                                     className="inline-flex items-center gap-1 text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-bold"
                                     title="Access Restricted: You do not have permission to download this document."
@@ -350,7 +376,7 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
                                     <Lock className="w-3 h-3 text-amber-600" />
                                     Restricted
                                   </span>
-                                ) : null}
+                                )}
 
                                 <Button
                                   variant="ghost"
@@ -509,18 +535,22 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
                             <Lock className="w-3 h-3 text-amber-600" />
                             Access Restricted
                           </span>
-                        ) : doc.downloadUrl ? (
-                          <a
-                            href={doc.downloadUrl}
-                            download
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#E1007A] hover:underline"
-                          >
-                            <Download className="w-3.5 h-3.5" /> Download
-                          </a>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 font-semibold">
-                            <Lock className="w-3 h-3" /> Encrypted
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDownloadClick(doc.id, doc.fileName)
+                            }
+                            disabled={downloadingDocId === doc.id}
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-[#E1007A] hover:text-[#C70068] hover:underline cursor-pointer disabled:opacity-50"
+                          >
+                            {downloadingDocId === doc.id ? (
+                              <span className="w-3.5 h-3.5 border-2 border-[#E1007A] border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Download className="w-3.5 h-3.5" />
+                            )}
+                            <span>Download</span>
+                          </button>
                         )}
                       </td>
                     </tr>

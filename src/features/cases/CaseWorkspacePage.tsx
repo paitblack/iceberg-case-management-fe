@@ -27,6 +27,7 @@ import {
   executeStepAction,
   executeWorkItemAction,
   uploadCaseDocument,
+  getDocumentDownloadUrl,
   assignCaseParticipant,
   removeCaseParticipant,
   addCaseNote,
@@ -203,6 +204,51 @@ export const CaseWorkspacePage: React.FC = () => {
       }
     } finally {
       setIsUploadingDoc(false);
+    }
+  };
+
+  const handleDownloadDocument = async (
+    documentId: string,
+    fileName?: string,
+  ) => {
+    if (!caseId) return;
+    try {
+      const downloadInfo = await getDocumentDownloadUrl(caseId, documentId);
+      if (downloadInfo?.url) {
+        let downloadUrl = downloadInfo.url;
+
+        // When Cloudflare R2 credentials use placeholder 'replace-with-account-id' in local development,
+        // create a valid simulated document blob to support seamless testing without TLS/DNS failures.
+        if (downloadUrl.includes('replace-with-account-id')) {
+          showToast(
+            'success',
+            'Local Dev: Cloudflare R2 placeholder detected. Downloading simulated document file.',
+          );
+          const sampleContent = `%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n4 0 obj\n<< /Length 55 >>\nstream\nBT /F1 14 Tf 50 700 Td (Simulated Case Document: ${fileName || downloadInfo.fileName}) Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000214 00000 n \ntrailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n318\n%%EOF`;
+          const blob = new Blob([sampleContent], {
+            type: downloadInfo.contentType || 'application/pdf',
+          });
+          downloadUrl = URL.createObjectURL(blob);
+        }
+
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = fileName || downloadInfo.fileName || 'document.pdf';
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        showToast('error', 'Download link is unavailable.');
+      }
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        showToast('error', err.problem.detail || err.message);
+      } else {
+        showToast('error', 'Failed to generate document download link.');
+      }
+      throw err;
     }
   };
 
@@ -628,6 +674,7 @@ export const CaseWorkspacePage: React.FC = () => {
           documents={documentsList}
           steps={stepsList}
           onUploadDocument={handleUploadDocument}
+          onDownloadDocument={handleDownloadDocument}
           isUploading={isUploadingDoc}
         />
       )}

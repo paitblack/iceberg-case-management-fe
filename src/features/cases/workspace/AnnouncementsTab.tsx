@@ -45,6 +45,7 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({
   const [visibleToParticipantIds, setVisibleToParticipantIds] = useState<
     string[]
   >([]);
+  const [rootMentionedId, setRootMentionedId] = useState<string>('');
   const [composerError, setComposerError] = useState<string | null>(null);
 
   // Reply Composer State (keyed by parent announcement ID)
@@ -69,10 +70,12 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({
         content: content.trim(),
         isPrivate,
         visibleToParticipantIds: isPrivate ? visibleToParticipantIds : [],
+        mentionedParticipantId: rootMentionedId || undefined,
       });
       setContent('');
       setIsPrivate(false);
       setVisibleToParticipantIds([]);
+      setRootMentionedId('');
     } catch (err: unknown) {
       if (err instanceof Error) {
         setComposerError(err.message);
@@ -149,6 +152,30 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({
             className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#E1007A]/20 focus:border-[#E1007A] bg-slate-50/50 hover:bg-white focus:bg-white transition-all resize-none shadow-2xs"
             disabled={isPostingAnnouncement}
           />
+
+          {/* Mention Stakeholder Selector */}
+          {participants.length > 0 && (
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
+                <AtSign className="w-3 h-3 text-[#E1007A]" />
+                <span>Assign Responder / Mention Stakeholder (Optional):</span>
+              </label>
+              <select
+                value={rootMentionedId}
+                onChange={(e) => setRootMentionedId(e.target.value)}
+                disabled={isPostingAnnouncement}
+                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#E1007A]/20 focus:border-[#E1007A] text-slate-700 font-medium"
+              >
+                <option value="">-- No direct mention (Broadcast to everyone) --</option>
+                {participants.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.roleName || p.roleId})
+                    {p.companyName ? ` - ${p.companyName}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Visibility Selector */}
           <VisibilitySelector
