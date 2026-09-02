@@ -121,6 +121,27 @@ export const CaseWorkspacePage: React.FC = () => {
     loadWorkspace();
   }, [loadWorkspace]);
 
+  useEffect(() => {
+    const handlePersonaChange = () => {
+      loadWorkspace();
+    };
+    const handleForbidden = (e: Event) => {
+      const customEvent = e as CustomEvent<{ message?: string }>;
+      showToast(
+        'error',
+        customEvent.detail?.message ||
+          'You do not have permission to perform this action.',
+      );
+    };
+
+    window.addEventListener('auth:persona-changed', handlePersonaChange);
+    window.addEventListener('auth:forbidden', handleForbidden);
+    return () => {
+      window.removeEventListener('auth:persona-changed', handlePersonaChange);
+      window.removeEventListener('auth:forbidden', handleForbidden);
+    };
+  }, [loadWorkspace, showToast]);
+
   const handleStepAction = async (stepId: string, action: StepActionType) => {
     if (!caseId) return;
     setLoadingStepId(stepId);

@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   Check,
   CheckCircle2,
@@ -11,6 +12,7 @@ import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { SlaBadge } from '../../../components/ui/SlaBadge';
 import { InlineTargetDateEditor } from './InlineTargetDateEditor';
+import { usePermissions } from '../../auth/usePermissions';
 import type {
   BffWorkspaceWorkItem,
   BffCaseDocument,
@@ -26,39 +28,6 @@ interface WorkItemExecutionRowProps {
   isLoading: boolean;
 }
 
-function formatRoleDisplayName(role?: string, ownerRoleId?: string): string {
-  const roleText = role || ownerRoleId;
-  if (!roleText) return 'Unassigned Role';
-
-  const standardRoleMap: Record<string, string> = {
-    'role-estate-agent': 'Estate Agent / Progressor',
-    'role-vendor-solicitor': "Seller's Conveyancer / Solicitor",
-    'role-buyer-solicitor': "Buyer's Conveyancer / Solicitor",
-    'role-vendor': 'Seller / Vendor',
-    'role-buyer': 'Buyer / Purchaser',
-    'role-mortgage-broker': 'Mortgage Broker / Advisor',
-    'role-surveyor': 'RICS Surveyor / Valuer',
-  };
-
-  if (standardRoleMap[roleText]) {
-    return standardRoleMap[roleText];
-  }
-
-  if (!roleText.startsWith('role-')) {
-    return roleText;
-  }
-
-  // If it's a slug like "role-halay-basi-12345", format it nicely
-  const withoutPrefix = roleText.replace(/^role-/, '');
-  const parts = withoutPrefix
-    .split('-')
-    .filter((p) => !/^[a-z0-9]{6,}$/i.test(p));
-  if (parts.length > 0) {
-    return parts.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  }
-  return roleText;
-}
-
 export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
   workItem,
   documents = [],
@@ -67,6 +36,10 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
   onUpdateTargetDate,
   isLoading,
 }) => {
+  const { canExecuteWorkItem } = usePermissions();
+  const { canExecute, reason, targetRoleDisplayName } =
+    canExecuteWorkItem(workItem);
+
   const isCompleted = workItem.status === 'Completed';
   const isWaived = workItem.status === 'Waived';
 
@@ -143,49 +116,65 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
 
             <Badge
               variant={
-                workItem.requirement === 'required'
-                  ? 'required'
-                  : workItem.requirement === 'conditional'
-                    ? 'warning'
-                    : 'default'
+                workItem.requirement === 'required' ? 'required' : 'warning'
               }
               size="xs"
             >
               {workItem.requirement}
             </Badge>
 
-            {workItem.evidenceRequired &&
-              (linkedDoc ? (
-                linkedDoc.downloadUrl ? (
-                  <a
-                    href={linkedDoc.downloadUrl}
-                    download
-                    className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200/80 rounded-md px-1.5 py-0.5 font-bold hover:underline"
-                  >
-                    <FileCheck className="w-3 h-3 text-emerald-600" />
-                    <span>Evidence: {linkedDoc.fileName}</span>
-                  </a>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200/80 rounded-md px-1.5 py-0.5 font-bold">
-                    <FileCheck className="w-3 h-3 text-emerald-600" />
-                    <span>Evidence: {linkedDoc.fileName}</span>
-                  </span>
-                )
-              ) : (
-                <span className="inline-flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200/80 rounded-md px-1.5 py-0.5 font-medium">
-                  <FileCheck className="w-3 h-3 text-amber-500" />
-                  <span>Evidence Required</span>
+            {/* SLA Status Indicator Badge */}
+            {workItem.slaStatus && workItem.slaStatus !== 'NONE' && (
+              <SlaBadge
+                slaStatus={workItem.slaStatus}
+                targetDate={workItem.targetDate}
+                size="xs"
+                showDate={false}
+              />
+            )}
+
+            {/* Conditional Role Restriction Badge when unauthorized */}
+            {!canExecute && !isReadOnly && !isCompleted && !isWaived && (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md"
+                title={reason}
+              >
+                <Lock className="w-2.5 h-2.5 text-amber-600 shrink-0" />
+                {targetRoleDisplayName} Only
+              </span>
+            )}
+          </div>
+
+          {/* Description */}
+          {workItem.description && (
+            <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
+              {workItem.description}
+            </p>
+          )}
+
+          {/* Metadata: Role Ownership, Target Date, SLA & Completion Info */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500 pt-1">
+            {/* Role Assignment */}
+            {(workItem.role || workItem.ownerRoleId || workItem.assignee) && (
+              <span className="flex items-center gap-1 font-medium text-slate-600">
+                <Shield className="w-3 h-3 text-slate-400" />
+                Role:{' '}
+                <span className="font-semibold text-slate-800">
+                  {targetRoleDisplayName}
                 </span>
-              ))}
+                {workItem.assignee && (
+                  <span className="text-[#E1007A] font-bold ml-1">
+                    ({workItem.assignee.name}
+                    {workItem.assignee.companyName
+                      ? ` - ${workItem.assignee.companyName}`
+                      : ''}
+                    )
+                  </span>
+                )}
+              </span>
+            )}
 
-            {/* SLA Badge & Target Date Selector */}
-            <SlaBadge
-              slaStatus={workItem.slaStatus}
-              targetDate={workItem.targetDate}
-              size="xs"
-              showDate={false}
-            />
-
+            {/* Inline Target Date SLA Setting */}
             {onUpdateTargetDate && (
               <InlineTargetDateEditor
                 targetDate={workItem.targetDate}
@@ -195,48 +184,17 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
                 size="xs"
               />
             )}
-          </div>
 
-          {/* Optional Task Description */}
-          {workItem.description && (
-            <p className="text-[11px] text-slate-600 line-clamp-2 leading-relaxed">
-              {workItem.description}
-            </p>
-          )}
-
-          {/* Conditional Task Rule Notice */}
-          {workItem.requirement === 'conditional' && workItem.condition && (
-            <div className="text-[10px] text-amber-800 bg-amber-50/90 border border-amber-200/80 rounded-md px-2 py-0.5 w-fit font-medium flex items-center gap-1.5 my-0.5">
-              <span className="font-bold">Condition Rule:</span>
-              <span>{workItem.condition}</span>
-            </div>
-          )}
-
-          {/* Assigned Role & Assignee */}
-          <div className="flex flex-wrap items-center gap-x-3 text-[10px] text-slate-500 pt-0.5">
-            {(workItem.role || workItem.ownerRoleId || workItem.assignee) && (
-              <span className="flex items-center gap-1.5 text-slate-600 font-medium">
-                <Shield className="w-3 h-3 text-slate-400 shrink-0" />
-                <span>
-                  Role:{' '}
-                  <span className="font-semibold text-slate-800">
-                    {formatRoleDisplayName(workItem.role, workItem.ownerRoleId)}
-                  </span>
-                  {workItem.assignee && (
-                    <span className="ml-1 text-[#E1007A] font-bold">
-                      ({workItem.assignee.name}
-                      {workItem.assignee.companyName
-                        ? ` - ${workItem.assignee.companyName}`
-                        : ''}
-                      )
-                    </span>
-                  )}
-                </span>
+            {/* Linked Document Attached */}
+            {linkedDoc && (
+              <span className="flex items-center gap-1 font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                <FileCheck className="w-3 h-3 text-emerald-600" />
+                Document: {linkedDoc.fileName}
               </span>
             )}
 
             {workItem.isKeyDate && (
-              <span className="flex items-center gap-1 text-amber-600 font-bold">
+              <span className="flex items-center gap-1 font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
                 <Calendar className="w-3 h-3" />
                 Key Date Milestone
               </span>
@@ -276,8 +234,14 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
             variant="ghost"
             size="xs"
             isLoading={isLoading}
-            onClick={() => onAction(workItem.id, 'WAIVE')}
-            className="text-[11px] font-semibold text-slate-500 hover:text-slate-800"
+            disabled={!canExecute}
+            onClick={() => canExecute && onAction(workItem.id, 'WAIVE')}
+            className={`text-[11px] font-semibold ${
+              !canExecute
+                ? 'opacity-40 cursor-not-allowed text-slate-400'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+            title={!canExecute ? reason : 'Waive this task'}
           >
             Waive
           </Button>
@@ -288,9 +252,21 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
             variant="primary"
             size="xs"
             isLoading={isLoading}
-            onClick={() => onAction(workItem.id, 'COMPLETE')}
-            leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
-            className="font-bold text-[11px]"
+            disabled={!canExecute}
+            onClick={() => canExecute && onAction(workItem.id, 'COMPLETE')}
+            leftIcon={
+              !canExecute ? (
+                <Lock className="w-3 h-3 text-slate-400" />
+              ) : (
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              )
+            }
+            className={`font-bold text-[11px] ${
+              !canExecute
+                ? 'opacity-60 cursor-not-allowed bg-slate-100 hover:bg-slate-100 text-slate-400 border-slate-200 shadow-none'
+                : ''
+            }`}
+            title={!canExecute ? reason : 'Mark task as completed'}
           >
             Complete Task
           </Button>

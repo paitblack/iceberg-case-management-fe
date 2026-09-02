@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { TrafficLightBadge } from '../../../components/ui/TrafficLightBadge';
+import { usePermissions } from '../../auth/usePermissions';
 import type { BffCaseItem, CaseStatusAction } from '../../../types/api';
 
 interface CaseCardProps {
@@ -32,6 +33,7 @@ export const CaseCard: React.FC<CaseCardProps> = ({
   onTriggerAction,
 }) => {
   const caseItem = item || legacyCaseItem;
+  const { canReopenCase } = usePermissions();
   if (!caseItem) return null;
 
   const handleClick = () => {
@@ -198,7 +200,7 @@ export const CaseCard: React.FC<CaseCardProps> = ({
         {/* Quick Actions Buttons */}
         {allowedActions.length > 0 && onTriggerAction && (
           <div className="flex items-center gap-1.5 flex-wrap pt-1">
-            {allowedActions.includes('REOPEN') && (
+            {allowedActions.includes('REOPEN') && canReopenCase(caseItem) && (
               <button
                 type="button"
                 onClick={(e) => handleAction(e, 'REOPEN')}

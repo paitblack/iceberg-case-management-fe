@@ -333,7 +333,7 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
                                   </span>
                                 </div>
 
-                                {linkedDoc?.downloadUrl && (
+                                {linkedDoc?.downloadUrl && linkedDoc.canDownload !== false ? (
                                   <a
                                     href={linkedDoc.downloadUrl}
                                     download
@@ -342,7 +342,15 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
                                   >
                                     <Download className="w-3.5 h-3.5" />
                                   </a>
-                                )}
+                                ) : linkedDoc?.canDownload === false ? (
+                                  <span
+                                    className="inline-flex items-center gap-1 text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-bold"
+                                    title="Access Restricted: You do not have permission to download this document."
+                                  >
+                                    <Lock className="w-3 h-3 text-amber-600" />
+                                    Restricted
+                                  </span>
+                                ) : null}
 
                                 <Button
                                   variant="ghost"
@@ -493,7 +501,15 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
                         })}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        {doc.downloadUrl ? (
+                        {doc.canDownload === false ? (
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full"
+                            title="Access Restricted: You do not have permission to download this document."
+                          >
+                            <Lock className="w-3 h-3 text-amber-600" />
+                            Access Restricted
+                          </span>
+                        ) : doc.downloadUrl ? (
                           <a
                             href={doc.downloadUrl}
                             download

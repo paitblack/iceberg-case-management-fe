@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { TrafficLightBadge } from '../../../components/ui/TrafficLightBadge';
+import { usePermissions } from '../../auth/usePermissions';
 import type { BffCaseItem, CaseStatusAction } from '../../../types/api';
 
 interface CaseTableRowProps {
@@ -33,6 +34,7 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
   onTriggerAction,
 }) => {
   const caseItem = item || legacyCaseItem;
+  const { canReopenCase } = usePermissions();
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [menuPlacement, setMenuPlacement] = useState<'bottom' | 'top'>('bottom');
   const menuContainerRef = useRef<HTMLDivElement>(null);
@@ -244,7 +246,7 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
       {/* 7. Quick Operational Actions */}
       <td className="py-4 px-4 text-right whitespace-nowrap">
         <div className="flex items-center justify-end gap-1.5">
-          {allowedActions.includes('REOPEN') && (
+          {allowedActions.includes('REOPEN') && canReopenCase(caseItem) && (
             <button
               type="button"
               onClick={(e) => handleActionClick(e, 'REOPEN')}
@@ -300,7 +302,7 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
                   Case Actions
                 </div>
 
-                {allowedActions.includes('REOPEN') && (
+                {allowedActions.includes('REOPEN') && canReopenCase(caseItem) && (
                   <button
                     type="button"
                     onClick={(e) => handleActionClick(e, 'REOPEN')}

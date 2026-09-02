@@ -4,6 +4,7 @@ import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { CasesPage } from '../features/cases/CasesPage';
 import { CaseWorkspacePage } from '../features/cases/CaseWorkspacePage';
 import { TemplatesPage } from '../features/templates/TemplatesPage';
+import { ProtectedRoute } from '../components/auth/ProtectedRoute';
 
 export const router = createBrowserRouter([
   {
@@ -28,7 +29,11 @@ export const router = createBrowserRouter([
       },
       {
         path: 'templates',
-        element: <TemplatesPage />,
+        element: (
+          <ProtectedRoute requiresSuperUser>
+            <TemplatesPage />
+          </ProtectedRoute>
+        ),
       },
       {
         path: '*',

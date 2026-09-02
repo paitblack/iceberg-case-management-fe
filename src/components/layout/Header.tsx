@@ -5,11 +5,11 @@ import {
   Calendar,
   Search,
   ShieldCheck,
-  ChevronDown,
   Plus,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { CreateCaseModal } from '../../features/cases/components/CreateCaseModal';
+import { DevPersonaSwitcher } from './DevPersonaSwitcher';
 
 export const Header: React.FC = () => {
   const location = useLocation();
@@ -110,19 +110,8 @@ export const Header: React.FC = () => {
           <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#E1007A]" />
         </button>
 
-        {/* User Profile */}
-        <div className="flex items-center gap-2.5 bg-white border border-slate-200/80 rounded-xl py-1 px-2.5 shadow-2xs cursor-pointer hover:border-slate-300 transition-colors">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#E1007A] to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-2xs">
-            OP
-          </div>
-          <div className="text-left hidden sm:block">
-            <p className="text-xs font-semibold text-slate-900 leading-tight">
-              Operations Lead
-            </p>
-            <p className="text-[10px] text-slate-500">Central Office Branch</p>
-          </div>
-          <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
-        </div>
+        {/* Developer Persona Switcher (RBAC / PBAC) */}
+        <DevPersonaSwitcher />
       </div>
 
       {/* Start New Case Modal */}

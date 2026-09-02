@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Mail,
   Phone,
@@ -8,11 +8,19 @@ import {
   Shield,
   Eye,
   Trash2,
+  Search,
+  Check,
+  CheckCircle2,
+  Sparkles,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { Input } from '../../../components/ui/Input';
+import {
+  REGISTERED_SYSTEM_CONTACTS,
+  type RegisteredContact,
+} from '../../../types/auth';
 import type {
   BffParticipant,
   AssignParticipantPayload,
@@ -87,14 +95,13 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
   const [roleId, setRoleId] = useState<string>(
     availableRoles[0]?.id || 'role-vendor-solicitor',
   );
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [companyName, setCompanyName] = useState('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedContact, setSelectedContact] =
+    useState<RegisteredContact | null>(null);
   const [isPrimary, setIsPrimary] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (
       availableRoles.length > 0 &&
       !availableRoles.some((r) => r.id === roleId)
@@ -102,6 +109,48 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
       setRoleId(availableRoles[0].id);
     }
   }, [availableRoles, roleId]);
+
+  // Filter and sort directory contacts based on search query and selected role
+  const filteredContacts = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    return REGISTERED_SYSTEM_CONTACTS.filter((c) => {
+      if (!q) return true;
+      return (
+        c.name.toLowerCase().includes(q) ||
+        c.companyName.toLowerCase().includes(q) ||
+        c.email.toLowerCase().includes(q) ||
+        c.roleLabel.toLowerCase().includes(q) ||
+        (c.jobTitle && c.jobTitle.toLowerCase().includes(q))
+      );
+    }).sort((a, b) => {
+      // Prioritize contacts matching the chosen role
+      const aMatches = a.roleId === roleId ? 1 : 0;
+      const bMatches = b.roleId === roleId ? 1 : 0;
+      return bMatches - aMatches;
+    });
+  }, [searchQuery, roleId]);
+
+  // When modal opens or role changes, auto-recommend the first matching contact if none selected
+  const handleOpenModal = () => {
+    setFormError(null);
+    setSearchQuery('');
+    const recommended = REGISTERED_SYSTEM_CONTACTS.find(
+      (c) => c.roleId === roleId,
+    );
+    setSelectedContact(recommended || REGISTERED_SYSTEM_CONTACTS[0]);
+    setIsAddModalOpen(true);
+  };
+
+  const handleRoleChange = (newRoleId: string) => {
+    setRoleId(newRoleId);
+    // If the currently selected contact doesn't match, pick a recommended one
+    const matching = REGISTERED_SYSTEM_CONTACTS.find(
+      (c) => c.roleId === newRoleId,
+    );
+    if (matching) {
+      setSelectedContact(matching);
+    }
+  };
 
   const getRoleLabel = (rId: string, fallbackName?: string) => {
     const found = availableRoles.find((r) => r.id === rId);
@@ -111,8 +160,8 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      setFormError('Please provide the full contact name.');
+    if (!selectedContact) {
+      setFormError('Please select a registered contact from the directory.');
       return;
     }
 
@@ -120,18 +169,17 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
     try {
       await onAssignParticipant({
         roleId,
-        name: name.trim(),
-        email: email.trim() || undefined,
-        phone: phone.trim() || undefined,
-        companyName: companyName.trim() || undefined,
+        contactId: selectedContact.id,
+        name: selectedContact.name,
+        email: selectedContact.email,
+        phone: selectedContact.phone,
+        companyName: selectedContact.companyName,
         isPrimary,
       });
 
       setIsAddModalOpen(false);
-      setName('');
-      setEmail('');
-      setPhone('');
-      setCompanyName('');
+      setSearchQuery('');
+      setSelectedContact(null);
       setIsPrimary(true);
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -177,10 +225,7 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
           variant="primary"
           size="sm"
           leftIcon={<UserPlus className="w-3.5 h-3.5" />}
-          onClick={() => {
-            setFormError(null);
-            setIsAddModalOpen(true);
-          }}
+          onClick={handleOpenModal}
         >
           Assign Stakeholder / Solicitor
         </Button>
@@ -215,7 +260,7 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
             variant="secondary"
             size="sm"
             leftIcon={<UserPlus className="w-3.5 h-3.5" />}
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={handleOpenModal}
           >
             Add First Stakeholder
           </Button>
@@ -307,55 +352,54 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
             );
           })}
 
-          {/* Add Another Stakeholder Card in Grid */}
+          {/* Quick Add Placeholder Card */}
           <button
             type="button"
-            onClick={() => {
-              setFormError(null);
-              setIsAddModalOpen(true);
-            }}
-            className="p-5 rounded-2xl border-2 border-dashed border-slate-200 hover:border-[#E1007A] bg-slate-50/40 hover:bg-pink-50/20 transition-all flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-[#E1007A] min-h-[140px] cursor-pointer group"
+            onClick={handleOpenModal}
+            className="p-5 rounded-2xl border-2 border-dashed border-slate-200 hover:border-[#E1007A]/50 hover:bg-pink-50/20 transition-all flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-[#E1007A] group cursor-pointer min-h-[140px]"
           >
-            <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 group-hover:border-pink-200 group-hover:bg-pink-50 text-slate-400 group-hover:text-[#E1007A] flex items-center justify-center shadow-2xs transition-colors">
-              <UserPlus className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-slate-100 group-hover:bg-pink-100 flex items-center justify-center transition-colors">
+              <UserPlus className="w-4 h-4 text-slate-500 group-hover:text-[#E1007A]" />
             </div>
             <div className="text-center">
-              <span className="text-xs font-bold text-slate-700 group-hover:text-[#E1007A] block">
+              <p className="text-xs font-bold text-slate-700 group-hover:text-[#E1007A]">
                 Assign Stakeholder
-              </span>
-              <span className="text-[10px] text-slate-400 group-hover:text-slate-500">
+              </p>
+              <p className="text-[10px] text-slate-400">
                 Add solicitor, buyer, seller, or agent
-              </span>
+              </p>
             </div>
           </button>
         </div>
       )}
 
-      {/* Add / Assign Stakeholder Modal */}
+      {/* Directory-Based Assign Stakeholder Modal */}
       <Modal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        title="Assign Legal Representative / Stakeholder"
+        title="Assign Stakeholder from Registered Directory"
+        maxWidth="md"
         footer={
-          <>
+          <div className="flex items-center justify-end gap-2 w-full">
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={() => setIsAddModalOpen(false)}
-              disabled={isSubmitting}
             >
               Cancel
             </Button>
             <Button
               variant="primary"
               size="sm"
-              onClick={handleAddSubmit}
               isLoading={isSubmitting}
-              leftIcon={<UserPlus className="w-3.5 h-3.5" />}
+              disabled={!selectedContact}
+              onClick={handleAddSubmit}
+              leftIcon={<Check className="w-3.5 h-3.5" />}
+              data-testid="assign-stakeholder-submit-btn"
             >
-              Confirm Assignment
+              Assign Stakeholder
             </Button>
-          </>
+          </div>
         }
       >
         <form
@@ -368,14 +412,15 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
             </div>
           )}
 
-          <div className="space-y-1">
+          {/* 1. Role Selection */}
+          <div className="space-y-1.5">
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Stakeholder Role <span className="text-[#E1007A]">*</span>
+              Case Role to Assign <span className="text-[#E1007A]">*</span>
             </label>
             <select
               value={roleId}
-              onChange={(e) => setRoleId(e.target.value)}
-              className="w-full rounded-xl bg-white border border-slate-200 p-2.5 text-xs font-bold text-slate-900 focus:border-[#E1007A] focus:outline-none"
+              onChange={(e) => handleRoleChange(e.target.value)}
+              className="w-full rounded-xl bg-white border border-slate-200 p-2.5 text-xs font-bold text-slate-900 focus:border-[#E1007A] focus:outline-none shadow-2xs"
             >
               {availableRoles.map((r) => (
                 <option key={r.id} value={r.id}>
@@ -385,61 +430,118 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
             </select>
           </div>
 
-          <div className="space-y-1">
+          {/* 2. Directory Autocomplete Search */}
+          <div className="space-y-1.5">
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Full Name / Contact Person{' '}
-              <span className="text-[#E1007A]">*</span>
+              Search & Select Contact <span className="text-[#E1007A]">*</span>
             </label>
-            <Input
-              placeholder="e.g. David Reynolds"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="text-xs"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Email Address
-              </label>
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
               <Input
-                type="email"
-                placeholder="e.g. d.reynolds@reynolds-law.co.uk"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="text-xs"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Direct Phone Number
-              </label>
-              <Input
-                type="tel"
-                placeholder="e.g. +44 1865 492001"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="text-xs"
+                placeholder="Search by name, company, role, or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 text-xs bg-slate-50/60 focus:bg-white"
               />
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Law Firm / Company Name
-            </label>
-            <Input
-              placeholder="e.g. Reynolds & Co Legal"
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              className="text-xs"
-            />
+          {/* 3. Filtered Contacts Directory Cards */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <span>Directory Contacts ({filteredContacts.length})</span>
+              <span className="text-[#E1007A]">Click to select</span>
+            </div>
+
+            <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1 border border-slate-200 rounded-xl p-2 bg-slate-50/50">
+              {filteredContacts.length === 0 ? (
+                <div className="py-6 text-center text-xs text-slate-400">
+                  No matching contacts found in directory for &quot;{searchQuery}&quot;
+                </div>
+              ) : (
+                filteredContacts.map((contact) => {
+                  const isSelected = selectedContact?.id === contact.id;
+                  const isRoleMatch = contact.roleId === roleId;
+
+                  return (
+                    <div
+                      key={contact.id}
+                      onClick={() => setSelectedContact(contact)}
+                      className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                        isSelected
+                          ? 'bg-pink-50/80 border-[#E1007A] shadow-xs'
+                          : 'bg-white border-slate-200/80 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      {/* Left: Avatar + Info */}
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
+                            isSelected
+                              ? 'bg-[#E1007A] text-white shadow-2xs'
+                              : 'bg-slate-200 text-slate-700'
+                          }`}
+                        >
+                          {contact.avatarInitials}
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-slate-900 text-xs truncate">
+                              {contact.name}
+                            </span>
+                            {isRoleMatch && (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-pink-700 bg-pink-100 px-1.5 py-0.2 rounded">
+                                <Sparkles className="w-2.5 h-2.5 text-[#E1007A]" />
+                                Recommended
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500 truncate">
+                            {contact.companyName}{' '}
+                            {contact.jobTitle ? `• ${contact.jobTitle}` : ''}
+                          </p>
+                          <p className="text-[10px] text-slate-400 truncate">
+                            {contact.email}{' '}
+                            {contact.phone ? `• ${contact.phone}` : ''}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Right: Selected Checkmark */}
+                      <div className="shrink-0">
+                        {isSelected ? (
+                          <div className="w-5 h-5 rounded-full bg-[#E1007A] text-white flex items-center justify-center shadow-xs">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </div>
+                        ) : (
+                          <div className="w-5 h-5 rounded-full border border-slate-300 bg-white" />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 pt-1">
+          {/* 4. Selected Summary Box */}
+          {selectedContact && (
+            <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 flex items-start gap-2.5 text-xs text-emerald-950">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <div className="space-y-0.5 min-w-0">
+                <p className="font-bold text-emerald-900">
+                  Ready to link: {selectedContact.name} ({selectedContact.companyName})
+                </p>
+                <p className="text-[11px] text-emerald-800">
+                  Assigned as <strong>{getRoleLabel(roleId)}</strong> for this case.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* 5. Primary Checkbox */}
+          <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
             <input
               type="checkbox"
               id="isPrimaryCheck"
