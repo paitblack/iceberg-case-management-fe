@@ -452,6 +452,7 @@ export interface CreateAnnouncementPayload {
   content: string;
   isPrivate: boolean;
   visibleToParticipantIds: string[];
+  mentionedParticipantId?: string;
 }
 
 export interface CreateAnnouncementReplyPayload {
@@ -494,6 +495,14 @@ export interface BffCaseDocument {
   uploadedByName: string;
   downloadUrl?: string;
   canDownload?: boolean;
+}
+
+export interface DocumentDownloadUrlResponse {
+  url: string;
+  expiresAt: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes?: number;
 }
 
 export interface BffParticipant {

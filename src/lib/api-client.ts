@@ -35,6 +35,7 @@ import type {
   CreateAnnouncementPayload,
   CreateAnnouncementReplyPayload,
   AddCaseNotePayload,
+  DocumentDownloadUrlResponse,
   TrafficLightData,
   SlaStatus,
   BffActivityCategory,
@@ -631,6 +632,15 @@ export async function confirmDocumentUpload(
   );
 }
 
+export async function getDocumentDownloadUrl(
+  caseId: string,
+  documentId: string,
+): Promise<DocumentDownloadUrlResponse> {
+  return apiGet<DocumentDownloadUrlResponse>(
+    `/cases/${caseId}/documents/${documentId}/download-url`,
+  );
+}
+
 export async function uploadCaseDocument(
   caseId: string,
   file: File,
@@ -713,7 +723,7 @@ export async function createAnnouncementReply(
   payload: CreateAnnouncementReplyPayload,
 ): Promise<AnnouncementReplySnapshot> {
   return apiPost<AnnouncementReplySnapshot>(
-    `/cases/${caseId}/announcements/${announcementId}/replies`,
+    `/cases/${caseId}/announcements/${announcementId}/reply`,
     payload,
   );
 }
