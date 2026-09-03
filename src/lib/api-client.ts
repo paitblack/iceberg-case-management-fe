@@ -325,6 +325,8 @@ interface RawBffWorkspaceResponse {
     templateVersionId: string;
     templateVersionNumber?: number;
     status: 'Open' | 'OnHold' | 'Completed' | 'Cancelled';
+    statusLabel?: string;
+    aiSummary?: string | null;
     propertyAddress?: string;
     agreedPrice?: number;
     assignedProgressorName?: string;
@@ -520,6 +522,10 @@ export async function fetchCaseWorkspace(
       announcements: rawData.announcements || [],
       recentActivities: rawData.recentActivities || [],
       updatedAt: rawData.generatedAt || new Date().toISOString(),
+      aiSummary:
+        c.aiSummary ??
+        (rawData as { aiSummary?: string | null }).aiSummary ??
+        null,
     };
   }
 

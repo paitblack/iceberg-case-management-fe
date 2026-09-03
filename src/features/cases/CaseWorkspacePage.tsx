@@ -12,6 +12,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { WorkspaceHeader } from './workspace/WorkspaceHeader';
+import { AiCaseSummaryCard } from './workspace/AiCaseSummaryCard';
 import { BlockersBanner } from './workspace/BlockersBanner';
 import { StepExecutionCard } from './workspace/StepExecutionCard';
 import { DocumentsTab } from './workspace/DocumentsTab';
@@ -541,6 +542,12 @@ export const CaseWorkspacePage: React.FC = () => {
           <span>{errorBanner}</span>
         </div>
       )}
+
+      {/* AI Case Resolution Summary Card */}
+      <AiCaseSummaryCard
+        status={snapshot.status}
+        aiSummary={snapshot.aiSummary}
+      />
 
       {/* Main Workspace Header Card */}
       <WorkspaceHeader

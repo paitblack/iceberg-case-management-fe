@@ -606,6 +606,7 @@ export interface BffWorkspaceSnapshot {
   announcements?: AnnouncementTreeSnapshot[];
   recentActivities?: BffCaseActivityItem[];
   updatedAt: string;
+  aiSummary?: string | null;
 }
 
 export type CaseSummary = {
