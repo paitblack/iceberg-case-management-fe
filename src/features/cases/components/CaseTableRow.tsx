@@ -234,10 +234,10 @@ export const CaseTableRow: React.FC<CaseTableRowProps> = ({
               {progress.percentage}%
             </span>
           </div>
-          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/60">
+          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60">
             <div
-              className="h-full bg-gradient-to-r from-[#E1007A] to-[#FF4B9E] rounded-full transition-all duration-500"
-              style={{ width: `${progress.percentage}%` }}
+              className="h-full bg-gradient-to-r from-[#E1007A] to-[#FF4B9E] rounded-full transition-all duration-500 shadow-2xs"
+              style={{ width: `${Math.min(100, Math.max(0, progress.percentage))}%` }}
             />
           </div>
         </div>

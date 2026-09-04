@@ -124,6 +124,16 @@ export const CasesPage: React.FC = () => {
     loadCases();
   }, [loadCases]);
 
+  useEffect(() => {
+    const handlePersonaChange = () => {
+      loadCases();
+    };
+    window.addEventListener('auth:persona-changed', handlePersonaChange);
+    return () => {
+      window.removeEventListener('auth:persona-changed', handlePersonaChange);
+    };
+  }, [loadCases]);
+
   const handleLoadMore = () => {
     if (meta.hasMore && meta.nextCursor) {
       loadCases(meta.nextCursor);

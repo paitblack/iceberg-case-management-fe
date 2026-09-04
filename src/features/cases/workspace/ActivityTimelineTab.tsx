@@ -183,7 +183,7 @@ export const ActivityTimelineTab: React.FC<ActivityTimelineTabProps> = ({
                 </span>
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Domain-agnostic chronological event stream of all milestone executions, work items, and communications.
+                Chronological activity log of all milestone progression, tasks, documents, and communications.
               </p>
             </div>
           </div>
@@ -254,8 +254,10 @@ export const ActivityTimelineTab: React.FC<ActivityTimelineTabProps> = ({
             </h4>
             <p className="text-xs text-slate-500">
               {selectedCategory !== 'ALL'
-                ? `There are no recorded events for the "${selectedCategory}" category in this case.`
-                : 'No activities have been recorded on this case instance yet.'}
+                ? `There are no recorded events for the "${
+                    FILTER_PILLS.find((pill) => pill.id === selectedCategory)?.label || selectedCategory
+                  }" category in this case.`
+                : 'No activities have been recorded for this case yet.'}
             </p>
           </div>
           {selectedCategory !== 'ALL' && (

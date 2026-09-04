@@ -10,9 +10,11 @@ import {
   RefreshCw,
   AlertCircle,
   CheckCircle2,
+  ShieldAlert,
 } from 'lucide-react';
 import { WorkspaceHeader } from './workspace/WorkspaceHeader';
 import { AiCaseSummaryCard } from './workspace/AiCaseSummaryCard';
+import { SalesProgressionTracker } from './workspace/SalesProgressionTracker';
 import { BlockersBanner } from './workspace/BlockersBanner';
 import { StepExecutionCard } from './workspace/StepExecutionCard';
 import { DocumentsTab } from './workspace/DocumentsTab';
@@ -65,6 +67,7 @@ export const CaseWorkspacePage: React.FC = () => {
   const [snapshot, setSnapshot] = useState<BffWorkspaceSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [isForbidden, setIsForbidden] = useState<boolean>(false);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
 
   // Mutation loading states
@@ -82,6 +85,23 @@ export const CaseWorkspacePage: React.FC = () => {
   const [statusModalAction, setStatusModalAction] =
     useState<CaseStatusAction | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
+  const [targetedStepId, setTargetedStepId] = useState<string | null>(null);
+
+  const handleSelectStep = (stepId: string) => {
+    setActiveTab('progression');
+    setTargetedStepId(stepId);
+
+    setTimeout(() => {
+      const el = document.getElementById(`step-card-${stepId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 120);
+
+    setTimeout(() => {
+      setTargetedStepId(null);
+    }, 2500);
+  };
 
   // Notification Toast state
   const [toastMessage, setToastMessage] = useState<{
@@ -89,13 +109,14 @@ export const CaseWorkspacePage: React.FC = () => {
     text: string;
   } | null>(null);
 
-  const showToast = (type: 'success' | 'error', text: string) => {
+  const showToast = useCallback((type: 'success' | 'error', text: string) => {
     setToastMessage({ type, text });
     setTimeout(() => setToastMessage(null), 4000);
-  };
+  }, []);
 
   const loadWorkspace = useCallback(async () => {
     setErrorBanner(null);
+    setIsForbidden(false);
     if (!caseId) {
       setIsLoading(false);
       return;
@@ -106,12 +127,16 @@ export const CaseWorkspacePage: React.FC = () => {
       if (data) {
         setSnapshot(data);
       }
-    } catch (err) {
-      const msg =
-        err instanceof ApiError
-          ? err.problem.detail || err.message
-          : `Failed to load case '${caseId}' from backend.`;
-      setErrorBanner(msg);
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 403) {
+        setIsForbidden(true);
+      } else {
+        const msg =
+          err instanceof ApiError
+            ? err.problem.detail || err.message
+            : `Failed to load case '${caseId}' from backend.`;
+        setErrorBanner(msg);
+      }
       setSnapshot(null);
     } finally {
       setIsLoading(false);
@@ -445,6 +470,24 @@ export const CaseWorkspacePage: React.FC = () => {
     );
   }
 
+  if (isForbidden) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-8">
+        <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-4 border border-amber-200">
+          <ShieldAlert className="w-8 h-8 text-amber-600" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">Access Restricted</h2>
+        <p className="text-sm text-slate-600 max-w-md mb-6">
+          You are not assigned as an authorized stakeholder or solicitor on this case. 
+          Only assigned case participants or system administrators can view this workspace.
+        </p>
+        <Button onClick={() => navigate('/cases')} variant="outline">
+          Back to Cases
+        </Button>
+      </div>
+    );
+  }
+
   if (!snapshot) {
     return (
       <div className="space-y-6 pb-16">
@@ -555,6 +598,12 @@ export const CaseWorkspacePage: React.FC = () => {
         onOpenStatusModal={(action) => setStatusModalAction(action)}
       />
 
+      {/* Sales Progression Stepper & Current Position Tracker */}
+      <SalesProgressionTracker
+        snapshot={snapshot}
+        onSelectStep={handleSelectStep}
+      />
+
       {/* Blockers Alert Banner */}
       <BlockersBanner blockers={blockersList} />
 
@@ -661,6 +710,7 @@ export const CaseWorkspacePage: React.FC = () => {
                   loadingStepId={loadingStepId}
                   loadingWorkItemId={loadingWorkItemId}
                   isAddingNote={isSubmittingNote}
+                  isTargeted={targetedStepId === step.id}
                 />
               ))
             )}

@@ -138,4 +138,41 @@ describe('AnnouncementsTab', () => {
       mentionedParticipantId: undefined,
     });
   });
+
+  it('filters out current user from mentionable participants dropdown to prevent self-mentions', () => {
+    const participantsWithSelf: BffParticipant[] = [
+      {
+        id: 'part-self',
+        name: 'Sarah Jenkins',
+        contactId: 'usr_1',
+        roleName: 'Estate Agent',
+        roleId: 'role-estate-agent',
+      },
+      {
+        id: 'part-other',
+        name: 'Marcus Cole',
+        contactId: 'usr_agent_2',
+        roleName: 'Estate Agent',
+        roleId: 'role-estate-agent',
+      },
+    ];
+
+    render(
+      <AnnouncementsTab
+        announcements={[]}
+        participants={participantsWithSelf}
+        onPostAnnouncement={vi.fn()}
+        onPostReply={vi.fn()}
+      />,
+    );
+
+    const select = screen.getByRole('combobox');
+    const options = Array.from(select.querySelectorAll('option')).map(
+      (opt) => opt.textContent,
+    );
+
+    expect(options.some((opt) => opt?.includes('Marcus Cole'))).toBe(true);
+    expect(options.some((opt) => opt?.includes('Sarah Jenkins'))).toBe(false);
+  });
 });
+
