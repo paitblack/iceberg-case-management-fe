@@ -6,9 +6,12 @@ import {
   Building2,
   TrendingUp,
   RotateCcw,
+  PlayCircle,
+  PauseCircle,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
-import { Button } from '../../../components/ui/Button';
 import { TrafficLightBadge } from '../../../components/ui/TrafficLightBadge';
 import { usePermissions } from '../../auth/usePermissions';
 import type {
@@ -26,6 +29,14 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   onOpenStatusModal,
 }) => {
   const { canReopenCase } = usePermissions();
+  const allowedActions =
+    snapshot.allowedActions !== undefined
+      ? snapshot.allowedActions
+      : snapshot.status === 'Open'
+        ? (['HOLD', 'COMPLETE', 'CANCEL'] as CaseStatusAction[])
+        : snapshot.status === 'OnHold'
+          ? (['RESUME', 'CANCEL'] as CaseStatusAction[])
+          : [];
   const steps = snapshot.steps || [];
   const mandatorySteps = steps.filter((s) => !s.isOptional);
   const completedMandatorySteps = mandatorySteps.filter(
@@ -44,14 +55,14 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
       : snapshot.progressPercentage;
 
   const canReopen =
-    (snapshot.allowedActions?.includes('REOPEN') ||
+    (allowedActions.includes('REOPEN') ||
       snapshot.hasReopenPermission) &&
     canReopenCase(snapshot);
   const isClosed =
     snapshot.status === 'Completed' || snapshot.status === 'Cancelled';
 
   return (
-    <div className="iceberg-card p-6 space-y-5 border border-slate-200/90 shadow-xs">
+    <div className="iceberg-card p-6 space-y-5 border border-slate-200/90 shadow-xs bg-white">
       {/* Top Meta Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1.5 flex-1 min-w-0">
@@ -112,28 +123,80 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
           </div>
         </div>
 
-        {/* Right Section: Price & Action Buttons */}
-        <div className="flex items-center gap-3 shrink-0 flex-wrap">
-          {isClosed && canReopen && onOpenStatusModal && (
-            <Button
-              variant="outline"
-              size="md"
-              onClick={() => onOpenStatusModal('REOPEN')}
-              leftIcon={<RotateCcw className="w-4 h-4 text-[#E1007A]" />}
-              className="font-bold border-[#E1007A]/40 text-[#E1007A] hover:bg-pink-50 shadow-2xs"
-            >
-              Reopen Case
-            </Button>
-          )}
-
+        {/* Right Section: Price & Quick Action Buttons */}
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap justify-end">
           {snapshot.agreedPrice !== undefined && (
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-right shrink-0">
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2 text-right shrink-0">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 Agreed Sale Price
               </p>
-              <p className="text-xl font-extrabold text-slate-900">
+              <p className="text-base md:text-lg font-extrabold text-slate-900">
                 £{snapshot.agreedPrice.toLocaleString('en-GB')}
               </p>
+            </div>
+          )}
+
+          {onOpenStatusModal && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* RESUME */}
+              {allowedActions.includes('RESUME') && (
+                <button
+                  type="button"
+                  onClick={() => onOpenStatusModal('RESUME')}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-all flex items-center gap-1.5 shadow-2xs hover:shadow-xs cursor-pointer"
+                >
+                  <PlayCircle className="w-4 h-4 text-emerald-600" />
+                  <span>Resume Case</span>
+                </button>
+              )}
+
+              {/* HOLD */}
+              {allowedActions.includes('HOLD') && (
+                <button
+                  type="button"
+                  onClick={() => onOpenStatusModal('HOLD')}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 transition-all flex items-center gap-1.5 shadow-2xs hover:shadow-xs cursor-pointer"
+                >
+                  <PauseCircle className="w-4 h-4 text-amber-600" />
+                  <span>Hold Case</span>
+                </button>
+              )}
+
+              {/* COMPLETE */}
+              {allowedActions.includes('COMPLETE') && (
+                <button
+                  type="button"
+                  onClick={() => onOpenStatusModal('COMPLETE')}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-all flex items-center gap-1.5 shadow-xs shadow-emerald-600/20 cursor-pointer"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Complete Case</span>
+                </button>
+              )}
+
+              {/* CANCEL */}
+              {allowedActions.includes('CANCEL') && (
+                <button
+                  type="button"
+                  onClick={() => onOpenStatusModal('CANCEL')}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition-all flex items-center gap-1.5 shadow-2xs hover:shadow-xs cursor-pointer"
+                >
+                  <XCircle className="w-4 h-4 text-rose-500" />
+                  <span>Cancel Case</span>
+                </button>
+              )}
+
+              {/* REOPEN */}
+              {isClosed && canReopen && (
+                <button
+                  type="button"
+                  onClick={() => onOpenStatusModal('REOPEN')}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-pink-50 text-[#E1007A] hover:bg-pink-100 border border-[#E1007A]/40 transition-all flex items-center gap-1.5 shadow-2xs hover:shadow-xs cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4 text-[#E1007A]" />
+                  <span>Reopen Case</span>
+                </button>
+              )}
             </div>
           )}
         </div>

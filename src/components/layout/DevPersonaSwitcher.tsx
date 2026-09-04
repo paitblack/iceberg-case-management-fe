@@ -10,10 +10,12 @@ import {
   Briefcase,
 } from 'lucide-react';
 import { useAuth } from '../../features/auth/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
 import type { UserPersona } from '../../types/auth';
 
 export const DevPersonaSwitcher: React.FC = () => {
   const { user, availablePersonas, switchPersona } = useAuth();
+  const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -34,6 +36,8 @@ export const DevPersonaSwitcher: React.FC = () => {
 
   const handleSelectPersona = (persona: UserPersona) => {
     switchPersona(persona.id);
+    queryClient.invalidateQueries({ queryKey: ['cases'] });
+    queryClient.invalidateQueries({ queryKey: ['case-workspace'] });
     setIsOpen(false);
   };
 

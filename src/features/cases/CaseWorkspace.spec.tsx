@@ -161,6 +161,38 @@ describe('Case Workspace Components', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders Access Restricted screen when fetchCaseWorkspace returns 403 Forbidden', async () => {
+    vi.spyOn(apiClient, 'fetchCaseWorkspace').mockRejectedValue(
+      new apiClient.ApiError({
+        type: 'urn:problem:forbidden',
+        title: 'Forbidden',
+        status: 403,
+        detail:
+          'You are not assigned as an authorized stakeholder or solicitor on this case.',
+      }),
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/cases/case-unauthorized-403']}>
+        <Routes>
+          <Route path="/cases/:caseId" element={<CaseWorkspacePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: /Access Restricted/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /You are not assigned as an authorized stakeholder or solicitor on this case/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Back to Cases/i }),
+    ).toBeInTheDocument();
+  });
+
   it('renders WorkItemExecutionRow with dynamic assignee badge', () => {
     const mockWorkItemWithAssignee: BffWorkspaceWorkItem = {
       id: 'wi-test-2',
@@ -417,4 +449,69 @@ describe('Case Workspace Components', () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it('renders Hold, Complete, and Cancel quick action buttons on WorkspaceHeader when case is Open and triggers onOpenStatusModal', () => {
+    const openSnapshot: BffWorkspaceSnapshot = {
+      ...mockSnapshot,
+      status: 'Open',
+      allowedActions: ['HOLD', 'COMPLETE', 'CANCEL'],
+    };
+
+    const handleOpenModal = vi.fn();
+    render(
+      <WorkspaceHeader
+        snapshot={openSnapshot}
+        onOpenStatusModal={handleOpenModal}
+      />,
+    );
+
+    const holdBtn = screen.getByRole('button', { name: /Hold Case/i });
+    const completeBtn = screen.getByRole('button', { name: /Complete Case/i });
+    const cancelBtn = screen.getByRole('button', { name: /Cancel Case/i });
+
+    expect(holdBtn).toBeInTheDocument();
+    expect(completeBtn).toBeInTheDocument();
+    expect(cancelBtn).toBeInTheDocument();
+
+    fireEvent.click(holdBtn);
+    expect(handleOpenModal).toHaveBeenCalledWith('HOLD');
+
+    fireEvent.click(completeBtn);
+    expect(handleOpenModal).toHaveBeenCalledWith('COMPLETE');
+
+    fireEvent.click(cancelBtn);
+    expect(handleOpenModal).toHaveBeenCalledWith('CANCEL');
+  });
+
+  it('renders Resume and Cancel quick action buttons on WorkspaceHeader when case is OnHold and triggers onOpenStatusModal', () => {
+    const onHoldSnapshot: BffWorkspaceSnapshot = {
+      ...mockSnapshot,
+      status: 'OnHold',
+      allowedActions: ['RESUME', 'CANCEL'],
+    };
+
+    const handleOpenModal = vi.fn();
+    render(
+      <WorkspaceHeader
+        snapshot={onHoldSnapshot}
+        onOpenStatusModal={handleOpenModal}
+      />,
+    );
+
+    const resumeBtn = screen.getByRole('button', { name: /Resume Case/i });
+    const cancelBtn = screen.getByRole('button', { name: /Cancel Case/i });
+
+    expect(resumeBtn).toBeInTheDocument();
+    expect(cancelBtn).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Hold Case/i }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(resumeBtn);
+    expect(handleOpenModal).toHaveBeenCalledWith('RESUME');
+
+    fireEvent.click(cancelBtn);
+    expect(handleOpenModal).toHaveBeenCalledWith('CANCEL');
+  });
 });
+

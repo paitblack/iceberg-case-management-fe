@@ -45,6 +45,7 @@ interface StepExecutionCardProps {
   loadingStepId: string | null;
   loadingWorkItemId: string | null;
   isAddingNote?: boolean;
+  isTargeted?: boolean;
 }
 
 export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
@@ -59,6 +60,7 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
   loadingStepId,
   loadingWorkItemId,
   isAddingNote = false,
+  isTargeted = false,
 }) => {
   const isCompleted = step.status === 'Completed';
   const isInProgress =
@@ -68,8 +70,14 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
 
   // Default expanded if InProgress, collapsible if completed/pending
   const [isExpanded, setIsExpanded] = useState<boolean>(
-    isInProgress || isCompleted,
+    isInProgress || isCompleted || isTargeted,
   );
+
+  React.useEffect(() => {
+    if (isTargeted) {
+      setIsExpanded(true);
+    }
+  }, [isTargeted]);
 
   const completedWorkItemsCount = step.workItems.filter(
     (wi) => wi.status === 'Completed' || wi.status === 'Waived',
@@ -81,7 +89,10 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
 
   return (
     <div
+      id={`step-card-${step.id}`}
       className={`rounded-2xl border transition-all shadow-xs ${
+        isTargeted ? 'ring-4 ring-[#E1007A]/50 shadow-md' : ''
+      } ${
         isCompleted
           ? 'bg-white border-emerald-200/90'
           : isInProgress

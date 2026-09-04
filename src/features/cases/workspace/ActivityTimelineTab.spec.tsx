@@ -163,4 +163,78 @@ describe('ActivityTimelineTab', () => {
       await screen.findByText('No Activities Logged Yet'),
     ).toBeInTheDocument();
   });
+
+  it('sanitizes technical IDs, UUIDs, boolean flags, and internal clutter from metadata chips and header', async () => {
+    vi.spyOn(apiClient, 'fetchCaseActivities').mockResolvedValue({
+      contractVersion: '1.0.0',
+      generatedAt: '2026-09-04T16:21:00.000Z',
+      items: [
+        {
+          id: 'log-announcement',
+          caseId: 'case-100',
+          category: 'COMMUNICATION',
+          action: 'CREATE',
+          title: 'Announcement Mention',
+          description: 'Replied mentioning Marcus Cole.',
+          actor: {
+            id: 'actor-uuid-1',
+            name: 'Marcus Cole',
+            role: 'Estate Agent',
+          },
+          metadata: {
+            content: 'ğ',
+            parentId: '47442209-09c8-4b4e-a169-5b375b66d6d4',
+            isPrivate: false,
+            mentionedParticipantId: '3dff7beb-b7f0-417b-bc20-404c04803529',
+            visibleToParticipantIds: [],
+            mentionedParticipantName: 'Marcus Cole',
+          },
+          createdAt: '2026-09-04T16:21:00.000Z',
+        },
+        {
+          id: 'log-hold',
+          caseId: 'case-100',
+          category: 'CASE_LIFECYCLE',
+          action: 'HOLD',
+          title: 'Case Put On Hold',
+          description: 'Case was put on hold: Awaiting survey report.',
+          actor: {
+            id: 'actor-uuid-2',
+            name: 'Sarah Jenkins',
+            role: 'Estate Agent',
+          },
+          metadata: {
+            holdReason: 'Awaiting survey report.',
+            targetDate: '2026-09-15T12:00:00.000Z',
+          },
+          createdAt: '2026-09-04T15:20:00.000Z',
+        },
+      ],
+      meta: { totalCount: 2, hasMore: false },
+      availableCategories: ['COMMUNICATION', 'CASE_LIFECYCLE'],
+    });
+
+    render(<ActivityTimelineTab caseId="case-100" />);
+
+    await screen.findByText('Announcement Mention');
+
+    // Business metadata chips should be displayed with clean labels
+    expect(screen.getByText('Hold Reason:')).toBeInTheDocument();
+    expect(screen.getByText('Awaiting survey report.')).toBeInTheDocument();
+    expect(screen.getByText('Target Date:')).toBeInTheDocument();
+
+    // Technical IDs, UUIDs, and DB keys must NOT be displayed
+    expect(screen.queryByText(/Parent Id/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/47442209-09c8/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Mentioned Participant Id/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/3dff7beb-b7f0/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Visible To Participant Ids/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Is Private/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Content:/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Mentioned Participant Name:/i)).not.toBeInTheDocument();
+
+    // Raw CRUD database action badges (e.g. CREATE, HOLD) should not be rendered
+    expect(screen.queryByText('CREATE')).not.toBeInTheDocument();
+    expect(screen.queryByText('AT_SUMMARY')).not.toBeInTheDocument();
+  });
 });

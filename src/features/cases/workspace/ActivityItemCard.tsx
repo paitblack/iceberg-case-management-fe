@@ -71,6 +71,114 @@ const CATEGORY_CONFIG: Record<
   },
 };
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const TECHNICAL_ID_KEY_REGEX = /^(id|_id|.*[iI]ds?)$/;
+
+const EXCLUDED_KEYS = new Set([
+  'content',
+  'isPrivate',
+  'entityType',
+  'entityId',
+  'storageKey',
+  'hash',
+  'checksum',
+  'resourceVersion',
+  'version',
+  'aiSummaryLength',
+  'aiSummary',
+  'beforeState',
+  'afterState',
+  'rawMetadata',
+  'action',
+  'title',
+  'mentionedParticipantName',
+]);
+
+const KEY_DISPLAY_LABELS: Record<string, string> = {
+  stepName: 'Milestone',
+  workItemName: 'Task',
+  holdReason: 'Hold Reason',
+  cancellationReason: 'Cancellation Reason',
+  reopenReason: 'Reopen Reason',
+  targetDate: 'Target Date',
+  fileName: 'File',
+  fileSize: 'Size',
+  fileType: 'Type',
+  roleName: 'Role',
+  reason: 'Reason',
+  status: 'Status',
+};
+
+function formatMetadataKey(key: string): string {
+  if (KEY_DISPLAY_LABELS[key]) {
+    return KEY_DISPLAY_LABELS[key];
+  }
+  return key
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, (str) => str.toUpperCase())
+    .trim();
+}
+
+function formatMetadataValue(key: string, val: unknown): string | null {
+  if (val === null || val === undefined || val === '') {
+    return null;
+  }
+
+  // Reject boolean values like isPrivate: false
+  if (typeof val === 'boolean') {
+    return null;
+  }
+
+  // Reject UUID strings
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (UUID_REGEX.test(trimmed)) {
+      return null;
+    }
+    // Check if it's an ISO date string
+    if (key.toLowerCase().includes('date') && !isNaN(Date.parse(trimmed))) {
+      try {
+        const d = new Date(trimmed);
+        return d.toLocaleDateString('en-GB', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        });
+      } catch {
+        return trimmed;
+      }
+    }
+    return trimmed;
+  }
+
+  // Handle arrays
+  if (Array.isArray(val)) {
+    if (val.length === 0) return null;
+    const filtered = val
+      .filter((v) => typeof v === 'string' && !UUID_REGEX.test(v.trim()))
+      .map(String);
+    if (filtered.length === 0) return null;
+    return filtered.join(', ');
+  }
+
+  // Reject plain objects (should not dump raw JSON in UI chips)
+  if (typeof val === 'object') {
+    return null;
+  }
+
+  if (typeof val === 'number') {
+    if (key.toLowerCase().includes('size')) {
+      if (val < 1024) return `${val} B`;
+      if (val < 1024 * 1024) return `${(val / 1024).toFixed(1)} KB`;
+      return `${(val / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    return String(val);
+  }
+
+  return String(val);
+}
+
 function formatTimestamp(isoStr: string): string {
   try {
     const d = new Date(isoStr);
@@ -92,13 +200,17 @@ export const ActivityItemCard: React.FC<ActivityItemCardProps> = ({
 }) => {
   const config = CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG.CASE_LIFECYCLE;
 
-  const metadataEntries = Object.entries(item.metadata || {}).filter(
-    ([key, value]) =>
-      value !== null &&
-      value !== undefined &&
-      value !== '' &&
-      !['id', 'caseId', 'stepId', 'workItemId'].includes(key),
-  );
+  const metadataEntries = Object.entries(item.metadata || {})
+    .filter(([key]) => !EXCLUDED_KEYS.has(key) && !TECHNICAL_ID_KEY_REGEX.test(key))
+    .map(([key, val]) => {
+      const formattedVal = formatMetadataValue(key, val);
+      return {
+        key,
+        label: formatMetadataKey(key),
+        value: formattedVal,
+      };
+    })
+    .filter((entry): entry is { key: string; label: string; value: string } => entry.value !== null);
 
   return (
     <div className="relative flex items-start gap-3.5 group">
@@ -128,12 +240,6 @@ export const ActivityItemCard: React.FC<ActivityItemCardProps> = ({
             >
               {config.label}
             </span>
-
-            {item.action && (
-              <span className="text-[9.5px] font-mono font-bold uppercase tracking-wider text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-md border border-slate-200/60">
-                {item.action}
-              </span>
-            )}
           </div>
 
           <div className="flex items-center gap-1 text-[11px] text-slate-400 font-medium shrink-0">
@@ -150,17 +256,17 @@ export const ActivityItemCard: React.FC<ActivityItemCardProps> = ({
         {/* Metadata Details Chips */}
         {metadataEntries.length > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap pt-1">
-            {metadataEntries.map(([key, val]) => (
+            {metadataEntries.map(({ key, label, value }) => (
               <span
                 key={key}
                 className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 bg-slate-50 border border-slate-200/80 px-2 py-0.5 rounded-lg shadow-2xs"
               >
                 <Tag className="w-2.5 h-2.5 text-slate-400" />
-                <span className="font-bold text-slate-500 capitalize">
-                  {key.replace(/([A-Z])/g, ' $1')}:
+                <span className="font-bold text-slate-500">
+                  {label}:
                 </span>
-                <span className="text-slate-800 font-semibold truncate max-w-[200px]">
-                  {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                <span className="text-slate-800 font-semibold truncate max-w-[280px]">
+                  {value}
                 </span>
               </span>
             ))}
@@ -168,14 +274,20 @@ export const ActivityItemCard: React.FC<ActivityItemCardProps> = ({
         )}
 
         {/* Footer: Actor Info */}
-        {item.actor && (
+        {item.actor && (item.actor.name || item.actor.role) && (
           <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px]">
             <div className="flex items-center gap-1.5 text-slate-500">
               <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200/80 text-slate-600 flex items-center justify-center text-[10px] font-bold">
-                {item.actor.name ? item.actor.name.charAt(0).toUpperCase() : <User className="w-3 h-3" />}
+                {item.actor.name && !UUID_REGEX.test(item.actor.name)
+                  ? item.actor.name.charAt(0).toUpperCase()
+                  : <User className="w-3 h-3" />}
               </div>
-              <span className="font-bold text-slate-800">{item.actor.name}</span>
-              {item.actor.role && (
+              <span className="font-bold text-slate-800">
+                {UUID_REGEX.test(item.actor.name || '')
+                  ? 'System User'
+                  : (item.actor.name || 'System')}
+              </span>
+              {item.actor.role && !UUID_REGEX.test(item.actor.role) && (
                 <span className="text-[10px] text-slate-400 font-medium">
                   ({item.actor.role})
                 </span>

@@ -5,6 +5,7 @@
 export interface UserPersona {
   id: string;
   name: string;
+  fullname?: string;
   email: string;
   companyId: number;
   branchId?: string;
