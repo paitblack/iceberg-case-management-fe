@@ -16,6 +16,7 @@ const mockAnnouncements: AnnouncementTreeSnapshot[] = [
     content: 'Mortgage valuation completed. Moving to contract exchange.',
     isPrivate: false,
     visibleToParticipantIds: [],
+    mentionedParticipantName: 'Marcus Vance',
     createdAt: '2026-08-29T10:00:00Z',
     replies: [
       {
@@ -45,7 +46,7 @@ const mockParticipants: BffParticipant[] = [
 ];
 
 describe('AnnouncementsTab', () => {
-  it('renders announcement thread with replies and mentions', () => {
+  it('renders announcement thread with root and reply mentions', () => {
     render(
       <AnnouncementsTab
         announcements={mockAnnouncements}
@@ -63,9 +64,14 @@ describe('AnnouncementsTab', () => {
         'Mortgage valuation completed. Moving to contract exchange.',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText('Draft contracts ready for signature.')).toBeInTheDocument();
     expect(
-      screen.getByText(/@Sarah Jenkins • Awaiting Response/i),
+      screen.getByText('Draft contracts ready for signature.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/@Marcus Vance/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/@Sarah Jenkins/i),
     ).toBeInTheDocument();
   });
 

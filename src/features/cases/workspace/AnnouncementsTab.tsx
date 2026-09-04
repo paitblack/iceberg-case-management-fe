@@ -11,6 +11,7 @@ import {
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { VisibilitySelector } from './VisibilitySelector';
+import { useAuth } from '../../auth/AuthContext';
 import type {
   AnnouncementTreeSnapshot,
   AnnouncementReplySnapshot,
@@ -47,6 +48,19 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({
   >([]);
   const [rootMentionedId, setRootMentionedId] = useState<string>('');
   const [composerError, setComposerError] = useState<string | null>(null);
+  const { user } = useAuth();
+
+  const eligibleParticipants = participants.filter((p) => {
+    if (!user) return true;
+    if (p.id === user.id || p.contactId === user.id) return false;
+    if (
+      user.name &&
+      p.name.trim().toLowerCase() === user.name.trim().toLowerCase()
+    ) {
+      return false;
+    }
+    return true;
+  });
 
   // Reply Composer State (keyed by parent announcement ID)
   const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
@@ -154,7 +168,7 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({
           />
 
           {/* Mention Stakeholder Selector */}
-          {participants.length > 0 && (
+          {eligibleParticipants.length > 0 && (
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
                 <AtSign className="w-3 h-3 text-[#E1007A]" />
@@ -167,7 +181,7 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({
                 className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#E1007A]/20 focus:border-[#E1007A] text-slate-700 font-medium"
               >
                 <option value="">-- No direct mention (Broadcast to everyone) --</option>
-                {participants.map((p) => (
+                {eligibleParticipants.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name} ({p.roleName || p.roleId})
                     {p.companyName ? ` - ${p.companyName}` : ''}
@@ -273,8 +287,17 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({
                       </div>
                     </div>
 
-                    {/* Visibility Tag */}
-                    <div>
+                    {/* Visibility & Mention Badges */}
+                    <div className="flex items-center gap-2">
+                      {announcement.mentionedParticipantName && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg">
+                          <AtSign className="w-3 h-3 text-indigo-600" />
+                          <span>
+                            @{announcement.mentionedParticipantName} • Awaiting
+                            Response
+                          </span>
+                        </span>
+                      )}
                       {isPriv ? (
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">
                           <Lock className="w-3 h-3 text-amber-600" />
@@ -450,7 +473,7 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({
                       />
 
                       {/* Mention / Target Stakeholder Selector */}
-                      {participants.length > 0 && (
+                      {eligibleParticipants.length > 0 && (
                         <div className="space-y-1">
                           <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
                             <AtSign className="w-3 h-3 text-indigo-600" />
@@ -469,7 +492,7 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({
                             <option value="">
                               -- No specific stakeholder tagged --
                             </option>
-                            {participants.map((p) => (
+                            {eligibleParticipants.map((p) => (
                               <option key={p.id} value={p.id}>
                                 {p.name} {p.roleName ? `(${p.roleName})` : ''}{' '}
                                 {p.companyName ? `- ${p.companyName}` : ''}

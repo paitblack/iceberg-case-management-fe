@@ -47,6 +47,7 @@ function syncLocalStorage(persona: UserPersona, token: string | null) {
     localStorage.setItem(STORAGE_KEY_PERSONA, persona.id);
     localStorage.setItem(STORAGE_KEY_COMPANY_ID, String(persona.companyId));
     localStorage.setItem(STORAGE_KEY_ACTOR_ID, persona.id);
+    localStorage.setItem('lifesycle_actor_name', persona.name);
     localStorage.setItem(STORAGE_KEY_ROLES, persona.roles.join(', '));
     if (persona.branchId) {
       localStorage.setItem(STORAGE_KEY_BRANCH_ID, persona.branchId);

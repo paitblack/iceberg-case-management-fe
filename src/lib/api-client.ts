@@ -78,10 +78,14 @@ export function createApiClient(baseUrl: string = '/api/v1'): AxiosInstance {
       localStorage.getItem('lifesycle_user_role') ||
       'Sales Progressor, Estate Agent';
     const branchId = localStorage.getItem('lifesycle_branch_id');
+    const actorName = localStorage.getItem('lifesycle_actor_name');
 
     if (config.headers) {
       config.headers['x-mock-company-id'] = companyId;
       config.headers['x-mock-actor-id'] = actorId;
+      if (actorName) {
+        config.headers['x-mock-actor-name'] = actorName;
+      }
       config.headers['x-mock-roles'] = roles;
       if (branchId) {
         config.headers['x-mock-branch-id'] = branchId;
