@@ -443,6 +443,8 @@ export interface AnnouncementTreeSnapshot {
   content: string;
   isPrivate: boolean;
   visibleToParticipantIds: string[];
+  mentionedParticipantId?: string;
+  mentionedParticipantName?: string;
   createdAt: string;
   updatedAt?: string;
   replies: AnnouncementReplySnapshot[];
