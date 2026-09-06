@@ -465,7 +465,7 @@ describe('Case Workspace Components', () => {
       />,
     );
 
-    const holdBtn = screen.getByRole('button', { name: /Hold Case/i });
+    const holdBtn = screen.getByRole('button', { name: /Put on Hold/i });
     const completeBtn = screen.getByRole('button', { name: /Complete Case/i });
     const cancelBtn = screen.getByRole('button', { name: /Cancel Case/i });
 
@@ -504,7 +504,7 @@ describe('Case Workspace Components', () => {
     expect(resumeBtn).toBeInTheDocument();
     expect(cancelBtn).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: /Hold Case/i }),
+      screen.queryByRole('button', { name: /Put on Hold/i }),
     ).not.toBeInTheDocument();
 
     fireEvent.click(resumeBtn);
@@ -513,5 +513,19 @@ describe('Case Workspace Components', () => {
     fireEvent.click(cancelBtn);
     expect(handleOpenModal).toHaveBeenCalledWith('CANCEL');
   });
+
+  it('renders the companion ExpectedDurationCard within WorkspaceHeader', () => {
+    const snapshotWithDuration: BffWorkspaceSnapshot = {
+      ...mockSnapshot,
+      expectedCompletionDays: 21,
+    };
+
+    render(<WorkspaceHeader snapshot={snapshotWithDuration} />);
+
+    expect(screen.getByTestId('expected-duration-card')).toBeInTheDocument();
+    expect(screen.getByText('~21 Days')).toBeInTheDocument();
+    expect(screen.getByText('Active Pace')).toBeInTheDocument();
+  });
 });
+
 

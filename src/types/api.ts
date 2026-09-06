@@ -581,6 +581,26 @@ export interface BffCaseActivitiesResponse {
   availableCategories: BffActivityCategory[];
 }
 
+export interface CaseSnapshot {
+  id: string;
+  reference?: string;
+  title: string;
+  status: CaseLifecycleStatus;
+  statusLabel?: string;
+  expectedCompletionDays?: number | null;
+  [key: string]: unknown;
+}
+
+export interface ProgressionSnapshot {
+  overallPercentage: number;
+  totalSteps?: number;
+  completedSteps?: number;
+  pendingSteps?: number;
+  expectedCompletionDays?: number | null;
+  trafficLight?: TrafficLightData;
+  blockers?: Array<{ stepName?: string; reason?: string } | string>;
+}
+
 export interface BffWorkspaceSnapshot {
   caseId: string;
   reference: string;
@@ -591,6 +611,7 @@ export interface BffWorkspaceSnapshot {
   templateVersion: number;
   status: CaseLifecycleStatus;
   progressPercentage: number;
+  expectedCompletionDays?: number | null;
   agreedPrice?: number;
   assignedProgressorName: string;
   branchName: string;

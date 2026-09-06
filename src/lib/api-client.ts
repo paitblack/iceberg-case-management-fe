@@ -339,12 +339,14 @@ interface RawBffWorkspaceResponse {
     reopenReason?: string;
     allowedActions?: CaseStatusAction[];
     reference?: string;
+    expectedCompletionDays?: number | null;
   };
   progression?: {
     overallPercentage?: number;
     completionPercentage?: number;
     trafficLight?: TrafficLightData;
     blockers?: Array<{ stepName?: string; reason?: string } | string>;
+    expectedCompletionDays?: number | null;
   };
   steps?: Array<{
     id: string;
@@ -505,6 +507,10 @@ export async function fetchCaseWorkspace(
       templateVersion: c.templateVersionNumber || 1,
       status: c.status,
       progressPercentage: p.overallPercentage ?? p.completionPercentage ?? 0,
+      expectedCompletionDays:
+        c.expectedCompletionDays !== undefined
+          ? c.expectedCompletionDays
+          : (p.expectedCompletionDays ?? null),
       agreedPrice: c.agreedPrice,
       assignedProgressorName:
         c.assignedProgressorName || 'Operations Progressor',
