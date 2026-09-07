@@ -32,6 +32,7 @@ export interface TemplateRole {
   id: string;
   name: string;
   description?: string;
+  maxOccurrences?: number;
 }
 
 export const STANDARD_TEMPLATE_ROLES: TemplateRole[] = [
@@ -39,36 +40,43 @@ export const STANDARD_TEMPLATE_ROLES: TemplateRole[] = [
     id: 'role-estate-agent',
     name: 'Estate Agent / Progressor',
     description: 'Listing Agent & Sales Progression Representative',
+    maxOccurrences: 1,
   },
   {
     id: 'role-vendor-solicitor',
     name: "Seller's Conveyancer / Solicitor",
     description: "Seller's Legal Conveyancing Representative",
+    maxOccurrences: 1,
   },
   {
     id: 'role-buyer-solicitor',
     name: "Buyer's Conveyancer / Solicitor",
     description: "Buyer's Legal Conveyancing Representative",
+    maxOccurrences: 1,
   },
   {
     id: 'role-vendor',
     name: 'Seller / Vendor',
     description: 'Property Owner / Seller Party',
+    maxOccurrences: 5,
   },
   {
     id: 'role-buyer',
     name: 'Buyer / Purchaser',
     description: 'Purchasing Client Party',
+    maxOccurrences: 5,
   },
   {
     id: 'role-mortgage-broker',
     name: 'Mortgage Broker / Advisor',
     description: 'Lender Mortgage Financial Advisor',
+    maxOccurrences: 1,
   },
   {
     id: 'role-surveyor',
     name: 'RICS Surveyor / Valuer',
     description: 'Chartered Building Surveyor / Valuer',
+    maxOccurrences: 1,
   },
 ];
 
@@ -179,7 +187,11 @@ interface TemplateBuilderContextValue extends TemplateBuilderState {
     stepId: string,
     joinType: DependencyJoinType,
   ) => void;
-  addRole: (role: { name: string; description?: string }) => TemplateRole;
+  addRole: (role: {
+    name: string;
+    description?: string;
+    maxOccurrences?: number;
+  }) => TemplateRole;
   updateRole: (roleId: string, updates: Partial<TemplateRole>) => void;
   removeRole: (roleId: string) => void;
   setReopenAllowedRoleIds: (roleIds: string[]) => void;
@@ -572,6 +584,7 @@ export const TemplateBuilderProvider: React.FC<{
           id: r.id,
           name: r.name,
           description: r.description || '',
+          maxOccurrences: r.maxOccurrences,
         }));
 
         setRoles(loadedRoles);
@@ -654,7 +667,11 @@ export const TemplateBuilderProvider: React.FC<{
   }, [refreshCaseTypes, refreshPresets, selectCaseType, initialCaseTypeId]);
 
   const addRole = useCallback(
-    (roleData: { name: string; description?: string }): TemplateRole => {
+    (roleData: {
+      name: string;
+      description?: string;
+      maxOccurrences?: number;
+    }): TemplateRole => {
       const slug = roleData.name
         .toLowerCase()
         .trim()
@@ -664,6 +681,7 @@ export const TemplateBuilderProvider: React.FC<{
         id: `role-${slug || 'custom'}-${Date.now().toString(36)}`,
         name: roleData.name.trim(),
         description: roleData.description?.trim() || roleData.name.trim(),
+        maxOccurrences: roleData.maxOccurrences ?? 1,
       };
       setRoles((prev) => [...prev, newRole]);
       return newRole;
@@ -718,6 +736,7 @@ export const TemplateBuilderProvider: React.FC<{
               id: r.id,
               name: r.name,
               description: r.description || '',
+              maxOccurrences: r.maxOccurrences,
             }))
           : STANDARD_TEMPLATE_ROLES;
 
@@ -783,6 +802,7 @@ export const TemplateBuilderProvider: React.FC<{
                   id: r.id,
                   name: r.name,
                   description: r.description || '',
+                  maxOccurrences: r.maxOccurrences,
                 }));
               }
               initialSteps = mapSchemaToSteps(schema, initialRoles);
@@ -833,6 +853,7 @@ export const TemplateBuilderProvider: React.FC<{
             id: r.id,
             name: r.name,
             description: r.description || r.name,
+            maxOccurrences: r.maxOccurrences,
           })),
           customFields: [],
         };
@@ -1077,6 +1098,7 @@ export const TemplateBuilderProvider: React.FC<{
           id: r.id,
           name: r.name,
           description: r.description || r.name,
+          maxOccurrences: r.maxOccurrences,
         })),
         customFields: [],
         reopenAllowedRoleIds: reopenAllowedRoleIds.filter((id) =>
@@ -1275,6 +1297,7 @@ export const TemplateBuilderProvider: React.FC<{
           id: r.id,
           name: r.name,
           description: r.description || r.name,
+          maxOccurrences: r.maxOccurrences,
         })),
         customFields: [],
         reopenAllowedRoleIds: reopenAllowedRoleIds.filter((id) =>

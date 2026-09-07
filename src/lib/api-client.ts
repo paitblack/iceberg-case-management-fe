@@ -400,6 +400,7 @@ interface RawBffWorkspaceResponse {
     id: string;
     name: string;
     description?: string;
+    maxOccurrences?: number;
   }>;
   documents?: Array<{
     id: string;

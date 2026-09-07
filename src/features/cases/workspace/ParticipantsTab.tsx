@@ -25,6 +25,7 @@ import type {
   BffParticipant,
   AssignParticipantPayload,
 } from '../../../types/api';
+import { ApiError } from '../../../lib/api-client';
 
 export const STANDARD_STAKEHOLDER_ROLES = [
   {
@@ -66,7 +67,12 @@ export const STANDARD_STAKEHOLDER_ROLES = [
 
 interface ParticipantsTabProps {
   participants?: BffParticipant[];
-  roles?: Array<{ id: string; name: string; description?: string }>;
+  roles?: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    maxOccurrences?: number;
+  }>;
   onAssignParticipant: (payload: AssignParticipantPayload) => Promise<void>;
   onRemoveParticipant: (participantId: string) => Promise<void>;
   isSubmitting?: boolean;
@@ -82,14 +88,37 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const availableRoles =
-    roles && roles.length > 0
-      ? roles.map((r) => ({
-          id: r.id,
-          label: r.name,
-          name: r.name,
-        }))
-      : STANDARD_STAKEHOLDER_ROLES;
+  const availableRoles = useMemo(() => {
+    if (roles && roles.length > 0) {
+      return roles.map((r) => ({
+        id: r.id,
+        label: r.name,
+        name: r.name,
+        maxOccurrences: r.maxOccurrences,
+      }));
+    }
+    return STANDARD_STAKEHOLDER_ROLES.map((r) => ({
+      ...r,
+      maxOccurrences:
+        r.id === 'role-buyer' || r.id === 'role-vendor' ? 5 : 1,
+    }));
+  }, [roles]);
+
+  const roleAssignmentCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const p of participants) {
+      counts[p.roleId] = (counts[p.roleId] || 0) + 1;
+    }
+    return counts;
+  }, [participants]);
+
+  const isRoleFull = (role: { id: string; maxOccurrences?: number }) => {
+    const limit =
+      role.maxOccurrences ??
+      (role.id === 'role-buyer' || role.id === 'role-vendor' ? 5 : 1);
+    const count = roleAssignmentCounts[role.id] || 0;
+    return limit > 0 && count >= limit;
+  };
 
   // Form state
   const [roleId, setRoleId] = useState<string>(
@@ -134,8 +163,11 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
   const handleOpenModal = () => {
     setFormError(null);
     setSearchQuery('');
+    const nonFullRole = availableRoles.find((r) => !isRoleFull(r));
+    const activeRoleId = nonFullRole ? nonFullRole.id : availableRoles[0]?.id || roleId;
+    setRoleId(activeRoleId);
     const recommended = REGISTERED_SYSTEM_CONTACTS.find(
-      (c) => c.roleId === roleId,
+      (c) => c.roleId === activeRoleId,
     );
     setSelectedContact(recommended || REGISTERED_SYSTEM_CONTACTS[0]);
     setIsAddModalOpen(true);
@@ -166,6 +198,14 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
     }
 
     setFormError(null);
+    const activeRole = availableRoles.find((r) => r.id === roleId);
+    if (activeRole && isRoleFull(activeRole)) {
+      setFormError(
+        `Role '${activeRole.name}' has reached its maximum limit.`,
+      );
+      return;
+    }
+
     try {
       await onAssignParticipant({
         roleId,
@@ -182,7 +222,18 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
       setSelectedContact(null);
       setIsPrimary(true);
     } catch (err: unknown) {
-      if (err instanceof Error) {
+      if (err instanceof ApiError) {
+        setFormError(err.problem.detail || err.message);
+      } else if (
+        err &&
+        typeof err === 'object' &&
+        'problem' in err &&
+        (err as { problem?: { detail?: string } }).problem?.detail
+      ) {
+        setFormError(
+          (err as { problem: { detail: string } }).problem.detail,
+        );
+      } else if (err instanceof Error) {
         setFormError(err.message);
       } else {
         setFormError('Failed to assign participant.');
@@ -422,11 +473,14 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
               onChange={(e) => handleRoleChange(e.target.value)}
               className="w-full rounded-xl bg-white border border-slate-200 p-2.5 text-xs font-bold text-slate-900 focus:border-[#E1007A] focus:outline-none shadow-2xs"
             >
-              {availableRoles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.label}
-                </option>
-              ))}
+              {availableRoles.map((r) => {
+                const full = isRoleFull(r);
+                return (
+                  <option key={r.id} value={r.id} disabled={full}>
+                    {r.label} {full ? '(Full)' : ''}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -541,20 +595,27 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
           )}
 
           {/* 5. Primary Checkbox */}
-          <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-            <input
-              type="checkbox"
-              id="isPrimaryCheck"
-              checked={isPrimary}
-              onChange={(e) => setIsPrimary(e.target.checked)}
-              className="rounded border-slate-300 text-[#E1007A] focus:ring-[#E1007A]"
-            />
-            <label
-              htmlFor="isPrimaryCheck"
-              className="text-xs font-semibold text-slate-700 cursor-pointer select-none"
-            >
-              Designate as Primary Contact for this Role
-            </label>
+          <div className="pt-1 border-t border-slate-100 space-y-1">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="isPrimaryCheck"
+                checked={isPrimary}
+                onChange={(e) => setIsPrimary(e.target.checked)}
+                className="rounded border-slate-300 text-[#E1007A] focus:ring-[#E1007A]"
+              />
+              <label
+                htmlFor="isPrimaryCheck"
+                className="text-xs font-semibold text-slate-700 cursor-pointer select-none"
+              >
+                Designate as Primary Contact for this Role
+              </label>
+            </div>
+            {isPrimary && (
+              <p className="text-[11px] text-slate-500 pl-6">
+                Setting this contact as Primary will change the current primary contact for this role to secondary.
+              </p>
+            )}
           </div>
         </form>
       </Modal>

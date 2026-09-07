@@ -14,12 +14,16 @@ import {
   X,
   UserCheck,
   RotateCcw,
+  Pencil,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { Modal } from '../../../components/ui/Modal';
 import { Input } from '../../../components/ui/Input';
-import { useTemplateBuilder } from '../context/TemplateBuilderContext';
+import {
+  useTemplateBuilder,
+  type TemplateRole,
+} from '../context/TemplateBuilderContext';
 import { PublishModal } from './PublishModal';
 import { ApiError } from '../../../lib/api-client';
 
@@ -45,6 +49,7 @@ export const TemplateSidebar: React.FC = () => {
     setCaseTypeMeta,
     addStep,
     addRole,
+    updateRole,
     removeRole,
     setReopenAllowedRoleIds,
     toggleReopenAllowedRoleId,
@@ -66,9 +71,12 @@ export const TemplateSidebar: React.FC = () => {
   const [newTemplatePresetKey, setNewTemplatePresetKey] =
     useState<string>('sales');
 
-  // Add Role form state
+  // Add / Edit Role form state
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleDesc, setNewRoleDesc] = useState('');
+  const [isMultipleAssignees, setIsMultipleAssignees] = useState(false);
+  const [roleMaxOccurrences, setRoleMaxOccurrences] = useState(5);
 
   const handleSave = async () => {
     setErrorMessage(null);
@@ -110,15 +118,54 @@ export const TemplateSidebar: React.FC = () => {
     }
   };
 
-  const handleAddRoleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newRoleName.trim()) return;
-    addRole({
-      name: newRoleName.trim(),
-      description: newRoleDesc.trim() || undefined,
-    });
+  const handleOpenAddRoleModal = () => {
+    setEditingRoleId(null);
     setNewRoleName('');
     setNewRoleDesc('');
+    setIsMultipleAssignees(false);
+    setRoleMaxOccurrences(5);
+    setIsAddRoleModalOpen(true);
+  };
+
+  const handleOpenEditRoleModal = (role: TemplateRole) => {
+    setEditingRoleId(role.id);
+    setNewRoleName(role.name);
+    setNewRoleDesc(role.description || '');
+    const isMultiple = (role.maxOccurrences ?? 1) > 1;
+    setIsMultipleAssignees(isMultiple);
+    setRoleMaxOccurrences(
+      isMultiple ? (role.maxOccurrences ?? 5) : 5,
+    );
+    setIsAddRoleModalOpen(true);
+  };
+
+  const handleRoleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRoleName.trim()) return;
+
+    const occurrences = isMultipleAssignees
+      ? Math.max(2, roleMaxOccurrences || 5)
+      : 1;
+
+    if (editingRoleId) {
+      updateRole(editingRoleId, {
+        name: newRoleName.trim(),
+        description: newRoleDesc.trim() || undefined,
+        maxOccurrences: occurrences,
+      });
+    } else {
+      addRole({
+        name: newRoleName.trim(),
+        description: newRoleDesc.trim() || undefined,
+        maxOccurrences: occurrences,
+      });
+    }
+
+    setEditingRoleId(null);
+    setNewRoleName('');
+    setNewRoleDesc('');
+    setIsMultipleAssignees(false);
+    setRoleMaxOccurrences(5);
     setIsAddRoleModalOpen(false);
   };
 
@@ -271,7 +318,7 @@ export const TemplateSidebar: React.FC = () => {
           </div>
           <button
             type="button"
-            onClick={() => setIsAddRoleModalOpen(true)}
+            onClick={handleOpenAddRoleModal}
             className="text-[10px] font-bold text-[#E1007A] hover:text-[#B80063] flex items-center gap-1 cursor-pointer"
           >
             <Plus className="w-3 h-3" />
@@ -285,12 +332,23 @@ export const TemplateSidebar: React.FC = () => {
               key={role.id}
               className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200/80 text-xs"
             >
-              <div className="flex items-center gap-1.5 min-w-0">
+              <div className="flex items-center gap-1.5 min-w-0 flex-1">
                 <UserCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <div className="min-w-0">
-                  <p className="font-semibold text-slate-800 text-[11px] truncate">
-                    {role.name}
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-semibold text-slate-800 text-[11px] truncate">
+                      {role.name}
+                    </p>
+                    {(role.maxOccurrences ?? 1) > 1 ? (
+                      <span className="text-[9px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200 shrink-0">
+                        Max {role.maxOccurrences}
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
+                        Single
+                      </span>
+                    )}
+                  </div>
                   {role.description && (
                     <p className="text-[9px] text-slate-400 truncate">
                       {role.description}
@@ -298,16 +356,26 @@ export const TemplateSidebar: React.FC = () => {
                   )}
                 </div>
               </div>
-              {roles.length > 1 && (
+              <div className="flex items-center gap-1 shrink-0">
                 <button
                   type="button"
-                  onClick={() => removeRole(role.id)}
-                  title="Remove this role"
-                  className="text-slate-300 hover:text-rose-600 p-0.5 rounded cursor-pointer transition-colors"
+                  onClick={() => handleOpenEditRoleModal(role)}
+                  title="Edit role"
+                  className="text-slate-400 hover:text-[#E1007A] p-1 rounded cursor-pointer transition-colors"
                 >
-                  <X className="w-3 h-3" />
+                  <Pencil className="w-3 h-3" />
                 </button>
-              )}
+                {roles.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeRole(role.id)}
+                    title="Remove this role"
+                    className="text-slate-300 hover:text-rose-600 p-1 rounded cursor-pointer transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -529,11 +597,15 @@ export const TemplateSidebar: React.FC = () => {
         onClose={() => setIsPublishModalOpen(false)}
       />
 
-      {/* Add Custom Role Modal */}
+      {/* Add / Edit Custom Role Modal */}
       <Modal
         isOpen={isAddRoleModalOpen}
         onClose={() => setIsAddRoleModalOpen(false)}
-        title="Add Custom Participant Role"
+        title={
+          editingRoleId
+            ? 'Edit Participant Role'
+            : 'Add Custom Participant Role'
+        }
         footer={
           <>
             <Button
@@ -546,15 +618,21 @@ export const TemplateSidebar: React.FC = () => {
             <Button
               variant="primary"
               size="sm"
-              onClick={handleAddRoleSubmit}
-              leftIcon={<Plus className="w-3.5 h-3.5" />}
+              onClick={handleRoleFormSubmit}
+              leftIcon={
+                editingRoleId ? (
+                  <Check className="w-3.5 h-3.5" />
+                ) : (
+                  <Plus className="w-3.5 h-3.5" />
+                )
+              }
             >
-              Add Role
+              {editingRoleId ? 'Save Changes' : 'Add Role'}
             </Button>
           </>
         }
       >
-        <form onSubmit={handleAddRoleSubmit} className="space-y-3 text-xs">
+        <form onSubmit={handleRoleFormSubmit} className="space-y-3 text-xs">
           <div className="space-y-1">
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
               Role Name <span className="text-[#E1007A]">*</span>
@@ -579,6 +657,48 @@ export const TemplateSidebar: React.FC = () => {
               placeholder="e.g. Legal conveyancing counsel representing the purchaser in all property matters..."
               className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 placeholder:italic focus:bg-white focus:border-[#E1007A] focus:outline-none"
             />
+          </div>
+
+          {/* Multiple assignees toggle and maxOccurrences configuration */}
+          <div className="pt-2 border-t border-slate-100 space-y-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="allowMultipleAssigneesCheck"
+                checked={isMultipleAssignees}
+                onChange={(e) => setIsMultipleAssignees(e.target.checked)}
+                className="rounded border-slate-300 text-[#E1007A] focus:ring-[#E1007A]"
+              />
+              <label
+                htmlFor="allowMultipleAssigneesCheck"
+                className="text-xs font-semibold text-slate-700 cursor-pointer select-none"
+              >
+                Allow multiple assignees for this role
+              </label>
+            </div>
+            <p className="text-[11px] text-slate-400 pl-6">
+              e.g. Joint buyers, co-owners, or multiple partners
+            </p>
+
+            {isMultipleAssignees && (
+              <div className="pl-6 space-y-1">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Maximum Assignees
+                </label>
+                <Input
+                  type="number"
+                  min={2}
+                  max={50}
+                  value={roleMaxOccurrences}
+                  onChange={(e) =>
+                    setRoleMaxOccurrences(
+                      Math.max(2, parseInt(e.target.value, 10) || 2),
+                    )
+                  }
+                  className="text-xs w-32"
+                />
+              </div>
+            )}
           </div>
         </form>
       </Modal>

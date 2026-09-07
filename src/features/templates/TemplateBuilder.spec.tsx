@@ -175,7 +175,10 @@ describe('TemplateBuilderContext & State Management', () => {
 
     const initialRoleCount = result.current.roles.length;
 
-    let createdRole = { id: '', name: '' };
+    let createdRole: { id: string; name: string; maxOccurrences?: number } = {
+      id: '',
+      name: '',
+    };
     act(() => {
       createdRole = result.current.addRole({
         name: 'Structural Engineer',
@@ -185,6 +188,7 @@ describe('TemplateBuilderContext & State Management', () => {
 
     expect(result.current.roles.length).toBe(initialRoleCount + 1);
     expect(createdRole.id).toContain('structural-engineer');
+    expect(createdRole.maxOccurrences).toBe(1);
     expect(
       result.current.roles.some((r) => r.name === 'Structural Engineer'),
     ).toBe(true);
@@ -195,6 +199,42 @@ describe('TemplateBuilderContext & State Management', () => {
     });
 
     expect(result.current.roles.length).toBe(initialRoleCount);
+  });
+
+  it('supports configuring multiple assignees and maxOccurrences for roles', async () => {
+    const { result } = renderHook(() => useTemplateBuilder(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoadingCaseTypes).toBe(false);
+    });
+
+    let multiRole: { id: string; name: string; maxOccurrences?: number } = {
+      id: '',
+      name: '',
+    };
+    act(() => {
+      multiRole = result.current.addRole({
+        name: 'Joint Buyers',
+        description: 'Multiple co-buyers on the deed',
+        maxOccurrences: 5,
+      });
+    });
+
+    expect(multiRole.maxOccurrences).toBe(5);
+    const inState = result.current.roles.find((r) => r.id === multiRole.id);
+    expect(inState?.maxOccurrences).toBe(5);
+
+    // Update role maxOccurrences
+    act(() => {
+      result.current.updateRole(multiRole.id, { maxOccurrences: 3 });
+    });
+    const updated = result.current.roles.find((r) => r.id === multiRole.id);
+    expect(updated?.maxOccurrences).toBe(3);
+
+    // Verify payload serialization retains maxOccurrences
+    const payload = result.current.toBackendDraftPayload();
+    const roleInPayload = payload.roles?.find((r) => r.id === multiRole.id);
+    expect(roleInPayload?.maxOccurrences).toBe(3);
   });
 
   it('loads dynamic preset from backend endpoint', async () => {
