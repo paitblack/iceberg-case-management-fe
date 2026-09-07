@@ -72,6 +72,7 @@ export interface ParticipantRoleDefinition {
   description?: string;
   canManageCase?: boolean;
   canViewInternalNotes?: boolean;
+  maxOccurrences?: number;
 }
 
 export interface CustomFieldDefinition {
@@ -173,7 +174,7 @@ export interface TemplatePresetSchema {
   name: string;
   category: string;
   description: string;
-  roles: Array<{ id: string; name: string; description?: string }>;
+  roles: Array<{ id: string; name: string; description?: string; maxOccurrences?: number }>;
   steps: Array<{
     id: string;
     name: string;
@@ -213,7 +214,7 @@ export interface TemplateDraftResponse {
   name: string;
   description: string;
   version: number;
-  roles: Array<{ id: string; name: string; description?: string }>;
+  roles: Array<{ id: string; name: string; description?: string; maxOccurrences?: number }>;
   steps: Array<{
     id: string;
     name: string;
@@ -622,7 +623,7 @@ export interface BffWorkspaceSnapshot {
   trafficLight?: TrafficLightData;
   blockers: string[];
   steps: BffWorkspaceStep[];
-  roles?: Array<{ id: string; name: string; description?: string }>;
+  roles?: Array<{ id: string; name: string; description?: string; maxOccurrences?: number }>;
   documents: BffCaseDocument[];
   participants: BffParticipant[];
   notes?: NoteSnapshot[];

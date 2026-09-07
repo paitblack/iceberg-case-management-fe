@@ -92,4 +92,108 @@ describe('ParticipantsTab & Directory Stakeholder Assignment', () => {
       }),
     );
   });
+
+  it('indicates full roles with (Full) in the dropdown and disables them', async () => {
+    const rolesWithLimits = [
+      { id: 'role-agent', name: 'Lead Estate Agent', maxOccurrences: 1 },
+      { id: 'role-buyer', name: 'Buyer', maxOccurrences: 2 },
+    ];
+    const participants: BffParticipant[] = [
+      {
+        id: 'p1',
+        caseId: 'case_1',
+        roleId: 'role-agent',
+        roleName: 'Lead Estate Agent',
+        name: 'Agent Smith',
+        email: 'smith@agency.com',
+        isPrimary: true,
+        createdAt: new Date().toISOString(),
+      },
+    ];
+
+    render(
+      <ParticipantsTab
+        participants={participants}
+        roles={rolesWithLimits}
+        onAssignParticipant={vi.fn()}
+        onRemoveParticipant={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Assign Stakeholder / Solicitor'));
+
+    // Check dropdown options
+    const fullOption = screen.getByRole('option', {
+      name: /Lead Estate Agent \(Full\)/,
+    }) as HTMLOptionElement;
+    expect(fullOption).toBeDefined();
+    expect(fullOption.disabled).toBe(true);
+
+    const availableOption = screen.getByRole('option', {
+      name: 'Buyer',
+    }) as HTMLOptionElement;
+    expect(availableOption).toBeDefined();
+    expect(availableOption.disabled).toBe(false);
+  });
+
+  it('displays helper text when isPrimary is toggled on', async () => {
+    render(
+      <ParticipantsTab
+        participants={mockParticipants}
+        onAssignParticipant={vi.fn()}
+        onRemoveParticipant={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Assign Stakeholder / Solicitor'));
+
+    const helperText =
+      'Setting this contact as Primary will change the current primary contact for this role to secondary.';
+    expect(screen.getByText(helperText)).toBeDefined();
+
+    const checkbox = screen.getByRole('checkbox', {
+      name: /Designate as Primary Contact for this Role/,
+    });
+    fireEvent.click(checkbox);
+    expect(screen.queryByText(helperText)).toBeNull();
+  });
+
+  it('gracefully displays backend validation error in form error banner', async () => {
+    const errorDetail =
+      "Role 'Lead Estate Agent' has reached its maximum limit of 1 participant(s).";
+    const { ApiError } = await import('../../../lib/api-client');
+    const apiError = new ApiError({
+      type: 'https://errors.case-mgmt.internal/validation-error',
+      title: 'Validation Error',
+      status: 400,
+      detail: errorDetail,
+      instance: '/cases/1/participants',
+      traceId: 'trace-123',
+    });
+
+    const onAssign = vi.fn().mockRejectedValue(apiError);
+
+    render(
+      <ParticipantsTab
+        participants={mockParticipants}
+        onAssignParticipant={onAssign}
+        onRemoveParticipant={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Assign Stakeholder / Solicitor'));
+
+    const searchInput = screen.getByPlaceholderText(
+      'Search by name, company, role, or email...',
+    );
+    fireEvent.change(searchInput, { target: { value: 'David' } });
+    fireEvent.click(screen.getByText('David Vance'));
+
+    const submitBtn = screen.getByTestId('assign-stakeholder-submit-btn');
+    await act(async () => {
+      fireEvent.click(submitBtn);
+    });
+
+    expect(screen.getByText(errorDetail)).toBeDefined();
+  });
 });
