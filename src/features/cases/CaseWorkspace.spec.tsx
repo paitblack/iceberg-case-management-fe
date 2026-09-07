@@ -305,6 +305,64 @@ describe('Case Workspace Components', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('renders Evidence Required and Evidence badges on WorkItemExecutionRow when evidenceRequired is true', () => {
+    const mockEvidenceWorkItem: BffWorkspaceWorkItem = {
+      id: 'wi-evidence-1',
+      name: 'Mortgage Offer Letter',
+      status: 'Pending',
+      requirement: 'conditional',
+      condition: 'Only mandatory if purchasing with a mortgage loan',
+      evidenceRequired: true,
+      ownerRoleId: 'role-estate-agent',
+      allowedActions: ['COMPLETE'],
+    };
+
+    const { rerender } = render(
+      <WorkItemExecutionRow
+        workItem={mockEvidenceWorkItem}
+        documents={[]}
+        isReadOnly={false}
+        onAction={vi.fn()}
+        isLoading={false}
+      />,
+    );
+
+    // Shows Evidence Required badge and condition rule
+    expect(screen.getByText('Evidence Required')).toBeInTheDocument();
+    expect(screen.getByText('Condition Rule:')).toBeInTheDocument();
+    expect(
+      screen.getByText('Only mandatory if purchasing with a mortgage loan'),
+    ).toBeInTheDocument();
+
+    // Now re-render with attached evidence document
+    rerender(
+      <WorkItemExecutionRow
+        workItem={mockEvidenceWorkItem}
+        documents={[
+          {
+            id: 'doc-1',
+            fileName: 'official-mortgage-offer.pdf',
+            fileSizeBytes: 102400,
+            fileType: 'application/pdf',
+            category: 'EVIDENCE',
+            workItemId: 'wi-evidence-1',
+            uploadedAt: new Date().toISOString(),
+            uploadedByName: 'Sarah Agent',
+            downloadUrl: 'https://storage.example.com/mortgage-offer.pdf',
+          },
+        ]}
+        isReadOnly={false}
+        onAction={vi.fn()}
+        isLoading={false}
+      />,
+    );
+
+    expect(screen.queryByText('Evidence Required')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Evidence: official-mortgage-offer.pdf'),
+    ).toBeInTheDocument();
+  });
+
   it('renders Standalone and Optional badges on StepExecutionCard', () => {
     const mockStandaloneOptionalStep: BffWorkspaceStep = {
       id: 'step-standalone-1',
@@ -335,6 +393,15 @@ describe('Case Workspace Components', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Standalone')).toBeInTheDocument();
     expect(screen.getByText('(Optional)')).toBeInTheDocument();
+    expect(screen.getByText('Independent Milestone:')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /You can work on and complete it at any time without waiting for or delaying other steps/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Complete Step/i }),
+    ).toHaveClass('bg-amber-400');
   });
 
   it('calculates progression percentage on mandatory steps when optional steps exist', () => {

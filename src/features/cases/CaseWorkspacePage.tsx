@@ -700,6 +700,7 @@ export const CaseWorkspacePage: React.FC = () => {
                 <StepExecutionCard
                   key={step.id}
                   step={step}
+                  allSteps={stepsList}
                   documents={documentsList}
                   participants={participantsList}
                   onStepAction={handleStepAction}

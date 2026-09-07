@@ -1,10 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { renderHook } from '@testing-library/react';
+import * as AuthContextModule from './AuthContext';
 import {
+  usePermissions,
   hasSuperUserRole,
   hasRole,
   formatRoleDisplayName,
   normalizeRole,
 } from './usePermissions';
+import type { BffWorkspaceWorkItem } from '../../types/api';
+import type { UserPersona } from '../../types/auth';
 
 describe('usePermissions & Role Utilities', () => {
   describe('normalizeRole', () => {
@@ -61,6 +66,198 @@ describe('usePermissions & Role Utilities', () => {
     it('falls back gracefully for custom roles', () => {
       expect(formatRoleDisplayName('Custom Inspector')).toBe('Custom Inspector');
       expect(formatRoleDisplayName(undefined)).toBe('Assigned Role');
+    });
+  });
+
+  describe('usePermissions -> canExecuteWorkItem', () => {
+    beforeEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    type AuthValue = ReturnType<typeof AuthContextModule.useAuth>;
+
+    const createMockAuth = (
+      userOverrides: Partial<UserPersona> = {},
+      contextOverrides: Partial<AuthValue> = {},
+    ): AuthValue => {
+      const user: UserPersona = {
+        id: 'usr-default',
+        name: 'Default User',
+        email: 'default@example.com',
+        companyId: 1,
+        roles: [],
+        permissions: [],
+        description: 'Default',
+        avatarText: 'DU',
+        badgeVariant: 'default',
+        ...userOverrides,
+      };
+
+      return {
+        user,
+        token: 'mock-token',
+        roles: user.roles,
+        permissions: user.permissions,
+        isSuperUser: false,
+        availablePersonas: [user],
+        switchPersona: vi.fn(),
+        setToken: vi.fn(),
+        logout: vi.fn(),
+        ...contextOverrides,
+      };
+    };
+
+    const baseWorkItem: BffWorkspaceWorkItem = {
+      id: 'wi-1',
+      stepId: 'step-1',
+      title: 'Upload ID Evidence',
+      name: 'Upload ID Evidence',
+      status: 'Pending',
+      requirement: 'required',
+      ownerRoleId: 'role-custom-yumusak-ge',
+      role: 'yumuşak ge',
+      allowedActions: [],
+    };
+
+    it('allows super-user to execute any work item', () => {
+      vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue(
+        createMockAuth(
+          {
+            id: 'usr-admin',
+            name: 'Sarah Admin',
+            email: 'sarah@example.com',
+            roles: ['admin'],
+            description: 'Admin',
+            avatarText: 'SA',
+            badgeVariant: 'primary',
+          },
+          {
+            isSuperUser: true,
+          },
+        ),
+      );
+
+      const { result } = renderHook(() => usePermissions());
+      const check = result.current.canExecuteWorkItem(baseWorkItem);
+      expect(check.canExecute).toBe(true);
+      expect(check.targetRoleDisplayName).toBe('yumuşak ge');
+    });
+
+    it('allows execution if backend allowedActions explicitly includes COMPLETE', () => {
+      vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue(
+        createMockAuth({
+          id: 'usr-buyer-emily',
+          name: 'Emily Davis',
+          email: 'emily@example.com',
+          roles: ['Buyer'],
+          permissions: ['case:read'],
+          description: 'Buyer',
+          avatarText: 'ED',
+          badgeVariant: 'default',
+        }),
+      );
+
+      const { result } = renderHook(() => usePermissions());
+      const workItemWithComplete: BffWorkspaceWorkItem = {
+        ...baseWorkItem,
+        allowedActions: ['COMPLETE'],
+      };
+
+      const check = result.current.canExecuteWorkItem(workItemWithComplete);
+      expect(check.canExecute).toBe(true);
+    });
+
+    it('allows execution if logged-in user matches the assignee by ID or email', () => {
+      vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue(
+        createMockAuth({
+          id: 'usr-buyer-emily',
+          name: 'Emily Davis',
+          email: 'emily.davis@example.com',
+          roles: ['Buyer'],
+          permissions: [],
+          description: 'Buyer',
+          avatarText: 'ED',
+          badgeVariant: 'default',
+        }),
+      );
+
+      const { result } = renderHook(() => usePermissions());
+
+      // Matching by ID
+      const workItemMatchId: BffWorkspaceWorkItem = {
+        ...baseWorkItem,
+        assignee: {
+          id: 'usr-buyer-emily',
+          name: 'Emily Davis',
+        },
+        allowedActions: [],
+      };
+      expect(result.current.canExecuteWorkItem(workItemMatchId).canExecute).toBe(
+        true,
+      );
+
+      // Matching by email
+      const workItemMatchEmail: BffWorkspaceWorkItem = {
+        ...baseWorkItem,
+        assignee: {
+          id: 'participant-external-99',
+          name: 'Emily Davis',
+          email: 'emily.davis@example.com',
+        },
+        allowedActions: [],
+      };
+      expect(
+        result.current.canExecuteWorkItem(workItemMatchEmail).canExecute,
+      ).toBe(true);
+    });
+
+    it('allows execution if user has matching role in roles array', () => {
+      vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue(
+        createMockAuth({
+          id: 'usr-conveyancer',
+          name: 'David Vance',
+          email: 'david@example.com',
+          roles: ['Buyer Solicitor'],
+          permissions: [],
+          description: 'Solicitor',
+          avatarText: 'DV',
+          badgeVariant: 'default',
+        }),
+      );
+
+      const { result } = renderHook(() => usePermissions());
+
+      const solicitorWorkItem: BffWorkspaceWorkItem = {
+        ...baseWorkItem,
+        ownerRoleId: 'role-buyer-solicitor',
+        role: "Buyer's Conveyancer / Solicitor",
+        allowedActions: [],
+      };
+
+      expect(
+        result.current.canExecuteWorkItem(solicitorWorkItem).canExecute,
+      ).toBe(true);
+    });
+
+    it('denies execution with reason when user is unauthorized and task is locked', () => {
+      vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue(
+        createMockAuth({
+          id: 'usr-vendor-frank',
+          name: 'Frank Miller',
+          email: 'frank@example.com',
+          roles: ['Vendor'],
+          permissions: [],
+          description: 'Vendor',
+          avatarText: 'FM',
+          badgeVariant: 'default',
+        }),
+      );
+
+      const { result } = renderHook(() => usePermissions());
+
+      const check = result.current.canExecuteWorkItem(baseWorkItem);
+      expect(check.canExecute).toBe(false);
+      expect(check.reason).toBe('Only yumuşak ge can complete this task.');
     });
   });
 });
