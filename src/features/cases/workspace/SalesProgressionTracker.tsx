@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Check } from 'lucide-react';
 import type {
   BffWorkspaceSnapshot,
+  BffWorkspaceStep,
 } from '../../../types/api';
 
 interface SalesProgressionTrackerProps {
@@ -48,6 +49,33 @@ function formatRoleLabel(roleIdOrText?: string | null): string {
   return roleIdOrText;
 }
 
+export function isStepOrphan(
+  step: BffWorkspaceStep,
+  allSteps: BffWorkspaceStep[],
+): boolean {
+  if (step.isStandalone) return true;
+
+  const hasWorkflowEdges = allSteps.some(
+    (s) => s.dependencies && s.dependencies.length > 0,
+  );
+  if (hasWorkflowEdges) {
+    const hasIncoming = Boolean(
+      step.dependencies && step.dependencies.length > 0,
+    );
+    const hasOutgoing = allSteps.some(
+      (other) =>
+        other.id !== step.id &&
+        (other.dependencies?.includes(step.id) ||
+          other.dependencies?.includes(step.stepDefinitionId)),
+    );
+    if (!hasIncoming && !hasOutgoing) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = ({
   snapshot,
   onSelectStep,
@@ -61,13 +89,17 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
   // Determine current active step index
   const currentStepIndex = useMemo(() => {
     if (steps.length === 0) return -1;
-    const inProgressIdx = steps.findIndex((s) => s.status === 'InProgress');
-    if (inProgressIdx !== -1) return inProgressIdx;
+    // 1. Any milestone currently in progress or available for execution
+    const activeIdx = steps.findIndex(
+      (s) => s.status === 'InProgress' || s.status === 'Available',
+    );
+    if (activeIdx !== -1) return activeIdx;
 
+    // 2. First pending milestone waiting on prerequisites
     const pendingIdx = steps.findIndex((s) => s.status === 'Pending');
     if (pendingIdx !== -1) return pendingIdx;
 
-    // If all completed, index is past the last step
+    // 3. If all completed/skipped, index is past the last step
     return steps.length;
   }, [steps]);
 
@@ -221,10 +253,17 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
         <div className="overflow-x-auto pb-2 scrollbar-thin">
           <div className="min-w-fit flex items-start justify-between px-2 py-1">
             {steps.map((step, idx) => {
+              const isLast = idx === steps.length - 1;
+              const isOrphan = isStepOrphan(step, steps);
+              const isNextOrphan =
+                !isLast && isStepOrphan(steps[idx + 1], steps);
+              const hasConnectingLine = !isLast && !isOrphan && !isNextOrphan;
+
               const isCompleted =
                 step.status === 'Completed' || step.status === 'Skipped';
-              const isCurrent = currentStepIndex === idx;
-              const isLast = idx === steps.length - 1;
+              const isActive =
+                step.status === 'InProgress' || step.status === 'Available';
+              const isCurrent = currentStepIndex === idx || isActive;
               const isLinePink = isCompleted && idx < currentStepIndex;
 
               return (
@@ -245,40 +284,64 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
                     {/* Circle */}
                     <div
                       className={`w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center font-extrabold text-xs transition-all shadow-2xs group-hover:scale-110 group-active:scale-95 ${
-                        isCompleted
-                          ? 'bg-[#E1007A] text-white shadow-pink-200'
-                          : isCurrent
-                            ? 'bg-[#E1007A] text-white ring-4 ring-pink-100 shadow-md'
-                            : 'bg-slate-100 text-slate-400 border border-slate-200 group-hover:border-[#E1007A]/50 group-hover:bg-pink-50/50 group-hover:text-[#E1007A]'
+                        isOrphan
+                          ? isCompleted
+                            ? 'bg-amber-500 text-white shadow-amber-200'
+                            : isCurrent
+                              ? 'bg-amber-400 text-amber-950 ring-4 ring-amber-200/90 shadow-md shadow-amber-100 font-black'
+                              : 'bg-amber-100 text-amber-900 border-2 border-dashed border-amber-300 group-hover:border-amber-500 group-hover:bg-amber-200/60'
+                          : isCompleted
+                            ? 'bg-[#E1007A] text-white shadow-pink-200'
+                            : isCurrent
+                              ? 'bg-[#E1007A] text-white ring-4 ring-pink-100 shadow-md'
+                              : 'bg-slate-100 text-slate-400 border border-slate-200 group-hover:border-[#E1007A]/50 group-hover:bg-pink-50/50 group-hover:text-[#E1007A]'
                       }`}
                     >
                       {isCompleted ? (
                         <Check className="w-4 h-4 stroke-[3]" />
                       ) : (
-                        <span>{idx + 1}</span>
+                        <span>{step.displayOrder || idx + 1}</span>
                       )}
                     </div>
 
                     {/* Step Label */}
                     <span
                       className={`mt-2 text-[11px] leading-snug line-clamp-2 px-1 transition-colors ${
-                        isCompleted || isCurrent
-                          ? 'font-bold text-slate-800 group-hover:text-[#E1007A]'
-                          : 'font-medium text-slate-400 group-hover:text-slate-600'
+                        isOrphan
+                          ? isCompleted || isCurrent
+                            ? 'font-bold text-amber-950 group-hover:text-amber-700'
+                            : 'font-medium text-amber-800/80 group-hover:text-amber-950'
+                          : isCompleted || isCurrent
+                            ? 'font-bold text-slate-800 group-hover:text-[#E1007A]'
+                            : 'font-medium text-slate-400 group-hover:text-slate-600'
                       }`}
                     >
                       {step.name}
                     </span>
+
+                    {/* Standalone / Orphan Badge */}
+                    {isOrphan && (
+                      <span
+                        title="Independent milestone: Can be completed at any time without waiting for or delaying other steps"
+                        className="mt-1 text-[9px] font-extrabold uppercase tracking-wider text-amber-900 bg-amber-100 border border-amber-300/80 px-1.5 py-0.5 rounded-full"
+                      >
+                        Standalone
+                      </span>
+                    )}
                   </div>
 
-                  {/* Connecting Line between steps */}
+                  {/* Connecting Line between steps (disconnected if either side is orphan) */}
                   {!isLast && (
                     <div className="flex-1 min-w-[20px] md:min-w-[32px] max-w-[64px] h-0.5 mt-[15px] md:mt-[17px] shrink self-start">
-                      <div
-                        className={`h-full transition-colors ${
-                          isLinePink ? 'bg-[#E1007A]' : 'bg-slate-200'
-                        }`}
-                      />
+                      {hasConnectingLine ? (
+                        <div
+                          className={`h-full transition-colors ${
+                            isLinePink ? 'bg-[#E1007A]' : 'bg-slate-200'
+                          }`}
+                        />
+                      ) : (
+                        <div className="h-full opacity-0" />
+                      )}
                     </div>
                   )}
                 </React.Fragment>

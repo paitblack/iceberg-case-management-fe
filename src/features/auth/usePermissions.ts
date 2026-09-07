@@ -104,8 +104,27 @@ export function usePermissions() {
         workItem.ownerRoleId,
       );
 
-      // Super-users (Progressor / Admin / Estate Agent) can execute any work item
+      // 1. Super-users (Progressor / Admin / Estate Agent) can execute any work item
       if (isSuperUser) {
+        return { canExecute: true, targetRoleDisplayName };
+      }
+
+      // 2. Trust backend authorization if COMPLETE action is permitted
+      if (workItem.allowedActions?.includes('COMPLETE')) {
+        return { canExecute: true, targetRoleDisplayName };
+      }
+
+      // 3. Logged-in user matches the task's assignee
+      const isAssignee = Boolean(
+        user &&
+          workItem.assignee &&
+          ((workItem.assignee.id && user.id === workItem.assignee.id) ||
+            (user.email &&
+              workItem.assignee.email &&
+              user.email.trim().toLowerCase() ===
+                workItem.assignee.email.trim().toLowerCase())),
+      );
+      if (isAssignee) {
         return { canExecute: true, targetRoleDisplayName };
       }
 
@@ -115,7 +134,7 @@ export function usePermissions() {
         return { canExecute: true, targetRoleDisplayName };
       }
 
-      // Check if current user has matching role
+      // 4. Current user has matching role
       const matchesRole =
         hasRole(roles, targetRoleId) ||
         (workItem.role ? hasRole(roles, workItem.role) : false);
@@ -130,7 +149,7 @@ export function usePermissions() {
         targetRoleDisplayName,
       };
     };
-  }, [isSuperUser, roles]);
+  }, [isSuperUser, user, roles]);
 
   const canDownloadDocument = useMemo(() => {
     return (doc: BffCaseDocument): boolean => {

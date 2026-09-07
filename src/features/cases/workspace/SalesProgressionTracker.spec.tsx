@@ -147,4 +147,119 @@ describe('SalesProgressionTracker', () => {
       screen.getByText('All milestone progression clear'),
     ).toBeInTheDocument();
   });
+
+  it('correctly prioritizes Available step over Pending step as active milestone', () => {
+    const availableSnapshot: BffWorkspaceSnapshot = {
+      ...mockSnapshot,
+      steps: [
+        {
+          id: 'step-1',
+          stepDefinitionId: 'sd-1',
+          name: 'Offer Accepted',
+          status: 'Completed',
+          displayOrder: 1,
+          dependencyJoinType: 'ALL',
+          dependencies: [],
+          allowedActions: [],
+          workItems: [],
+        },
+        {
+          id: 'step-2',
+          stepDefinitionId: 'sd-2',
+          name: 'Draft Contracts Prepared',
+          status: 'Available',
+          displayOrder: 2,
+          dependencyJoinType: 'ALL',
+          dependencies: ['step-1'],
+          allowedActions: ['COMPLETE_STEP'],
+          workItems: [
+            {
+              id: 'wi-draft-contracts',
+              name: 'Prepare contract pack',
+              status: 'Pending',
+              requirement: 'required',
+              role: 'role-vendor-solicitor',
+              allowedActions: ['COMPLETE'],
+            },
+          ],
+        },
+        {
+          id: 'step-3',
+          stepDefinitionId: 'sd-3',
+          name: 'Exchange of Contracts',
+          status: 'Pending',
+          displayOrder: 3,
+          dependencyJoinType: 'ALL',
+          dependencies: ['step-2'],
+          allowedActions: [],
+          workItems: [],
+        },
+      ],
+    };
+
+    render(<SalesProgressionTracker snapshot={availableSnapshot} />);
+
+    // Step 2 (Available) is active, Next Action shows Step 2's task, not Step 3
+    expect(
+      screen.getAllByText('Draft Contracts Prepared').length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Prepare contract pack')).toBeInTheDocument();
+    expect(screen.getByText('Manual task - Seller Solicitor')).toBeInTheDocument();
+  });
+
+  it('renders orphan/standalone step with distinct amber styling and Standalone badge', () => {
+    const standaloneSnapshot: BffWorkspaceSnapshot = {
+      ...mockSnapshot,
+      steps: [
+        {
+          id: 'step-1',
+          stepDefinitionId: 'sd-1',
+          name: 'Offer Accepted',
+          status: 'Completed',
+          displayOrder: 1,
+          dependencyJoinType: 'ALL',
+          dependencies: [],
+          allowedActions: [],
+          workItems: [],
+        },
+        {
+          id: 'step-standalone',
+          stepDefinitionId: 'sd-sa',
+          name: 'Independent Compliance Check',
+          status: 'Available',
+          displayOrder: 2,
+          dependencyJoinType: 'ALL',
+          dependencies: [],
+          isStandalone: true,
+          allowedActions: ['COMPLETE_STEP'],
+          workItems: [],
+        },
+        {
+          id: 'step-3',
+          stepDefinitionId: 'sd-3',
+          name: 'Exchange of Contracts',
+          status: 'Pending',
+          displayOrder: 3,
+          dependencyJoinType: 'ALL',
+          dependencies: ['step-1'],
+          allowedActions: [],
+          workItems: [],
+        },
+      ],
+    };
+
+    const { container } = render(
+      <SalesProgressionTracker snapshot={standaloneSnapshot} />,
+    );
+
+    // Standalone badge is visible on the orphan milestone node
+    expect(screen.getByText('Standalone')).toBeInTheDocument();
+    expect(
+      screen.getAllByText('Independent Compliance Check').length,
+    ).toBeGreaterThanOrEqual(1);
+
+    // Connecting lines flanking the orphan step are disconnected (opacity-0)
+    const hiddenLines = container.querySelectorAll('.opacity-0');
+    expect(hiddenLines.length).toBeGreaterThan(0);
+  });
 });

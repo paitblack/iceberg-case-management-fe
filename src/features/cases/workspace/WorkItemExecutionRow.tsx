@@ -123,6 +123,34 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
               {workItem.requirement}
             </Badge>
 
+            {/* Evidence Requirement Badge */}
+            {workItem.evidenceRequired &&
+              (linkedDoc ? (
+                linkedDoc.downloadUrl ? (
+                  <a
+                    href={linkedDoc.downloadUrl}
+                    download
+                    className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200/80 rounded-md px-1.5 py-0.5 font-bold hover:underline"
+                  >
+                    <FileCheck className="w-3 h-3 text-emerald-600" />
+                    <span>Evidence: {linkedDoc.fileName}</span>
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200/80 rounded-md px-1.5 py-0.5 font-bold">
+                    <FileCheck className="w-3 h-3 text-emerald-600" />
+                    <span>Evidence: {linkedDoc.fileName}</span>
+                  </span>
+                )
+              ) : (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200/80 rounded-md px-1.5 py-0.5 font-medium"
+                  title="Supporting document is required to complete this task"
+                >
+                  <FileCheck className="w-3 h-3 text-amber-500" />
+                  <span>Evidence Required</span>
+                </span>
+              ))}
+
             {/* SLA Status Indicator Badge */}
             {workItem.slaStatus && workItem.slaStatus !== 'NONE' && (
               <SlaBadge
@@ -150,6 +178,14 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
             <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
               {workItem.description}
             </p>
+          )}
+
+          {/* Conditional Task Rule Notice */}
+          {workItem.requirement === 'conditional' && workItem.condition && (
+            <div className="text-[10px] text-amber-800 bg-amber-50/90 border border-amber-200/80 rounded-md px-2 py-0.5 w-fit font-medium flex items-center gap-1.5 my-0.5">
+              <span className="font-bold">Condition Rule:</span>
+              <span>{workItem.condition}</span>
+            </div>
           )}
 
           {/* Metadata: Role Ownership, Target Date, SLA & Completion Info */}
@@ -185,8 +221,8 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
               />
             )}
 
-            {/* Linked Document Attached */}
-            {linkedDoc && (
+            {/* Linked Document Attached (when not already shown as evidence badge) */}
+            {linkedDoc && !workItem.evidenceRequired && (
               <span className="flex items-center gap-1 font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
                 <FileCheck className="w-3 h-3 text-emerald-600" />
                 Document: {linkedDoc.fileName}

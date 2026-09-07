@@ -6,6 +6,7 @@ import {
   ChevronUp,
   FastForward,
   CheckCheck,
+  Info,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -13,6 +14,7 @@ import { SlaBadge } from '../../../components/ui/SlaBadge';
 import { WorkItemExecutionRow } from './WorkItemExecutionRow';
 import { StepNotesSection } from './StepNotesSection';
 import { InlineTargetDateEditor } from './InlineTargetDateEditor';
+import { isStepOrphan } from './SalesProgressionTracker';
 import type {
   BffWorkspaceStep,
   BffCaseDocument,
@@ -24,6 +26,7 @@ import type {
 
 interface StepExecutionCardProps {
   step: BffWorkspaceStep;
+  allSteps?: BffWorkspaceStep[];
   documents?: BffCaseDocument[];
   participants?: BffParticipant[];
   onStepAction: (stepId: string, action: StepActionType) => Promise<void>;
@@ -61,7 +64,9 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
   loadingWorkItemId,
   isAddingNote = false,
   isTargeted = false,
+  allSteps,
 }) => {
+  const isOrphan = isStepOrphan(step, allSteps || [step]);
   const isCompleted = step.status === 'Completed';
   const isInProgress =
     step.status === 'InProgress' || step.status === 'Available';
@@ -95,11 +100,13 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
       } ${
         isCompleted
           ? 'bg-white border-emerald-200/90'
-          : isInProgress
-            ? 'bg-white border-[#E1007A]/40 ring-2 ring-[#E1007A]/10 shadow-sm'
-            : isSkipped
-              ? 'bg-slate-50 border-slate-200 opacity-60'
-              : 'bg-slate-50/70 border-slate-200'
+          : isOrphan
+            ? 'bg-white border-amber-300 ring-2 ring-amber-100/80 shadow-xs'
+            : isInProgress
+              ? 'bg-white border-[#E1007A]/40 ring-2 ring-[#E1007A]/10 shadow-sm'
+              : isSkipped
+                ? 'bg-slate-50 border-slate-200 opacity-60'
+                : 'bg-slate-50/70 border-slate-200'
       }`}
     >
       {/* Step Header Banner */}
@@ -114,6 +121,10 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
             {isCompleted ? (
               <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-xs">
                 <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
+              </div>
+            ) : isOrphan ? (
+              <div className="w-8 h-8 rounded-xl bg-amber-400 text-amber-950 flex items-center justify-center font-black text-sm shadow-xs ring-2 ring-amber-200">
+                {step.displayOrder}
               </div>
             ) : isInProgress ? (
               <div className="w-8 h-8 rounded-xl bg-[#E1007A] text-white flex items-center justify-center font-extrabold text-sm shadow-xs animate-pulse">
@@ -136,9 +147,11 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                 className={`text-sm md:text-base font-extrabold truncate ${
                   isCompleted
                     ? 'text-slate-800'
-                    : isInProgress
-                      ? 'text-[#E1007A]'
-                      : 'text-slate-600'
+                    : isOrphan
+                      ? 'text-amber-950'
+                      : isInProgress
+                        ? 'text-[#E1007A]'
+                        : 'text-slate-600'
                 }`}
               >
                 {step.name}
@@ -148,17 +161,19 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                 variant={
                   isCompleted
                     ? 'success'
-                    : isInProgress
-                      ? 'required'
-                      : 'default'
+                    : isOrphan
+                      ? 'warning'
+                      : isInProgress
+                        ? 'required'
+                        : 'default'
                 }
                 size="xs"
               >
                 {step.status}
               </Badge>
 
-              {step.isStandalone && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-300/80 px-2 py-0.5 rounded-md">
+              {isOrphan && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md">
                   Standalone
                 </span>
               )}
@@ -206,11 +221,15 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
               )}
             </div>
 
-            {step.description && (
+            {step.description ? (
               <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed font-normal">
                 {step.description}
               </p>
-            )}
+            ) : isOrphan ? (
+              <p className="text-xs text-amber-800/80 line-clamp-1 leading-relaxed font-medium">
+                Independent milestone — can be progressed at any time.
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -231,11 +250,16 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
 
           {canCompleteStep && (
             <Button
-              variant="primary"
+              variant={isOrphan ? 'secondary' : 'primary'}
               size="xs"
               isLoading={isThisStepLoading}
               onClick={() => onStepAction(step.id, 'COMPLETE_STEP')}
               leftIcon={<CheckCheck className="w-3.5 h-3.5" />}
+              className={
+                isOrphan
+                  ? 'bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold border border-amber-300 shadow-xs'
+                  : undefined
+              }
             >
               Complete Step
             </Button>
@@ -260,6 +284,18 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
       {/* Expandable Work Items Section */}
       {isExpanded && (
         <div className="p-4 md:p-5 pt-0 space-y-2.5 border-t border-slate-100/80 bg-slate-50/40 rounded-b-2xl">
+          {isOrphan && (
+            <div className="p-3 mt-3 rounded-xl bg-amber-50/90 border border-amber-200/90 flex items-start sm:items-center gap-2.5 text-xs text-amber-950 font-medium">
+              <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+              <div className="flex-1 leading-relaxed">
+                <span className="font-bold">Independent Milestone:</span> This
+                step is not linked to the sequential progression flow. You can
+                work on and complete it at any time without waiting for or
+                delaying other steps.
+              </div>
+            </div>
+          )}
+
           {isPending && (
             <div className="p-3.5 mt-3 rounded-xl bg-amber-50/80 border border-amber-200/80 flex items-center gap-2.5 text-xs text-amber-900 font-medium">
               <Lock className="w-4 h-4 text-amber-600 shrink-0" />
