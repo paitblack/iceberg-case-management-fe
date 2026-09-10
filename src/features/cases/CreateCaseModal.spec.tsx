@@ -13,6 +13,26 @@ const mockTemplates: PublishedTemplateItem[] = [
     description: '12-stage standard conveyancing progression.',
     caseTypeId: 'ct-sales-01',
     stepCount: 12,
+    roles: [
+      {
+        id: 'role-estate-agent',
+        name: 'Estate Agent / Progressor',
+        isRequired: true,
+        minOccurrences: 1,
+      },
+      {
+        id: 'role-buyer',
+        name: 'Buyer / Purchaser',
+        isRequired: true,
+        minOccurrences: 1,
+      },
+      {
+        id: 'role-vendor-solicitor',
+        name: "Seller's Conveyancer / Solicitor",
+        isRequired: true,
+        minOccurrences: 1,
+      },
+    ],
   },
   {
     id: 'tpl-test-appraisal-v1',
@@ -21,6 +41,14 @@ const mockTemplates: PublishedTemplateItem[] = [
     description: 'Vendor proposal workflow.',
     caseTypeId: 'ct-appraisal-01',
     stepCount: 4,
+    roles: [
+      {
+        id: 'role-appraiser',
+        name: 'Valuation Surveyor',
+        isRequired: false,
+        minOccurrences: 0,
+      },
+    ],
   },
 ];
 
@@ -72,13 +100,55 @@ describe('CreateCaseModal', () => {
     ).toBeInTheDocument();
   });
 
-  it('calls createCase API with payload and calls onSuccess', async () => {
+  it('validates missing required stakeholders before submitting', async () => {
+    vi.spyOn(apiClient, 'fetchPublishedTemplates').mockResolvedValue(
+      mockTemplates,
+    );
+
+    render(
+      <MemoryRouter>
+        <CreateCaseModal isOpen={true} onClose={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText(/12-stage standard conveyancing progression/i);
+
+    // Enter title
+    const titleInput = screen.getByPlaceholderText(
+      /e.g. 42 Woodstock Road Sale Progression/i,
+    );
+    fireEvent.change(titleInput, {
+      target: { value: '99 Oxford High Street - Sale' },
+    });
+
+    // Attempt submission without filling Buyer or Solicitor
+    const submitBtn = screen.getByRole('button', {
+      name: /Launch Case Workflow/i,
+    });
+    fireEvent.click(submitBtn);
+
+    expect(
+      await screen.findByText(
+        /Please assign a contact for the required stakeholder/i,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('calls createCase and assignCaseParticipant when required stakeholders are provided', async () => {
     vi.spyOn(apiClient, 'fetchPublishedTemplates').mockResolvedValue(
       mockTemplates,
     );
     const createSpy = vi
       .spyOn(apiClient, 'createCase')
       .mockResolvedValue({ id: 'new-case-123', reference: 'CM-2026-999' });
+    const assignSpy = vi
+      .spyOn(apiClient, 'assignCaseParticipant')
+      .mockResolvedValue({
+        id: 'part-1',
+        caseId: 'new-case-123',
+        roleId: 'role-buyer',
+        name: 'Emily Smith',
+      });
     const successSpy = vi.fn();
 
     render(
@@ -101,6 +171,18 @@ describe('CreateCaseModal', () => {
       target: { value: '99 Oxford High Street - Sale' },
     });
 
+    // Fill in Buyer contact name
+    const buyerInput = screen.getByPlaceholderText(
+      /e.g. Buyer \/ Purchaser contact name/i,
+    );
+    fireEvent.change(buyerInput, { target: { value: 'Emily Smith' } });
+
+    // Fill in Seller Conveyancer contact name
+    const solicitorInput = screen.getByPlaceholderText(
+      /e.g. Seller's Conveyancer \/ Solicitor contact name/i,
+    );
+    fireEvent.change(solicitorInput, { target: { value: 'Rachel Sterling' } });
+
     // Submit
     const submitBtn = screen.getByRole('button', {
       name: /Launch Case Workflow/i,
@@ -114,6 +196,7 @@ describe('CreateCaseModal', () => {
           caseTypeId: 'ct-sales-01',
         }),
       );
+      expect(assignSpy).toHaveBeenCalled();
       expect(successSpy).toHaveBeenCalledWith('new-case-123');
     });
   });

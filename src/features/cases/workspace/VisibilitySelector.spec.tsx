@@ -21,7 +21,7 @@ const mockParticipants: BffParticipant[] = [
 ];
 
 describe('VisibilitySelector', () => {
-  it('renders Public and Private toggle buttons', () => {
+  it('renders Standard and Restricted toggle buttons', () => {
     render(
       <VisibilitySelector
         isPrivate={false}
@@ -32,11 +32,13 @@ describe('VisibilitySelector', () => {
       />,
     );
 
-    expect(screen.getByText(/Public/i)).toBeInTheDocument();
-    expect(screen.getByText(/Private/i)).toBeInTheDocument();
+    expect(screen.getByText(/Standard \(Case Ledger\)/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Restricted \(Office Internal\)/i),
+    ).toBeInTheDocument();
   });
 
-  it('switches to Private mode and expands participant checkbox selection', () => {
+  it('switches to Restricted mode and expands participant checkbox selection', () => {
     const handleChangeIsPrivate = vi.fn();
     render(
       <VisibilitySelector
@@ -48,7 +50,9 @@ describe('VisibilitySelector', () => {
       />,
     );
 
-    const privateBtn = screen.getByRole('button', { name: /Private/i });
+    const privateBtn = screen.getByRole('button', {
+      name: /Restricted \(Office Internal\)/i,
+    });
     fireEvent.click(privateBtn);
     expect(handleChangeIsPrivate).toHaveBeenCalledWith(true);
   });

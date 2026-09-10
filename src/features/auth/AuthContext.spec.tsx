@@ -11,10 +11,10 @@ const TestAuthConsumer: React.FC = () => {
       <div data-testid="user-role">{roles.join(', ')}</div>
       <div data-testid="is-super-user">{isSuperUser ? 'YES' : 'NO'}</div>
       <button
-        onClick={() => switchPersona('usr_buyer_sol_3')}
-        data-testid="switch-to-buyer-solicitor"
+        onClick={() => switchPersona('usr_agent_2')}
+        data-testid="switch-to-agent"
       >
-        Switch to Buyer Solicitor
+        Switch to Marcus Cole
       </button>
       <button
         onClick={() => switchPersona('usr_1')}
@@ -52,14 +52,13 @@ describe('AuthContext & AuthProvider', () => {
     );
 
     act(() => {
-      fireEvent.click(screen.getByTestId('switch-to-buyer-solicitor'));
+      fireEvent.click(screen.getByTestId('switch-to-agent'));
     });
 
-    expect(screen.getByTestId('user-name').textContent).toBe('David Vance');
-    expect(screen.getByTestId('is-super-user').textContent).toBe('NO');
-    expect(localStorage.getItem('iceberg_active_persona_id')).toBe('usr_buyer_sol_3');
-    expect(localStorage.getItem('lifesycle_actor_id')).toBe('usr_buyer_sol_3');
-    expect(localStorage.getItem('lifesycle_user_roles')).toContain('Buyer Solicitor');
+    expect(screen.getByTestId('user-name').textContent).toBe('Marcus Cole');
+    expect(localStorage.getItem('iceberg_active_persona_id')).toBe('usr_agent_2');
+    expect(localStorage.getItem('lifesycle_actor_id')).toBe('usr_agent_2');
+    expect(localStorage.getItem('lifesycle_user_roles')).toContain('Estate Agent');
 
     expect(dispatchSpy).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'auth:persona-changed' }),

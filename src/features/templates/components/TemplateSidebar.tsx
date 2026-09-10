@@ -77,6 +77,7 @@ export const TemplateSidebar: React.FC = () => {
   const [newRoleDesc, setNewRoleDesc] = useState('');
   const [isMultipleAssignees, setIsMultipleAssignees] = useState(false);
   const [roleMaxOccurrences, setRoleMaxOccurrences] = useState(5);
+  const [isRequiredRole, setIsRequiredRole] = useState(false);
 
   const handleSave = async () => {
     setErrorMessage(null);
@@ -124,6 +125,7 @@ export const TemplateSidebar: React.FC = () => {
     setNewRoleDesc('');
     setIsMultipleAssignees(false);
     setRoleMaxOccurrences(5);
+    setIsRequiredRole(false);
     setIsAddRoleModalOpen(true);
   };
 
@@ -136,6 +138,7 @@ export const TemplateSidebar: React.FC = () => {
     setRoleMaxOccurrences(
       isMultiple ? (role.maxOccurrences ?? 5) : 5,
     );
+    setIsRequiredRole(role.isRequired ?? false);
     setIsAddRoleModalOpen(true);
   };
 
@@ -151,12 +154,16 @@ export const TemplateSidebar: React.FC = () => {
       updateRole(editingRoleId, {
         name: newRoleName.trim(),
         description: newRoleDesc.trim() || undefined,
+        isRequired: isRequiredRole,
+        minOccurrences: isRequiredRole ? 1 : 0,
         maxOccurrences: occurrences,
       });
     } else {
       addRole({
         name: newRoleName.trim(),
         description: newRoleDesc.trim() || undefined,
+        isRequired: isRequiredRole,
+        minOccurrences: isRequiredRole ? 1 : 0,
         maxOccurrences: occurrences,
       });
     }
@@ -339,6 +346,15 @@ export const TemplateSidebar: React.FC = () => {
                     <p className="font-semibold text-slate-800 text-[11px] truncate">
                       {role.name}
                     </p>
+                    {role.isRequired ? (
+                      <span className="text-[9px] font-bold text-[#E1007A] bg-pink-50 px-1.5 py-0.5 rounded border border-pink-200 shrink-0">
+                        Required
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-normal text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
+                        Optional
+                      </span>
+                    )}
                     {(role.maxOccurrences ?? 1) > 1 ? (
                       <span className="text-[9px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200 shrink-0">
                         Max {role.maxOccurrences}
@@ -657,6 +673,28 @@ export const TemplateSidebar: React.FC = () => {
               placeholder="e.g. Legal conveyancing counsel representing the purchaser in all property matters..."
               className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 placeholder:italic focus:bg-white focus:border-[#E1007A] focus:outline-none"
             />
+          </div>
+
+          {/* Required on Case Creation toggle */}
+          <div className="pt-2 border-t border-slate-100 space-y-1">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="requiredRoleCheck"
+                checked={isRequiredRole}
+                onChange={(e) => setIsRequiredRole(e.target.checked)}
+                className="rounded border-slate-300 text-[#E1007A] focus:ring-[#E1007A]"
+              />
+              <label
+                htmlFor="requiredRoleCheck"
+                className="text-xs font-semibold text-slate-700 cursor-pointer select-none"
+              >
+                Required on Case Initiation
+              </label>
+            </div>
+            <p className="text-[11px] text-slate-400 pl-6">
+              When enabled, initiating a new case with this template mandates assigning a contact to this role.
+            </p>
           </div>
 
           {/* Multiple assignees toggle and maxOccurrences configuration */}

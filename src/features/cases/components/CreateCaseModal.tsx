@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Layers,
@@ -6,6 +6,12 @@ import {
   Home,
   PoundSterling,
   AlertCircle,
+  Users,
+  UserCheck,
+  ChevronDown,
+  ChevronUp,
+  Building2,
+  Mail,
 } from 'lucide-react';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
@@ -14,8 +20,18 @@ import { Badge } from '../../../components/ui/Badge';
 import {
   createCase,
   fetchPublishedTemplates,
+  assignCaseParticipant,
   ApiError,
 } from '../../../lib/api-client';
+import { useAuth } from '../../auth/AuthContext';
+import {
+  REGISTERED_SYSTEM_CONTACTS,
+  type RegisteredContact,
+} from '../../../types/auth';
+import {
+  STANDARD_TEMPLATE_ROLES,
+  type TemplateRole,
+} from '../../templates/context/TemplateBuilderContext';
 import type { PublishedTemplateItem } from '../../../types/api';
 
 interface CreateCaseModalProps {
@@ -24,18 +40,34 @@ interface CreateCaseModalProps {
   onSuccess?: (newCaseId: string) => void;
 }
 
+interface StakeholderInput {
+  name: string;
+  email: string;
+  phone: string;
+  companyName: string;
+  contactId?: string;
+}
+
 export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
 }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // Form state
   const [title, setTitle] = useState<string>('');
   const [templateVersionId, setTemplateVersionId] = useState<string>('');
   const [propertyAddress, setPropertyAddress] = useState<string>('');
   const [agreedPrice, setAgreedPrice] = useState<string>('');
+
+  // Stakeholders assignment state (keyed by roleId)
+  const [stakeholders, setStakeholders] = useState<
+    Record<string, StakeholderInput>
+  >({});
+  const [isOptionalStakeholdersOpen, setIsOptionalStakeholdersOpen] =
+    useState<boolean>(false);
 
   // Templates state
   const [templates, setTemplates] = useState<PublishedTemplateItem[]>([]);
@@ -68,7 +100,111 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
     }
   }, [isOpen]);
 
-  const selectedTemplate = templates.find((t) => t.id === templateVersionId);
+  const selectedTemplate = useMemo(
+    () => templates.find((t) => t.id === templateVersionId),
+    [templates, templateVersionId],
+  );
+
+  // Derive template roles dynamically (domain-agnostic)
+  const templateRoles = useMemo<TemplateRole[]>(() => {
+    if (
+      selectedTemplate?.roles &&
+      Array.isArray(selectedTemplate.roles) &&
+      selectedTemplate.roles.length > 0
+    ) {
+      return selectedTemplate.roles.map((r) => ({
+        id: r.id,
+        name: r.name,
+        description: r.description,
+        isRequired: r.isRequired ?? r.required ?? false,
+        minOccurrences: r.minOccurrences,
+        maxOccurrences: r.maxOccurrences,
+      }));
+    }
+    // Fallback to standard conveyancing roles preset
+    return STANDARD_TEMPLATE_ROLES;
+  }, [selectedTemplate]);
+
+  const requiredRoles = useMemo(
+    () =>
+      templateRoles.filter(
+        (r) => r.isRequired || (r.minOccurrences && r.minOccurrences > 0),
+      ),
+    [templateRoles],
+  );
+
+  const optionalRoles = useMemo(
+    () =>
+      templateRoles.filter(
+        (r) => !r.isRequired && (!r.minOccurrences || r.minOccurrences === 0),
+      ),
+    [templateRoles],
+  );
+
+  // Pre-populate default operator (logged-in user) for internal estate agent/progressor role
+  useEffect(() => {
+    if (isOpen && templateRoles.length > 0) {
+      setStakeholders((prev) => {
+        const next = { ...prev };
+        // If internal agent role exists and not set, pre-fill with current agent
+        const agentRole = templateRoles.find(
+          (r) =>
+            r.id === 'role-estate-agent' ||
+            r.id.toLowerCase().includes('agent') ||
+            r.id.toLowerCase().includes('progressor'),
+        );
+        if (agentRole && !next[agentRole.id]?.name) {
+          next[agentRole.id] = {
+            name: user?.name || 'Sarah Jenkins',
+            email: user?.email || 'sarah.jenkins@iceberg-agency.co.uk',
+            phone: '+44 20 7946 0912',
+            companyName: 'Iceberg Estate Agency',
+            contactId: user?.id,
+          };
+        }
+        return next;
+      });
+    }
+  }, [isOpen, templateRoles, user]);
+
+  const handleSelectDirectoryContact = (
+    roleId: string,
+    contact: RegisteredContact | null,
+  ) => {
+    if (!contact) return;
+    setStakeholders((prev) => ({
+      ...prev,
+      [roleId]: {
+        name: contact.name,
+        email: contact.email,
+        phone: contact.phone || '',
+        companyName: contact.companyName,
+        contactId: contact.id,
+      },
+    }));
+  };
+
+  const handleUpdateStakeholder = (
+    roleId: string,
+    field: keyof StakeholderInput,
+    value: string,
+  ) => {
+    setStakeholders((prev) => {
+      const existing = prev[roleId] || {
+        name: '',
+        email: '',
+        phone: '',
+        companyName: '',
+      };
+      return {
+        ...prev,
+        [roleId]: {
+          ...existing,
+          [field]: value,
+        },
+      };
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,6 +215,17 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
     if (!templateVersionId) {
       setErrorMessage('Please select a workflow template version.');
       return;
+    }
+
+    // Validate that all required template roles have a contact assigned
+    for (const role of requiredRoles) {
+      const assigned = stakeholders[role.id];
+      if (!assigned || !assigned.name.trim()) {
+        setErrorMessage(
+          `Please assign a contact for the required stakeholder: "${role.name}".`,
+        );
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -97,8 +244,28 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
           : undefined,
       };
 
+      // 1. Create Case in database
       const res = await createCase(payload);
       const newCaseId = res.id;
+
+      // 2. Assign initial stakeholders to the case directory
+      const assignmentTasks = Object.entries(stakeholders)
+        .filter(([_, contact]) => contact.name.trim().length > 0)
+        .map(([roleId, contact]) =>
+          assignCaseParticipant(newCaseId, {
+            roleId,
+            name: contact.name.trim(),
+            email: contact.email?.trim() || undefined,
+            phone: contact.phone?.trim() || undefined,
+            companyName: contact.companyName?.trim() || undefined,
+            contactId: contact.contactId || undefined,
+            isPrimary: true,
+          }).catch((err) => {
+            console.warn(`Failed to assign stakeholder for role '${roleId}':`, err);
+          }),
+        );
+
+      await Promise.allSettled(assignmentTasks);
 
       onClose();
       if (onSuccess) {
@@ -124,6 +291,7 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Start New Case Workflow"
+      maxWidth="lg"
       footer={
         <>
           <Button
@@ -149,7 +317,7 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
     >
       <form
         onSubmit={handleSubmit}
-        className="space-y-4 text-xs text-slate-700"
+        className="space-y-4 text-xs text-slate-700 max-h-[72vh] overflow-y-auto pr-1"
       >
         {errorMessage && (
           <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-2.5 shadow-2xs">
@@ -204,14 +372,14 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
               </p>
             </div>
           ) : (
-            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
               {templates.map((tpl) => {
                 const isSelected = tpl.id === templateVersionId;
                 return (
                   <div
                     key={tpl.id}
                     onClick={() => setTemplateVersionId(tpl.id)}
-                    className={`p-3 rounded-xl border transition-all cursor-pointer space-y-1 ${
+                    className={`p-2.5 rounded-xl border transition-all cursor-pointer space-y-1 ${
                       isSelected
                         ? 'border-[#E1007A] bg-pink-50/50 ring-2 ring-[#E1007A]/10 shadow-2xs'
                         : 'border-slate-200 bg-white hover:border-slate-300'
@@ -240,7 +408,7 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
                       </Badge>
                     </div>
 
-                    <p className="text-[11px] text-slate-500 line-clamp-2 pl-7">
+                    <p className="text-[11px] text-slate-500 line-clamp-1 pl-7">
                       {tpl.description}
                     </p>
                   </div>
@@ -250,8 +418,267 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
           )}
         </div>
 
+        {/* Dynamic Stakeholder Assignment Section */}
+        <div className="space-y-3 pt-2 border-t border-slate-200/80">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-[#E1007A]" />
+              <div>
+                <h4 className="text-xs font-bold text-slate-900">
+                  Key Case Stakeholders (Required by Template)
+                </h4>
+                <p className="text-[10px] text-slate-400">
+                  Assign required contacts to launch the case. Single-operator
+                  progressors manage updates on their behalf.
+                </p>
+              </div>
+            </div>
+            <Badge variant="required" size="xs">
+              {requiredRoles.length} Required
+            </Badge>
+          </div>
+
+          <div className="space-y-2.5">
+            {requiredRoles.map((role) => {
+              const assigned = stakeholders[role.id] || {
+                name: '',
+                email: '',
+                phone: '',
+                companyName: '',
+              };
+              const matchingContacts = REGISTERED_SYSTEM_CONTACTS.filter(
+                (c) => c.roleId === role.id,
+              );
+
+              return (
+                <div
+                  key={role.id}
+                  className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <UserCheck className="w-3.5 h-3.5 text-[#E1007A]" />
+                      <span className="font-bold text-slate-800 text-[11px]">
+                        {role.name} <span className="text-[#E1007A]">*</span>
+                      </span>
+                    </div>
+                    {matchingContacts.length > 0 && (
+                      <select
+                        onChange={(e) => {
+                          const contact =
+                            REGISTERED_SYSTEM_CONTACTS.find(
+                              (c) => c.id === e.target.value,
+                            ) || null;
+                          handleSelectDirectoryContact(role.id, contact);
+                        }}
+                        defaultValue=""
+                        className="text-[10px] font-semibold bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-700 focus:outline-none focus:border-[#E1007A] cursor-pointer"
+                      >
+                        <option value="" disabled>
+                          Quick-Pick from Directory...
+                        </option>
+                        {matchingContacts.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({c.companyName})
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="space-y-0.5">
+                      <label className="block text-[9px] font-bold text-slate-400 uppercase">
+                        Full Name <span className="text-[#E1007A]">*</span>
+                      </label>
+                      <Input
+                        placeholder={`e.g. ${role.name} contact name`}
+                        value={assigned.name}
+                        onChange={(e) =>
+                          handleUpdateStakeholder(
+                            role.id,
+                            'name',
+                            e.target.value,
+                          )
+                        }
+                        className="text-xs bg-white"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-0.5">
+                      <label className="block text-[9px] font-bold text-slate-400 uppercase">
+                        Email Address
+                      </label>
+                      <div className="relative">
+                        <Mail className="w-3 h-3 text-slate-400 absolute left-2.5 top-2.5" />
+                        <Input
+                          type="email"
+                          placeholder="client@example.co.uk"
+                          value={assigned.email}
+                          onChange={(e) =>
+                            handleUpdateStakeholder(
+                              role.id,
+                              'email',
+                              e.target.value,
+                            )
+                          }
+                          className="pl-7 text-xs bg-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="space-y-0.5">
+                      <label className="block text-[9px] font-bold text-slate-400 uppercase">
+                        Company / Firm Name (Optional)
+                      </label>
+                      <div className="relative">
+                        <Building2 className="w-3 h-3 text-slate-400 absolute left-2.5 top-2.5" />
+                        <Input
+                          placeholder="e.g. Sterling Legal, Private Client"
+                          value={assigned.companyName}
+                          onChange={(e) =>
+                            handleUpdateStakeholder(
+                              role.id,
+                              'companyName',
+                              e.target.value,
+                            )
+                          }
+                          className="pl-7 text-xs bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-0.5">
+                      <label className="block text-[9px] font-bold text-slate-400 uppercase">
+                        Phone Number (Optional)
+                      </label>
+                      <Input
+                        placeholder="+44 20 ..."
+                        value={assigned.phone}
+                        onChange={(e) =>
+                          handleUpdateStakeholder(
+                            role.id,
+                            'phone',
+                            e.target.value,
+                          )
+                        }
+                        className="text-xs bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Optional Stakeholders Accordion */}
+          {optionalRoles.length > 0 && (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setIsOptionalStakeholdersOpen((prev) => !prev)
+                }
+                className="flex items-center justify-between w-full p-2 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-semibold text-[11px] transition-colors cursor-pointer"
+              >
+                <span>
+                  Additional Stakeholders (Optional: Broker, Surveyor) (
+                  {optionalRoles.length})
+                </span>
+                {isOptionalStakeholdersOpen ? (
+                  <ChevronUp className="w-3.5 h-3.5" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5" />
+                )}
+              </button>
+
+              {isOptionalStakeholdersOpen && (
+                <div className="mt-2 space-y-2">
+                  {optionalRoles.map((role) => {
+                    const assigned = stakeholders[role.id] || {
+                      name: '',
+                      email: '',
+                      phone: '',
+                      companyName: '',
+                    };
+                    const matchingContacts =
+                      REGISTERED_SYSTEM_CONTACTS.filter(
+                        (c) => c.roleId === role.id,
+                      );
+
+                    return (
+                      <div
+                        key={role.id}
+                        className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-700 text-[11px]">
+                            {role.name}
+                          </span>
+                          {matchingContacts.length > 0 && (
+                            <select
+                              onChange={(e) => {
+                                const contact =
+                                  REGISTERED_SYSTEM_CONTACTS.find(
+                                    (c) => c.id === e.target.value,
+                                  ) || null;
+                                handleSelectDirectoryContact(role.id, contact);
+                              }}
+                              defaultValue=""
+                              className="text-[10px] font-semibold bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-700 focus:outline-none focus:border-[#E1007A] cursor-pointer"
+                            >
+                              <option value="" disabled>
+                                Quick-Pick from Directory...
+                              </option>
+                              {matchingContacts.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name} ({c.companyName})
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input
+                            placeholder="Full Name"
+                            value={assigned.name}
+                            onChange={(e) =>
+                              handleUpdateStakeholder(
+                                role.id,
+                                'name',
+                                e.target.value,
+                              )
+                            }
+                            className="text-xs bg-white"
+                          />
+                          <Input
+                            placeholder="Email"
+                            value={assigned.email}
+                            onChange={(e) =>
+                              handleUpdateStakeholder(
+                                role.id,
+                                'email',
+                                e.target.value,
+                              )
+                            }
+                            className="text-xs bg-white"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Property Address */}
-        <div className="space-y-1">
+        <div className="space-y-1 pt-2 border-t border-slate-200/80">
           <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
             Property Address (Optional)
           </label>

@@ -57,6 +57,7 @@ export interface PublishedTemplateItem {
   description?: string;
   caseTypeId: string;
   stepCount?: number;
+  roles?: ParticipantRoleDefinition[];
 }
 
 export interface DueRule {
@@ -72,6 +73,9 @@ export interface ParticipantRoleDefinition {
   description?: string;
   canManageCase?: boolean;
   canViewInternalNotes?: boolean;
+  isRequired?: boolean;
+  required?: boolean;
+  minOccurrences?: number;
   maxOccurrences?: number;
 }
 
@@ -174,7 +178,15 @@ export interface TemplatePresetSchema {
   name: string;
   category: string;
   description: string;
-  roles: Array<{ id: string; name: string; description?: string; maxOccurrences?: number }>;
+  roles: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    required?: boolean;
+    isRequired?: boolean;
+    minOccurrences?: number;
+    maxOccurrences?: number;
+  }>;
   steps: Array<{
     id: string;
     name: string;
@@ -214,7 +226,15 @@ export interface TemplateDraftResponse {
   name: string;
   description: string;
   version: number;
-  roles: Array<{ id: string; name: string; description?: string; maxOccurrences?: number }>;
+  roles: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    required?: boolean;
+    isRequired?: boolean;
+    minOccurrences?: number;
+    maxOccurrences?: number;
+  }>;
   steps: Array<{
     id: string;
     name: string;

@@ -130,12 +130,12 @@ export const NotesTab: React.FC<NotesTabProps> = ({
               {isPrivate ? (
                 <span className="flex items-center gap-1 text-amber-700 font-semibold">
                   <Lock className="w-3.5 h-3.5 text-amber-500" />
-                  Internal only: Excluded from client & solicitor portal
+                  Internal Agency Note: Recorded for office colleagues only
                 </span>
               ) : (
                 <span className="flex items-center gap-1 text-emerald-700 font-semibold">
                   <Globe className="w-3.5 h-3.5 text-emerald-500" />
-                  Public update: Broadcast to all case stakeholders
+                  Case File Note: Recorded in case file and milestone ledger
                 </span>
               )}
             </div>

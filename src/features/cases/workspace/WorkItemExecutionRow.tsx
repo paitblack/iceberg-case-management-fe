@@ -271,13 +271,9 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
             size="xs"
             isLoading={isLoading}
             disabled={!canExecute}
-            onClick={() => canExecute && onAction(workItem.id, 'WAIVE')}
-            className={`text-[11px] font-semibold ${
-              !canExecute
-                ? 'opacity-40 cursor-not-allowed text-slate-400'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-            title={!canExecute ? reason : 'Waive this task'}
+            onClick={() => onAction(workItem.id, 'WAIVE')}
+            className="text-[11px] font-semibold text-slate-500 hover:text-slate-800"
+            title="Waive this task"
           >
             Waive
           </Button>
@@ -289,20 +285,10 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
             size="xs"
             isLoading={isLoading}
             disabled={!canExecute}
-            onClick={() => canExecute && onAction(workItem.id, 'COMPLETE')}
-            leftIcon={
-              !canExecute ? (
-                <Lock className="w-3 h-3 text-slate-400" />
-              ) : (
-                <CheckCircle2 className="w-3.5 h-3.5" />
-              )
-            }
-            className={`font-bold text-[11px] ${
-              !canExecute
-                ? 'opacity-60 cursor-not-allowed bg-slate-100 hover:bg-slate-100 text-slate-400 border-slate-200 shadow-none'
-                : ''
-            }`}
-            title={!canExecute ? reason : 'Mark task as completed'}
+            onClick={() => onAction(workItem.id, 'COMPLETE')}
+            leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+            className="font-bold text-[11px]"
+            title="Mark task as completed"
           >
             Complete Task
           </Button>

@@ -104,52 +104,25 @@ export function usePermissions() {
         workItem.ownerRoleId,
       );
 
-      // 1. Super-users (Progressor / Admin / Estate Agent) can execute any work item
-      if (isSuperUser) {
-        return { canExecute: true, targetRoleDisplayName };
-      }
+      // In the Single-Operator model, internal estate agents and sales progressors
+      // execute all tasks on behalf of external stakeholders. The role is an
+      // informational Responsibility Badge, not an execution barrier.
+      const isAssignee =
+        Boolean(user?.id && workItem.assignee?.id === user.id) ||
+        Boolean(user?.email && workItem.assignee?.email === user.email);
 
-      // 2. Trust backend authorization if COMPLETE action is permitted
-      if (workItem.allowedActions?.includes('COMPLETE')) {
-        return { canExecute: true, targetRoleDisplayName };
-      }
-
-      // 3. Logged-in user matches the task's assignee
-      const isAssignee = Boolean(
-        user &&
-          workItem.assignee &&
-          ((workItem.assignee.id && user.id === workItem.assignee.id) ||
-            (user.email &&
-              workItem.assignee.email &&
-              user.email.trim().toLowerCase() ===
-                workItem.assignee.email.trim().toLowerCase())),
-      );
-      if (isAssignee) {
-        return { canExecute: true, targetRoleDisplayName };
-      }
-
-      // Check if work item has an assigned role requirement
-      const targetRoleId = workItem.ownerRoleId || workItem.role;
-      if (!targetRoleId) {
-        return { canExecute: true, targetRoleDisplayName };
-      }
-
-      // 4. Current user has matching role
-      const matchesRole =
-        hasRole(roles, targetRoleId) ||
-        (workItem.role ? hasRole(roles, workItem.role) : false);
-
-      if (matchesRole) {
-        return { canExecute: true, targetRoleDisplayName };
-      }
+      const hasPermission =
+        isSuperUser ||
+        isAssignee ||
+        can('work_item:execute') ||
+        Boolean(workItem.allowedActions?.includes('COMPLETE'));
 
       return {
-        canExecute: false,
-        reason: `Only ${targetRoleDisplayName} can complete this task.`,
+        canExecute: hasPermission,
         targetRoleDisplayName,
       };
     };
-  }, [isSuperUser, user, roles]);
+  }, [isSuperUser, can, user]);
 
   const canDownloadDocument = useMemo(() => {
     return (doc: BffCaseDocument): boolean => {

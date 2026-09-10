@@ -32,6 +32,8 @@ export interface TemplateRole {
   id: string;
   name: string;
   description?: string;
+  isRequired?: boolean;
+  minOccurrences?: number;
   maxOccurrences?: number;
 }
 
@@ -40,42 +42,56 @@ export const STANDARD_TEMPLATE_ROLES: TemplateRole[] = [
     id: 'role-estate-agent',
     name: 'Estate Agent / Progressor',
     description: 'Listing Agent & Sales Progression Representative',
+    isRequired: true,
+    minOccurrences: 1,
     maxOccurrences: 1,
   },
   {
     id: 'role-vendor-solicitor',
     name: "Seller's Conveyancer / Solicitor",
     description: "Seller's Legal Conveyancing Representative",
+    isRequired: true,
+    minOccurrences: 1,
     maxOccurrences: 1,
   },
   {
     id: 'role-buyer-solicitor',
     name: "Buyer's Conveyancer / Solicitor",
     description: "Buyer's Legal Conveyancing Representative",
+    isRequired: true,
+    minOccurrences: 1,
     maxOccurrences: 1,
   },
   {
     id: 'role-vendor',
     name: 'Seller / Vendor',
     description: 'Property Owner / Seller Party',
+    isRequired: true,
+    minOccurrences: 1,
     maxOccurrences: 5,
   },
   {
     id: 'role-buyer',
     name: 'Buyer / Purchaser',
     description: 'Purchasing Client Party',
+    isRequired: true,
+    minOccurrences: 1,
     maxOccurrences: 5,
   },
   {
     id: 'role-mortgage-broker',
     name: 'Mortgage Broker / Advisor',
     description: 'Lender Mortgage Financial Advisor',
+    isRequired: false,
+    minOccurrences: 0,
     maxOccurrences: 1,
   },
   {
     id: 'role-surveyor',
     name: 'RICS Surveyor / Valuer',
     description: 'Chartered Building Surveyor / Valuer',
+    isRequired: false,
+    minOccurrences: 0,
     maxOccurrences: 1,
   },
 ];
@@ -190,6 +206,8 @@ interface TemplateBuilderContextValue extends TemplateBuilderState {
   addRole: (role: {
     name: string;
     description?: string;
+    isRequired?: boolean;
+    minOccurrences?: number;
     maxOccurrences?: number;
   }) => TemplateRole;
   updateRole: (roleId: string, updates: Partial<TemplateRole>) => void;
@@ -584,6 +602,8 @@ export const TemplateBuilderProvider: React.FC<{
           id: r.id,
           name: r.name,
           description: r.description || '',
+          isRequired: r.required ?? r.isRequired ?? false,
+          minOccurrences: r.minOccurrences,
           maxOccurrences: r.maxOccurrences,
         }));
 
@@ -670,6 +690,8 @@ export const TemplateBuilderProvider: React.FC<{
     (roleData: {
       name: string;
       description?: string;
+      isRequired?: boolean;
+      minOccurrences?: number;
       maxOccurrences?: number;
     }): TemplateRole => {
       const slug = roleData.name
@@ -677,10 +699,13 @@ export const TemplateBuilderProvider: React.FC<{
         .trim()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-|-$/g, '');
+      const isRequired = roleData.isRequired ?? false;
       const newRole: TemplateRole = {
         id: `role-${slug || 'custom'}-${Date.now().toString(36)}`,
         name: roleData.name.trim(),
         description: roleData.description?.trim() || roleData.name.trim(),
+        isRequired,
+        minOccurrences: roleData.minOccurrences ?? (isRequired ? 1 : 0),
         maxOccurrences: roleData.maxOccurrences ?? 1,
       };
       setRoles((prev) => [...prev, newRole]);
@@ -730,12 +755,14 @@ export const TemplateBuilderProvider: React.FC<{
       setDescription(schema.description || '');
       setCategory(schema.category || 'Sales Progression');
 
-      const loadedRoles =
+      const loadedRoles: TemplateRole[] =
         schema.roles && schema.roles.length > 0
           ? schema.roles.map((r) => ({
               id: r.id,
               name: r.name,
               description: r.description || '',
+              isRequired: r.required ?? r.isRequired ?? false,
+              minOccurrences: r.minOccurrences,
               maxOccurrences: r.maxOccurrences,
             }))
           : STANDARD_TEMPLATE_ROLES;
@@ -802,6 +829,8 @@ export const TemplateBuilderProvider: React.FC<{
                   id: r.id,
                   name: r.name,
                   description: r.description || '',
+                  isRequired: r.required ?? r.isRequired ?? false,
+                  minOccurrences: r.minOccurrences,
                   maxOccurrences: r.maxOccurrences,
                 }));
               }
@@ -1297,6 +1326,8 @@ export const TemplateBuilderProvider: React.FC<{
           id: r.id,
           name: r.name,
           description: r.description || r.name,
+          required: r.isRequired ?? false,
+          minOccurrences: r.minOccurrences,
           maxOccurrences: r.maxOccurrences,
         })),
         customFields: [],

@@ -5,9 +5,8 @@ import {
   Check,
   ChevronDown,
   Sparkles,
-  Lock,
-  Globe,
   Briefcase,
+  Lock,
 } from 'lucide-react';
 import { useAuth } from '../../features/auth/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
@@ -42,34 +41,26 @@ export const DevPersonaSwitcher: React.FC = () => {
   };
 
   const getPersonaBadge = (persona: UserPersona) => {
-    if (persona.roles.some((r) => r.toLowerCase().includes('progressor') || r.toLowerCase().includes('admin'))) {
+    if (persona.roles.some((r) => r.toLowerCase().includes('progressor'))) {
       return (
         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-pink-700 bg-pink-50 border border-pink-200/80 px-2 py-0.5 rounded-full">
           <Sparkles className="w-2.5 h-2.5 text-[#E1007A]" />
-          Super-User
+          Lead Progressor
         </span>
       );
     }
-    if (persona.roles.some((r) => r.toLowerCase().includes('solicitor') || r.toLowerCase().includes('broker'))) {
+    if (persona.roles.some((r) => r.toLowerCase().includes('admin') || r.toLowerCase().includes('superuser'))) {
       return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-full">
-          <Briefcase className="w-2.5 h-2.5 text-amber-600" />
-          Conveyancer
-        </span>
-      );
-    }
-    if (persona.roles.some((r) => r.toLowerCase().includes('agent'))) {
-      return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-full">
-          <ShieldCheck className="w-2.5 h-2.5 text-indigo-600" />
-          Internal Agent
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200/80 px-2 py-0.5 rounded-full">
+          <ShieldCheck className="w-2.5 h-2.5 text-purple-600" />
+          Operations Principal
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
-        <Globe className="w-2.5 h-2.5 text-slate-500" />
-        Client / External
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-full">
+        <Briefcase className="w-2.5 h-2.5 text-indigo-600" />
+        Branch Agent
       </span>
     );
   };
@@ -85,7 +76,7 @@ export const DevPersonaSwitcher: React.FC = () => {
             ? 'border-[#E1007A] ring-2 ring-[#E1007A]/15 bg-pink-50/20'
             : 'border-slate-200/80 hover:border-slate-300'
         }`}
-        title="Switch Development User Persona"
+        title="Switch Internal Operator Persona"
         aria-expanded={isOpen}
       >
         {/* Avatar */}
@@ -101,7 +92,7 @@ export const DevPersonaSwitcher: React.FC = () => {
             </p>
           </div>
           <p className="text-[10px] text-slate-500 font-medium truncate max-w-[140px]">
-            {user.roles[0]}
+            {user.roles[0]} {user.branchId ? `(Branch ${user.branchId})` : ''}
           </p>
         </div>
 
@@ -123,14 +114,14 @@ export const DevPersonaSwitcher: React.FC = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-extrabold text-slate-900">
                 <Users className="w-4 h-4 text-[#E1007A]" />
-                <span>Simulate User Persona (RBAC)</span>
+                <span>Simulate Agency Operator (Single-Operator)</span>
               </div>
               <span className="text-[10px] font-mono font-bold text-slate-400 bg-white border border-slate-200 px-1.5 py-0.5 rounded">
                 Dev Mode
               </span>
             </div>
             <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-              Select a persona to test role-based permissions, work item ownership, and fail-closed security.
+              Switch between internal agency operators across branches to test progression pipelines, milestone execution, and tenancy.
             </p>
           </div>
 

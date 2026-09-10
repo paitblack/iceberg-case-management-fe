@@ -36,19 +36,20 @@ describe('DevPersonaSwitcher', () => {
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
     renderComponent();
 
-    const trigger = screen.getByTitle('Switch Development User Persona');
+    const trigger = screen.getByTitle('Switch Internal Operator Persona');
     act(() => {
       fireEvent.click(trigger);
     });
 
-    // Check all 5 personas are listed
-    expect(screen.getByText('Simulate User Persona (RBAC)')).toBeDefined();
+    // Check internal single-operator header & personas are listed
+    expect(
+      screen.getByText(/Simulate Agency Operator \(Single-Operator\)/i),
+    ).toBeDefined();
     expect(screen.getByText('Marcus Cole')).toBeDefined();
-    expect(screen.getByText('David Vance')).toBeDefined();
-    expect(screen.getByText('Rachel Sterling')).toBeDefined();
-    expect(screen.getByText('Emily & John Smith')).toBeDefined();
+    expect(screen.getByText('Alex Turner')).toBeDefined();
+    expect(screen.getByText('Victoria Sterling')).toBeDefined();
 
-    // Click on Marcus Cole (Estate Agent)
+    // Click on Marcus Cole (Branch Agent)
     act(() => {
       fireEvent.click(screen.getByText('Marcus Cole'));
     });
@@ -59,7 +60,8 @@ describe('DevPersonaSwitcher', () => {
 
     // Verify React Query caches were invalidated
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['cases'] });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['case-workspace'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['case-workspace'],
+    });
   });
 });
-
