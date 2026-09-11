@@ -3,7 +3,7 @@ import {
   Check,
   CheckCircle2,
   Calendar,
-  Shield,
+  User,
   FileCheck,
   Slash,
   Lock,
@@ -133,8 +133,8 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
               {workItem.name || workItem.title}
             </span>
 
-            {/* Badges */}
-            {workItem.tag && (
+            {/* Non-default Badges (Omit noisy Manual and default required tags) */}
+            {workItem.tag && workItem.tag !== 'Manual' && (
               <Badge
                 variant={
                   workItem.tag === 'Key Date'
@@ -149,14 +149,11 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
               </Badge>
             )}
 
-            <Badge
-              variant={
-                workItem.requirement === 'required' ? 'required' : 'warning'
-              }
-              size="xs"
-            >
-              {workItem.requirement}
-            </Badge>
+            {workItem.requirement === 'optional' && (
+              <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded-md">
+                Optional
+              </span>
+            )}
 
             {/* Evidence Requirement Badge */}
             {workItem.evidenceRequired &&
@@ -255,17 +252,17 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
                             fileInputRef.current?.click();
                           }}
                           disabled={isUploadingDoc}
-                          className="inline-flex items-center gap-1 text-[10px] font-bold text-[#E1007A] bg-pink-50 hover:bg-pink-100 border border-pink-200/90 rounded-md px-2 py-0.5 transition-colors cursor-pointer disabled:opacity-50"
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/90 rounded-md px-2 py-0.5 transition-colors cursor-pointer disabled:opacity-50"
                           title="Upload required evidence document for this task"
                         >
                           {isUploadingDoc ? (
                             <>
-                              <span className="w-2.5 h-2.5 border-2 border-[#E1007A] border-t-transparent rounded-full animate-spin inline-block" />
+                              <span className="w-2.5 h-2.5 border-2 border-slate-600 border-t-transparent rounded-full animate-spin inline-block" />
                               <span>Uploading...</span>
                             </>
                           ) : (
                             <>
-                              <UploadCloud className="w-3 h-3 text-[#E1007A]" />
+                              <UploadCloud className="w-3 h-3 text-slate-500" />
                               <span>Upload Evidence</span>
                             </>
                           )}
@@ -312,23 +309,28 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
             </div>
           )}
 
-          {/* Metadata: Role Ownership, Target Date, SLA & Completion Info */}
+          {/* Metadata: Contact Person, Target Date, SLA & Completion Info */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500 pt-1">
-            {/* Role Assignment */}
+            {/* Contact Person / External Follow-up Party */}
             {(workItem.role || workItem.ownerRoleId || workItem.assignee) && (
-              <span className="flex items-center gap-1 font-medium text-slate-600">
-                <Shield className="w-3 h-3 text-slate-400" />
-                Role:{' '}
-                <span className="font-semibold text-slate-800">
-                  {targetRoleDisplayName}
-                </span>
-                {workItem.assignee && (
-                  <span className="text-[#E1007A] font-bold ml-1">
-                    ({workItem.assignee.name}
-                    {workItem.assignee.companyName
-                      ? ` - ${workItem.assignee.companyName}`
-                      : ''}
-                    )
+              <span className="inline-flex items-center gap-1.5 font-medium text-slate-600">
+                <User className="w-3 h-3 text-slate-400 shrink-0" />
+                <span className="text-slate-400">Contact:</span>{' '}
+                {workItem.assignee ? (
+                  <>
+                    <span className="font-semibold text-slate-800">
+                      {workItem.assignee.name}
+                    </span>
+                    <span className="text-slate-500 font-normal">
+                      &bull; {targetRoleDisplayName}
+                      {workItem.assignee.companyName
+                        ? ` (${workItem.assignee.companyName})`
+                        : ''}
+                    </span>
+                  </>
+                ) : (
+                  <span className="font-semibold text-slate-800">
+                    {targetRoleDisplayName}
                   </span>
                 )}
               </span>

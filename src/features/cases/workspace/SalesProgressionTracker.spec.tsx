@@ -223,4 +223,66 @@ describe('SalesProgressionTracker', () => {
     const hiddenLines = container.querySelectorAll('.opacity-0');
     expect(hiddenLines.length).toBeGreaterThan(0);
   });
+
+  it('correctly reflects waived work items in the hover card with Waived indicator and completed progress', () => {
+    const snapshotWithWaived: BffWorkspaceSnapshot = {
+      ...mockSnapshot,
+      steps: [
+        {
+          id: 'step-1',
+          stepDefinitionId: 'sd-1',
+          name: 'Offer Accepted',
+          status: 'Completed',
+          displayOrder: 1,
+          dependencyJoinType: 'ALL',
+          dependencies: [],
+          allowedActions: [],
+          workItems: [],
+        },
+        {
+          id: 'step-2',
+          stepDefinitionId: 'sd-2',
+          name: 'Exchange of Contracts',
+          status: 'InProgress',
+          displayOrder: 2,
+          dependencyJoinType: 'ALL',
+          dependencies: ['step-1'],
+          allowedActions: ['COMPLETE_STEP'],
+          workItems: [
+            {
+              id: 'wi-waived',
+              name: 'Transfer 10% Deposit',
+              status: 'Waived',
+              requirement: 'required',
+              role: 'role-buyer-solicitor',
+              allowedActions: [],
+            },
+            {
+              id: 'wi-pending',
+              name: 'Sign Contracts & TR1',
+              status: 'Pending',
+              requirement: 'required',
+              role: 'role-buyer-solicitor',
+              allowedActions: ['COMPLETE'],
+            },
+          ],
+        },
+      ],
+    };
+
+    render(<SalesProgressionTracker snapshot={snapshotWithWaived} />);
+    const node = screen
+      .getAllByText('Exchange of Contracts')[0]
+      .closest('div[data-no-drag]');
+    expect(node).not.toBeNull();
+    if (node) {
+      fireEvent.mouseEnter(node);
+    }
+
+    expect(screen.getByText(/1\/2 \(50%\)/)).toBeInTheDocument();
+    expect(screen.getByText('(1 waived)')).toBeInTheDocument();
+    expect(screen.getByText('Transfer 10% Deposit')).toBeInTheDocument();
+    expect(screen.getByText('Waived')).toBeInTheDocument();
+  });
 });
+

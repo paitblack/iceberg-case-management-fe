@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef } from 'react';
 import {
   Check,
+  Slash,
   ZoomIn,
   ZoomOut,
   RotateCcw,
@@ -130,22 +131,9 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
     y: 0,
   });
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  const [hoveredNode, setHoveredNode] = useState<MapNode | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const outerContainerRef = useRef<HTMLDivElement>(null);
-
-  // Next steps unlocked by hoveredNode
-  const nextSteps = useMemo(() => {
-    if (!hoveredNode) return [];
-    return steps
-      .filter(
-        (s) =>
-          s.id !== hoveredNode.step.id &&
-          (s.dependencies?.includes(hoveredNode.step.id) ||
-            s.dependencies?.includes(hoveredNode.step.stepDefinitionId)),
-      )
-      .sort((a, b) => a.displayOrder - b.displayOrder);
-  }, [hoveredNode, steps]);
 
   // Determine current active step index
   const currentStepIndex = useMemo(() => {
@@ -338,6 +326,25 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
       canvasHeight: calculatedHeight,
     };
   }, [steps]);
+
+  // Derive hovered node dynamically from current computed nodes (ensuring fresh step data)
+  const hoveredNode = useMemo(() => {
+    if (!hoveredNodeId) return null;
+    return nodes.find((n) => n.step.id === hoveredNodeId) || null;
+  }, [nodes, hoveredNodeId]);
+
+  // Next steps unlocked by hoveredNode
+  const nextSteps = useMemo(() => {
+    if (!hoveredNode) return [];
+    return steps
+      .filter(
+        (s) =>
+          s.id !== hoveredNode.step.id &&
+          (s.dependencies?.includes(hoveredNode.step.id) ||
+            s.dependencies?.includes(hoveredNode.step.stepDefinitionId)),
+      )
+      .sort((a, b) => a.displayOrder - b.displayOrder);
+  }, [hoveredNode, steps]);
 
   // Mouse wheel zoom
   const handleWheel = (e: React.WheelEvent) => {
@@ -544,8 +551,8 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
                   key={node.step.id}
                   className="absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center select-none"
                   style={{ left: `${node.x}px`, top: `${node.y}px` }}
-                  onMouseEnter={() => setHoveredNode(node)}
-                  onMouseLeave={() => setHoveredNode(null)}
+                  onMouseEnter={() => setHoveredNodeId(node.step.id)}
+                  onMouseLeave={() => setHoveredNodeId(null)}
                   data-no-drag
                 >
                   {/* Milestone Circle Button */}
@@ -691,7 +698,11 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
             hoveredNode.step.workItems.length > 0;
           const completedTasksCount =
             hoveredNode.step.workItems?.filter(
-              (w) => w.status === 'Completed',
+              (w) => w.status === 'Completed' || w.status === 'Waived',
+            ).length || 0;
+          const waivedTasksCount =
+            hoveredNode.step.workItems?.filter(
+              (w) => w.status === 'Waived',
             ).length || 0;
           const totalTasksCount =
             hoveredNode.step.workItems?.length || 0;
@@ -784,6 +795,11 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
                         (completedTasksCount / totalTasksCount) * 100,
                       )}
                       %)
+                      {waivedTasksCount > 0 && (
+                        <span className="text-[9px] font-semibold text-slate-400 ml-1">
+                          ({waivedTasksCount} waived)
+                        </span>
+                      )}
                     </span>
                   </div>
                   <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -798,7 +814,8 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
                   {/* Checklist Sub-tasks Preview (Top 3) */}
                   <div className="pt-1 space-y-1">
                     {hoveredNode.step.workItems?.slice(0, 3).map((item) => {
-                      const isDone = item.status === 'Completed';
+                      const isCompleted = item.status === 'Completed';
+                      const isWaived = item.status === 'Waived';
                       return (
                         <div
                           key={item.id}
@@ -806,27 +823,37 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
                         >
                           <span
                             className={`w-3.5 h-3.5 rounded-full flex items-center justify-center shrink-0 ${
-                              isDone
+                              isCompleted
                                 ? 'bg-emerald-500 text-white'
-                                : 'border border-slate-300 bg-white text-transparent'
+                                : isWaived
+                                  ? 'bg-slate-200 text-slate-500'
+                                  : 'border border-slate-300 bg-white text-transparent'
                             }`}
                           >
-                            <Check className="w-2.5 h-2.5 stroke-[3]" />
+                            {isCompleted ? (
+                              <Check className="w-2.5 h-2.5 stroke-[3]" />
+                            ) : isWaived ? (
+                              <Slash className="w-2 h-2" />
+                            ) : null}
                           </span>
                           <span
-                            className={`truncate font-medium ${
-                              isDone
+                            className={`truncate font-medium flex-1 ${
+                              isCompleted || isWaived
                                 ? 'line-through text-slate-400'
                                 : 'text-slate-800'
                             }`}
                           >
                             {item.title || item.name}
                           </span>
-                          {item.role && (
+                          {isWaived ? (
+                            <span className="ml-auto text-[9px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded shrink-0">
+                              Waived
+                            </span>
+                          ) : item.role ? (
                             <span className="ml-auto text-[9px] font-semibold text-slate-400 shrink-0 truncate max-w-[80px]">
                               {formatRoleLabel(item.role)}
                             </span>
-                          )}
+                          ) : null}
                         </div>
                       );
                     })}
