@@ -45,8 +45,11 @@ interface StepExecutionCardProps {
     workItemId: string,
     targetDate: string | null,
   ) => Promise<void>;
+  onUploadDocument?: (file: File, workItemId: string) => Promise<void>;
+  onDownloadDocument?: (documentId: string, fileName?: string) => Promise<void>;
   loadingStepId: string | null;
   loadingWorkItemId: string | null;
+  uploadingWorkItemId?: string | null;
   isAddingNote?: boolean;
   isTargeted?: boolean;
 }
@@ -60,8 +63,11 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
   onAddNote,
   onUpdateStepTargetDate,
   onUpdateWorkItemTargetDate,
+  onUploadDocument,
+  onDownloadDocument,
   loadingStepId,
   loadingWorkItemId,
+  uploadingWorkItemId = null,
   isAddingNote = false,
   isTargeted = false,
   allSteps,
@@ -319,6 +325,7 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                   documents={documents}
                   isReadOnly={isPending}
                   isLoading={loadingWorkItemId === wi.id}
+                  isUploadingDoc={uploadingWorkItemId === wi.id}
                   onAction={(workItemId, action) =>
                     onWorkItemAction(step.id, workItemId, action)
                   }
@@ -328,6 +335,8 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                           onUpdateWorkItemTargetDate(step.id, wi.id, date)
                       : undefined
                   }
+                  onUploadDocument={onUploadDocument}
+                  onDownloadDocument={onDownloadDocument}
                 />
               ))}
             </div>

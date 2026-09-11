@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Check,
   CheckCircle2,
@@ -7,6 +7,8 @@ import {
   FileCheck,
   Slash,
   Lock,
+  UploadCloud,
+  Download,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -25,7 +27,10 @@ interface WorkItemExecutionRowProps {
   isReadOnly?: boolean;
   onAction: (workItemId: string, action: WorkItemActionType) => Promise<void>;
   onUpdateTargetDate?: (targetDate: string | null) => Promise<void>;
+  onUploadDocument?: (file: File, workItemId: string) => Promise<void>;
+  onDownloadDocument?: (documentId: string, fileName?: string) => Promise<void>;
   isLoading: boolean;
+  isUploadingDoc?: boolean;
 }
 
 export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
@@ -34,11 +39,17 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
   isReadOnly = false,
   onAction,
   onUpdateTargetDate,
+  onUploadDocument,
+  onDownloadDocument,
   isLoading,
+  isUploadingDoc = false,
 }) => {
   const { canExecuteWorkItem } = usePermissions();
   const { canExecute, reason, targetRoleDisplayName } =
     canExecuteWorkItem(workItem);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const isCompleted = workItem.status === 'Completed';
   const isWaived = workItem.status === 'Waived';
@@ -48,6 +59,30 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
   const canWaive = !isReadOnly && workItem.allowedActions?.includes('WAIVE');
 
   const linkedDoc = documents.find((d) => d.workItemId === workItem.id);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0] && onUploadDocument) {
+      const file = e.target.files[0];
+      try {
+        await onUploadDocument(file, workItem.id);
+      } finally {
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    }
+  };
+
+  const handleDownload = async (e: React.MouseEvent, docId: string, fileName?: string) => {
+    e.stopPropagation();
+    if (!onDownloadDocument) return;
+    setIsDownloading(true);
+    try {
+      await onDownloadDocument(docId, fileName);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <div
@@ -126,28 +161,117 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
             {/* Evidence Requirement Badge */}
             {workItem.evidenceRequired &&
               (linkedDoc ? (
-                linkedDoc.downloadUrl ? (
-                  <a
-                    href={linkedDoc.downloadUrl}
-                    download
-                    className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200/80 rounded-md px-1.5 py-0.5 font-bold hover:underline"
-                  >
-                    <FileCheck className="w-3 h-3 text-emerald-600" />
-                    <span>Evidence: {linkedDoc.fileName}</span>
-                  </a>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200/80 rounded-md px-1.5 py-0.5 font-bold">
-                    <FileCheck className="w-3 h-3 text-emerald-600" />
-                    <span>Evidence: {linkedDoc.fileName}</span>
-                  </span>
-                )
+                <span className="inline-flex items-center gap-1.5 flex-wrap">
+                  {linkedDoc.downloadUrl ? (
+                    <a
+                      href={linkedDoc.downloadUrl}
+                      download
+                      className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200/80 rounded-md px-1.5 py-0.5 font-bold hover:underline"
+                    >
+                      <FileCheck className="w-3 h-3 text-emerald-600" />
+                      <span>Evidence: {linkedDoc.fileName}</span>
+                    </a>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200/80 rounded-md px-1.5 py-0.5 font-bold">
+                      <FileCheck className="w-3 h-3 text-emerald-600" />
+                      <span>Evidence: {linkedDoc.fileName}</span>
+                    </span>
+                  )}
+
+                  {/* Direct Download Icon Button */}
+                  {onDownloadDocument && linkedDoc.canDownload !== false && (
+                    <button
+                      type="button"
+                      onClick={(e) =>
+                        handleDownload(e, linkedDoc.id, linkedDoc.fileName)
+                      }
+                      disabled={isDownloading}
+                      className="p-1 rounded text-emerald-700 hover:text-emerald-950 hover:bg-emerald-100 transition-colors cursor-pointer"
+                      title="Download Attached Document"
+                    >
+                      {isDownloading ? (
+                        <span className="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin inline-block" />
+                      ) : (
+                        <Download className="w-3 h-3" />
+                      )}
+                    </button>
+                  )}
+
+                  {/* Replace Evidence Button */}
+                  {!isReadOnly &&
+                    !isCompleted &&
+                    !isWaived &&
+                    onUploadDocument &&
+                    canExecute && (
+                      <>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          className="hidden"
+                          onChange={handleFileSelect}
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            fileInputRef.current?.click();
+                          }}
+                          disabled={isUploadingDoc}
+                          className="text-[10px] text-emerald-700 font-semibold underline hover:text-emerald-900 cursor-pointer ml-0.5"
+                          title="Upload a new document to replace this evidence"
+                        >
+                          {isUploadingDoc ? 'Uploading...' : 'Replace'}
+                        </button>
+                      </>
+                    )}
+                </span>
               ) : (
-                <span
-                  className="inline-flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200/80 rounded-md px-1.5 py-0.5 font-medium"
-                  title="Supporting document is required to complete this task"
-                >
-                  <FileCheck className="w-3 h-3 text-amber-500" />
-                  <span>Evidence Required</span>
+                <span className="inline-flex items-center gap-1.5 flex-wrap">
+                  <span
+                    className="inline-flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200/80 rounded-md px-1.5 py-0.5 font-medium"
+                    title="Supporting document is required to complete this task"
+                  >
+                    <FileCheck className="w-3 h-3 text-amber-500" />
+                    <span>Evidence Required</span>
+                  </span>
+
+                  {/* Inline Upload Evidence Action Button */}
+                  {!isReadOnly &&
+                    !isCompleted &&
+                    !isWaived &&
+                    onUploadDocument &&
+                    canExecute && (
+                      <>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          className="hidden"
+                          onChange={handleFileSelect}
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            fileInputRef.current?.click();
+                          }}
+                          disabled={isUploadingDoc}
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-[#E1007A] bg-pink-50 hover:bg-pink-100 border border-pink-200/90 rounded-md px-2 py-0.5 transition-colors cursor-pointer disabled:opacity-50"
+                          title="Upload required evidence document for this task"
+                        >
+                          {isUploadingDoc ? (
+                            <>
+                              <span className="w-2.5 h-2.5 border-2 border-[#E1007A] border-t-transparent rounded-full animate-spin inline-block" />
+                              <span>Uploading...</span>
+                            </>
+                          ) : (
+                            <>
+                              <UploadCloud className="w-3 h-3 text-[#E1007A]" />
+                              <span>Upload Evidence</span>
+                            </>
+                          )}
+                        </button>
+                      </>
+                    )}
                 </span>
               ))}
 
@@ -284,11 +408,17 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
             variant="primary"
             size="xs"
             isLoading={isLoading}
-            disabled={!canExecute}
+            disabled={!canExecute || (workItem.evidenceRequired && !linkedDoc)}
             onClick={() => onAction(workItem.id, 'COMPLETE')}
             leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
             className="font-bold text-[11px]"
-            title="Mark task as completed"
+            title={
+              !canExecute
+                ? reason
+                : workItem.evidenceRequired && !linkedDoc
+                  ? 'Evidence document must be uploaded before completing this task'
+                  : 'Mark task as completed'
+            }
           >
             Complete Task
           </Button>

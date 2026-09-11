@@ -76,6 +76,9 @@ export const CaseWorkspacePage: React.FC = () => {
     null,
   );
   const [isUploadingDoc, setIsUploadingDoc] = useState<boolean>(false);
+  const [uploadingWorkItemId, setUploadingWorkItemId] = useState<string | null>(
+    null,
+  );
   const [isSubmittingParticipant, setIsSubmittingParticipant] =
     useState<boolean>(false);
   const [isSubmittingNote, setIsSubmittingNote] = useState<boolean>(false);
@@ -218,6 +221,9 @@ export const CaseWorkspacePage: React.FC = () => {
   const handleUploadDocument = async (file: File, workItemId?: string) => {
     if (!caseId) return;
     setIsUploadingDoc(true);
+    if (workItemId) {
+      setUploadingWorkItemId(workItemId);
+    }
     try {
       await uploadCaseDocument(caseId, file, workItemId);
       showToast('success', `Document "${file.name}" uploaded successfully.`);
@@ -230,6 +236,7 @@ export const CaseWorkspacePage: React.FC = () => {
       }
     } finally {
       setIsUploadingDoc(false);
+      setUploadingWorkItemId(null);
     }
   };
 
@@ -248,7 +255,7 @@ export const CaseWorkspacePage: React.FC = () => {
         if (downloadUrl.includes('replace-with-account-id')) {
           showToast(
             'success',
-            'Local Dev: Cloudflare R2 placeholder detected. Downloading simulated document file.',
+            'Local Dev: Downloading simulated document file.',
           );
           const sampleContent = `%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n4 0 obj\n<< /Length 55 >>\nstream\nBT /F1 14 Tf 50 700 Td (Simulated Case Document: ${fileName || downloadInfo.fileName}) Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000214 00000 n \ntrailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n318\n%%EOF`;
           const blob = new Blob([sampleContent], {
@@ -693,8 +700,11 @@ export const CaseWorkspacePage: React.FC = () => {
                     onAddNote={handleAddNote}
                     onUpdateStepTargetDate={handleUpdateStepTargetDate}
                     onUpdateWorkItemTargetDate={handleUpdateWorkItemTargetDate}
+                    onUploadDocument={handleUploadDocument}
+                    onDownloadDocument={handleDownloadDocument}
                     loadingStepId={loadingStepId}
                     loadingWorkItemId={loadingWorkItemId}
+                    uploadingWorkItemId={uploadingWorkItemId}
                     isAddingNote={isSubmittingNote}
                     isTargeted={targetedStepId === step.id}
                   />
