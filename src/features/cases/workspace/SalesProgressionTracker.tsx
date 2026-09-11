@@ -370,39 +370,6 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
     setPan({ x: 0, y: 0 });
   };
 
-  // Telemetry Data (Preserved for compatibility and high-density dashboard)
-  const currentBlocker = useMemo(() => {
-    if (snapshot.blockers && snapshot.blockers.length > 0) {
-      const raw = snapshot.blockers[0];
-      let title = raw;
-      let detail = raw;
-      if (raw.includes(':')) {
-        const parts = raw.split(':');
-        title = parts[0]?.trim() || raw;
-        detail = parts.slice(1).join(':').trim() || raw;
-      } else if (raw.includes(' - ')) {
-        const parts = raw.split(' - ');
-        title = parts[0]?.trim() || raw;
-        detail = parts.slice(1).join(' - ').trim() || raw;
-      }
-      return { title, detail, isBlocked: true };
-    }
-
-    if (currentStep?.blockerReason) {
-      return {
-        title: 'Milestone Blocker',
-        detail: currentStep.blockerReason,
-        isBlocked: true,
-      };
-    }
-
-    return {
-      title: 'None',
-      detail: 'All milestone progression clear',
-      isBlocked: false,
-    };
-  }, [snapshot.blockers, currentStep]);
-
   const nextAction = useMemo(() => {
     if (currentStep) {
       const pendingTask = currentStep.workItems?.find(
@@ -428,71 +395,6 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
       detail: 'Case ready for final resolution',
     };
   }, [currentStep, snapshot.assignedProgressorName]);
-
-  const nextChase = useMemo(() => {
-    if (snapshot.status === 'OnHold') {
-      return {
-        title: 'Case On Hold',
-        detail: 'Await instruction before resuming chases',
-        isUrgent: true,
-      };
-    }
-
-    if (currentBlocker.isBlocked) {
-      return {
-        title: 'Action Required',
-        detail: `Chase ${currentBlocker.title}`,
-        isUrgent: true,
-      };
-    }
-
-    if (currentStep?.targetDate) {
-      const target = new Date(currentStep.targetDate);
-      const now = new Date();
-      const diffDays = Math.ceil(
-        (target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-      );
-      if (diffDays < 0) {
-        return {
-          title: 'Overdue Target',
-          detail: `Was due ${Math.abs(diffDays)}d ago`,
-          isUrgent: true,
-        };
-      }
-      if (diffDays === 0) {
-        return {
-          title: 'Due Today',
-          detail: 'Follow up before end of day',
-          isUrgent: true,
-        };
-      }
-      return {
-        title: `Target in ${diffDays}d`,
-        detail: target.toLocaleDateString(),
-        isUrgent: false,
-      };
-    }
-
-    return {
-      title: 'Routine check-in',
-      detail: 'Weekly vendor update scheduled',
-      isUrgent: false,
-    };
-  }, [snapshot.status, currentBlocker, currentStep]);
-
-  const daysInMilestone = useMemo(() => {
-    const fallbackName = currentStep?.name || 'Current Milestone';
-    if (!currentStep?.startedAt) {
-      return { days: '1 day', milestoneName: fallbackName };
-    }
-    const started = new Date(currentStep.startedAt).getTime();
-    const now = Date.now();
-    const diff = Math.max(0, Math.floor((now - started) / (1000 * 60 * 60 * 24)));
-    return {
-      days: `${diff} ${diff === 1 ? 'day' : 'days'}`,
-      milestoneName: fallbackName,
-    };
-  }, [currentStep]);
 
   const hasOrphanSteps = steps.some((s) => isStepOrphan(s, steps));
 
@@ -1010,75 +912,6 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
             </div>
           );
         })()}
-      </div>
-
-      {/* 3. Current Position Telemetry Card (Blockers, Next Action, Next Chase, Days) */}
-      <div className="iceberg-card p-4 sm:p-5 border border-slate-200/90 shadow-2xs bg-white space-y-3.5">
-        <h4 className="text-xs md:text-sm font-extrabold text-slate-900 tracking-tight">
-          Current position
-        </h4>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-0 lg:divide-x lg:divide-slate-100">
-          {/* Col 1: Current Blocker */}
-          <div className="lg:pr-4 space-y-1">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-              Current Blocker
-            </span>
-            <p
-              className={`text-xs md:text-sm font-extrabold leading-snug line-clamp-1 ${
-                currentBlocker.isBlocked ? 'text-slate-900' : 'text-emerald-700'
-              }`}
-            >
-              {currentBlocker.title}
-            </p>
-            <p className="text-[11px] text-slate-500 font-medium leading-relaxed line-clamp-2">
-              {currentBlocker.detail}
-            </p>
-          </div>
-
-          {/* Col 2: Next Action */}
-          <div className="lg:px-4 space-y-1">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-              Next Action
-            </span>
-            <p className="text-xs md:text-sm font-extrabold text-slate-900 leading-snug line-clamp-1">
-              {nextAction.title}
-            </p>
-            <p className="text-[11px] text-slate-500 font-medium leading-relaxed line-clamp-2">
-              {nextAction.detail}
-            </p>
-          </div>
-
-          {/* Col 3: Next Chase */}
-          <div className="lg:px-4 space-y-1">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-              Next Chase
-            </span>
-            <p
-              className={`text-xs md:text-sm font-extrabold leading-snug line-clamp-1 ${
-                nextChase.isUrgent ? 'text-amber-800' : 'text-slate-900'
-              }`}
-            >
-              {nextChase.title}
-            </p>
-            <p className="text-[11px] text-slate-500 font-medium leading-relaxed line-clamp-2">
-              {nextChase.detail}
-            </p>
-          </div>
-
-          {/* Col 4: Days in Current Milestone */}
-          <div className="lg:pl-4 space-y-1">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-              Days in Current Milestone
-            </span>
-            <p className="text-xs md:text-sm font-extrabold text-slate-900 leading-snug line-clamp-1">
-              {daysInMilestone.days}
-            </p>
-            <p className="text-[11px] text-slate-500 font-medium leading-relaxed line-clamp-2">
-              {daysInMilestone.milestoneName}
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );
