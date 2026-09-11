@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Layers,
   FileText,
-  Users,
   MessageSquare,
   History,
   ArrowLeft,
@@ -18,10 +17,11 @@ import { SalesProgressionTracker } from './workspace/SalesProgressionTracker';
 import { BlockersBanner } from './workspace/BlockersBanner';
 import { StepExecutionCard } from './workspace/StepExecutionCard';
 import { DocumentsTab } from './workspace/DocumentsTab';
-import { ParticipantsTab } from './workspace/ParticipantsTab';
 import { AnnouncementsTab } from './workspace/AnnouncementsTab';
 import { ActivityTimelineTab } from './workspace/ActivityTimelineTab';
 import { RecentActivitiesFeed } from './workspace/RecentActivitiesFeed';
+import { CaseStakeholdersWidget } from './workspace/CaseStakeholdersWidget';
+import { ExpectedDurationCard } from './workspace/ExpectedDurationCard';
 import { ChangeStatusModal } from './components/ChangeStatusModal';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Spinner';
@@ -533,7 +533,7 @@ export const CaseWorkspacePage: React.FC = () => {
   const blockersList = snapshot.blockers || [];
 
   return (
-    <div className="space-y-6 pb-16">
+    <div className="space-y-4 pb-2 lg:h-[calc(100vh-8.5rem)] lg:max-h-[calc(100vh-8.5rem)] lg:flex lg:flex-col lg:overflow-hidden">
       {/* Toast Notification Alert */}
       {toastMessage && (
         <div
@@ -552,8 +552,15 @@ export const CaseWorkspacePage: React.FC = () => {
         </div>
       )}
 
-      {/* Top Navigation & Actions Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {errorBanner && (
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-2 text-xs shrink-0">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{errorBanner}</span>
+        </div>
+      )}
+
+      {/* Top Action Bar: Back to Case Directory (Left) & Refresh Snapshot (Right) perfectly aligned */}
+      <div className="flex items-center justify-between h-9 shrink-0">
         <button
           type="button"
           onClick={() => navigate('/cases')}
@@ -563,204 +570,194 @@ export const CaseWorkspacePage: React.FC = () => {
           <span>Back to Case Directory</span>
         </button>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            isLoading={isRefreshing}
-            onClick={() => {
-              setIsRefreshing(true);
-              loadWorkspace();
-            }}
-            leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
-          >
-            Refresh Snapshot
-          </Button>
-        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          isLoading={isRefreshing}
+          onClick={() => {
+            setIsRefreshing(true);
+            loadWorkspace();
+          }}
+          leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+        >
+          Refresh Snapshot
+        </Button>
       </div>
 
-      {errorBanner && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-2 text-xs">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{errorBanner}</span>
-        </div>
-      )}
+      {/* 2-Column Responsive Workspace Grid: Main workspace on left, Persistent Sidebar pinned on right */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
+        {/* Left / Main Content Column (8 cols on lg, 9 cols on xl) */}
+        <div className="lg:col-span-8 xl:col-span-9 space-y-6 min-w-0 lg:h-full lg:overflow-y-auto lg:pr-2 pb-16">
+          {/* AI Case Resolution Summary Card */}
+          <AiCaseSummaryCard
+            status={snapshot.status}
+            aiSummary={snapshot.aiSummary}
+          />
 
-      {/* AI Case Resolution Summary Card */}
-      <AiCaseSummaryCard
-        status={snapshot.status}
-        aiSummary={snapshot.aiSummary}
-      />
+          {/* Main Workspace Header Card */}
+          <WorkspaceHeader
+            snapshot={snapshot}
+            onOpenStatusModal={(action) => setStatusModalAction(action)}
+            showDurationCard={false}
+          />
+          {/* Sales Progression Stepper & Current Position Tracker */}
+          <SalesProgressionTracker
+            snapshot={snapshot}
+            onSelectStep={handleSelectStep}
+          />
 
-      {/* Main Workspace Header Card */}
-      <WorkspaceHeader
-        snapshot={snapshot}
-        onOpenStatusModal={(action) => setStatusModalAction(action)}
-      />
+          {/* Blockers Alert Banner */}
+          <BlockersBanner blockers={blockersList} />
 
-      {/* Sales Progression Stepper & Current Position Tracker */}
-      <SalesProgressionTracker
-        snapshot={snapshot}
-        onSelectStep={handleSelectStep}
-      />
+          {/* Workspace Tabs Navigation (Stakeholders tab removed) */}
+          <div className="flex items-center gap-2 border-b border-slate-200 pb-px">
+            <button
+              type="button"
+              onClick={() => setActiveTab('progression')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                activeTab === 'progression'
+                  ? 'border-[#E1007A] text-[#E1007A]'
+                  : 'border-transparent text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <Layers className="w-4 h-4" />
+              <span>Workflow Progression ({stepsList.length})</span>
+            </button>
 
-      {/* Blockers Alert Banner */}
-      <BlockersBanner blockers={blockersList} />
+            <button
+              type="button"
+              onClick={() => setActiveTab('documents')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                activeTab === 'documents'
+                  ? 'border-[#E1007A] text-[#E1007A]'
+                  : 'border-transparent text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>Documents & Evidence ({documentsList.length})</span>
+            </button>
 
-      {/* Workspace Tabs Navigation */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-px">
-        <button
-          type="button"
-          onClick={() => setActiveTab('progression')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
-            activeTab === 'progression'
-              ? 'border-[#E1007A] text-[#E1007A]'
-              : 'border-transparent text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          <Layers className="w-4 h-4" />
-          <span>Workflow Progression ({stepsList.length})</span>
-        </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('announcements')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                activeTab === 'announcements'
+                  ? 'border-[#E1007A] text-[#E1007A]'
+                  : 'border-transparent text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>
+                Discussions & Announcements ({(snapshot.announcements || []).length})
+              </span>
+            </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('documents')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
-            activeTab === 'documents'
-              ? 'border-[#E1007A] text-[#E1007A]'
-              : 'border-transparent text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          <FileText className="w-4 h-4" />
-          <span>Documents & Evidence ({documentsList.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('participants')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
-            activeTab === 'participants'
-              ? 'border-[#E1007A] text-[#E1007A]'
-              : 'border-transparent text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>Stakeholders & Solicitors ({participantsList.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('announcements')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
-            activeTab === 'announcements'
-              ? 'border-[#E1007A] text-[#E1007A]'
-              : 'border-transparent text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          <MessageSquare className="w-4 h-4" />
-          <span>
-            Discussions & Announcements ({(snapshot.announcements || []).length})
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('activities')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
-            activeTab === 'activities'
-              ? 'border-[#E1007A] text-[#E1007A]'
-              : 'border-transparent text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          <History className="w-4 h-4" />
-          <span>
-            Activity & Audit Trail
-          </span>
-        </button>
-      </div>
-
-      {/* Tab Content Render */}
-      {activeTab === 'progression' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          {/* Main Progression Steps Column */}
-          <div className="lg:col-span-2 space-y-4">
-            {stepsList.length === 0 ? (
-              <div className="p-12 rounded-2xl bg-white border border-dashed border-slate-200 text-center space-y-2">
-                <Layers className="w-8 h-8 text-slate-300 mx-auto" />
-                <h4 className="text-sm font-bold text-slate-700">
-                  No Progression Steps Initialized
-                </h4>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  This case instance is waiting for milestone instantiation from
-                  its template version.
-                </p>
-              </div>
-            ) : (
-              stepsList.map((step) => (
-                <StepExecutionCard
-                  key={step.id}
-                  step={step}
-                  allSteps={stepsList}
-                  documents={documentsList}
-                  participants={participantsList}
-                  onStepAction={handleStepAction}
-                  onWorkItemAction={handleWorkItemAction}
-                  onAddNote={handleAddNote}
-                  onUpdateStepTargetDate={handleUpdateStepTargetDate}
-                  onUpdateWorkItemTargetDate={handleUpdateWorkItemTargetDate}
-                  loadingStepId={loadingStepId}
-                  loadingWorkItemId={loadingWorkItemId}
-                  isAddingNote={isSubmittingNote}
-                  isTargeted={targetedStepId === step.id}
-                />
-              ))
-            )}
+            <button
+              type="button"
+              onClick={() => setActiveTab('activities')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                activeTab === 'activities'
+                  ? 'border-[#E1007A] text-[#E1007A]'
+                  : 'border-transparent text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <History className="w-4 h-4" />
+              <span>Activity & Audit Trail</span>
+            </button>
           </div>
 
-          {/* Right Sidebar Quick Feed Column */}
-          <div className="space-y-4 sticky top-6">
+          {/* Tab Content Render */}
+          {activeTab === 'progression' && (
+            <div className="space-y-4">
+              {stepsList.length === 0 ? (
+                <div className="p-12 rounded-2xl bg-white border border-dashed border-slate-200 text-center space-y-2">
+                  <Layers className="w-8 h-8 text-slate-300 mx-auto" />
+                  <h4 className="text-sm font-bold text-slate-700">
+                    No Progression Steps Initialized
+                  </h4>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                    This case instance is waiting for milestone instantiation from
+                    its template version.
+                  </p>
+                </div>
+              ) : (
+                stepsList.map((step) => (
+                  <StepExecutionCard
+                    key={step.id}
+                    step={step}
+                    allSteps={stepsList}
+                    documents={documentsList}
+                    participants={participantsList}
+                    onStepAction={handleStepAction}
+                    onWorkItemAction={handleWorkItemAction}
+                    onAddNote={handleAddNote}
+                    onUpdateStepTargetDate={handleUpdateStepTargetDate}
+                    onUpdateWorkItemTargetDate={handleUpdateWorkItemTargetDate}
+                    loadingStepId={loadingStepId}
+                    loadingWorkItemId={loadingWorkItemId}
+                    isAddingNote={isSubmittingNote}
+                    isTargeted={targetedStepId === step.id}
+                  />
+                ))
+              )}
+            </div>
+          )}
+
+          {activeTab === 'documents' && (
+            <DocumentsTab
+              documents={documentsList}
+              steps={stepsList}
+              onUploadDocument={handleUploadDocument}
+              onDownloadDocument={handleDownloadDocument}
+              isUploading={isUploadingDoc}
+            />
+          )}
+
+          {activeTab === 'announcements' && (
+            <AnnouncementsTab
+              announcements={snapshot.announcements || []}
+              participants={participantsList}
+              onPostAnnouncement={handlePostAnnouncement}
+              onPostReply={handlePostReply}
+              isPostingAnnouncement={isPostingAnnouncement}
+              isPostingReply={isPostingReply}
+            />
+          )}
+
+          {activeTab === 'activities' && (
+            <ActivityTimelineTab caseId={snapshot.caseId} />
+          )}
+        </div>
+
+        {/* Right Persistent Sidebar Column (Zero column scrollbar - Fixed hierarchical sizing: Aktörler > Activity > Time) */}
+        <div className="lg:col-span-4 xl:col-span-3 flex flex-col gap-3 min-w-0 lg:h-full lg:overflow-hidden pb-1 shrink-0">
+          {/* 1. Aktörler (EN BÜYÜK ALAN - Dominant alan, aktivite arttıkça küçülmez) */}
+          <div className="flex-1 min-h-[320px] flex flex-col overflow-hidden">
+            <CaseStakeholdersWidget
+              participants={participantsList}
+              roles={snapshot.roles || []}
+              onAssignParticipant={handleAssignParticipant}
+              onRemoveParticipant={handleRemoveParticipant}
+              isSubmitting={isSubmittingParticipant}
+              className="h-full flex flex-col"
+            />
+          </div>
+
+          {/* 2. Recent Activities Özeti (ORTA ALAN - Sabit 185px, aktivite eklendikçe büyümez) */}
+          <div className="h-[185px] shrink-0 flex flex-col">
             <RecentActivitiesFeed
               activities={snapshot.recentActivities || []}
               onViewFullTimeline={() => setActiveTab('activities')}
+              className="h-full flex flex-col"
             />
           </div>
+
+          {/* 3. Expected Duration & Timeline (EN KÜÇÜK ALAN - Sabit kompakt 76px) */}
+          <div className="h-[76px] shrink-0">
+            <ExpectedDurationCard snapshot={snapshot} className="h-full" />
+          </div>
         </div>
-      )}
-
-      {activeTab === 'documents' && (
-        <DocumentsTab
-          documents={documentsList}
-          steps={stepsList}
-          onUploadDocument={handleUploadDocument}
-          onDownloadDocument={handleDownloadDocument}
-          isUploading={isUploadingDoc}
-        />
-      )}
-
-      {activeTab === 'participants' && (
-        <ParticipantsTab
-          participants={participantsList}
-          roles={snapshot.roles || []}
-          onAssignParticipant={handleAssignParticipant}
-          onRemoveParticipant={handleRemoveParticipant}
-          isSubmitting={isSubmittingParticipant}
-        />
-      )}
-
-      {activeTab === 'announcements' && (
-        <AnnouncementsTab
-          announcements={snapshot.announcements || []}
-          participants={participantsList}
-          onPostAnnouncement={handlePostAnnouncement}
-          onPostReply={handlePostReply}
-          isPostingAnnouncement={isPostingAnnouncement}
-          isPostingReply={isPostingReply}
-        />
-      )}
-
-      {activeTab === 'activities' && (
-        <ActivityTimelineTab caseId={snapshot.caseId} />
-      )}
+      </div>
 
       {/* Change Status Modal (e.g. Reopen Case) */}
       <ChangeStatusModal

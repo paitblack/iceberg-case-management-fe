@@ -23,11 +23,13 @@ import { ExpectedDurationCard } from './ExpectedDurationCard';
 interface WorkspaceHeaderProps {
   snapshot: BffWorkspaceSnapshot;
   onOpenStatusModal?: (action: CaseStatusAction) => void;
+  showDurationCard?: boolean;
 }
 
 export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   snapshot,
   onOpenStatusModal,
+  showDurationCard = true,
 }) => {
   const { canReopenCase } = usePermissions();
   const allowedActions =
@@ -62,17 +64,15 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   const isClosed =
     snapshot.status === 'Completed' || snapshot.status === 'Cancelled';
 
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-      {/* Shortened / Narrowed Main Case Workspace Header Card */}
-      <div className="lg:col-span-8 xl:col-span-9 iceberg-card p-6 space-y-5 border border-slate-200/90 shadow-xs bg-white flex flex-col justify-between">
-        {/* Top Meta Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div className="space-y-1.5 flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                {snapshot.reference}
-              </span>
+  const headerCardContent = (
+    <div className="iceberg-card p-6 space-y-5 border border-slate-200/90 shadow-xs bg-white flex flex-col justify-between">
+      {/* Top Meta Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div className="space-y-1.5 flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+              {snapshot.reference}
+            </span>
               <span className="text-xs font-semibold text-[#E1007A] bg-pink-50 px-2 py-0.5 rounded-md border border-pink-100">
                 {snapshot.caseTypeName || 'Residential Property Sale'} (v
                 {snapshot.templateVersion || 1}.0)
@@ -252,8 +252,17 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
           </div>
         </div>
       </div>
+  );
 
-      {/* Companion Expected Duration Card */}
+  if (!showDurationCard) {
+    return headerCardContent;
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+      <div className="lg:col-span-8 xl:col-span-9 flex flex-col justify-between">
+        {headerCardContent}
+      </div>
       <div className="lg:col-span-4 xl:col-span-3 flex flex-col">
         <ExpectedDurationCard snapshot={snapshot} />
       </div>
