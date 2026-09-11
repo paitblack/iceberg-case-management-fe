@@ -64,7 +64,7 @@ export const VisibilitySelector: React.FC<VisibilitySelectorProps> = ({
             } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <Globe className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Public (All Case Parties)</span>
+            <span>Standard (Case Ledger)</span>
           </button>
 
           <button
@@ -78,7 +78,7 @@ export const VisibilitySelector: React.FC<VisibilitySelectorProps> = ({
             } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <Lock className="w-3.5 h-3.5 text-amber-600" />
-            <span>Private (Selected Stakeholders)</span>
+            <span>Restricted (Office Internal)</span>
           </button>
         </div>
       </div>
@@ -89,7 +89,7 @@ export const VisibilitySelector: React.FC<VisibilitySelectorProps> = ({
           <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] font-bold text-amber-900 flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
-              <span>Select external stakeholders granted visibility:</span>
+              <span>Select case contacts granted visibility:</span>
             </span>
 
             {participants.length > 0 && !disabled && (

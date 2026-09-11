@@ -28,6 +28,7 @@ import type {
   WorkItemTag,
   WorkItemRequirement,
   BffParticipant,
+  ParticipantRoleDefinition,
   AssignParticipantPayload,
   NoteSnapshot,
   AnnouncementReplySnapshot,
@@ -262,15 +263,39 @@ export async function fetchPublishedTemplates(): Promise<
   try {
     const caseTypes = await listCaseTypes();
     if (caseTypes && caseTypes.length > 0) {
-      return caseTypes.map((ct) => ({
-        id: ct.id,
-        name: ct.name,
-        versionNumber: ct.publishedVersionCount || 1,
-        description:
-          ct.description || 'Pre-configured domain workflow progression.',
-        caseTypeId: ct.id,
-        stepCount: 6,
-      }));
+      const items = await Promise.all(
+        caseTypes.map(async (ct) => {
+          let roles: ParticipantRoleDefinition[] | undefined;
+          try {
+            const draft = await getCaseTypeDraft(ct.id);
+            if (draft && draft.roles && draft.roles.length > 0) {
+              roles = draft.roles.map((r) => ({
+                id: r.id,
+                name: r.name,
+                description: r.description,
+                isRequired: r.required ?? r.isRequired ?? false,
+                required: r.required ?? r.isRequired ?? false,
+                minOccurrences: r.minOccurrences,
+                maxOccurrences: r.maxOccurrences,
+              }));
+            }
+          } catch {
+            // Ignore draft error, fallback gracefully
+          }
+
+          return {
+            id: ct.id,
+            name: ct.name,
+            versionNumber: ct.publishedVersionCount || 1,
+            description:
+              ct.description || 'Pre-configured domain workflow progression.',
+            caseTypeId: ct.id,
+            stepCount: 6,
+            roles,
+          };
+        }),
+      );
+      return items;
     }
   } catch (err) {
     console.warn('Failed to load live case types from backend:', err);

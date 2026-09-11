@@ -237,6 +237,42 @@ describe('TemplateBuilderContext & State Management', () => {
     expect(roleInPayload?.maxOccurrences).toBe(3);
   });
 
+  it('supports configuring isRequired and minOccurrences for roles', async () => {
+    const { result } = renderHook(() => useTemplateBuilder(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoadingCaseTypes).toBe(false);
+    });
+
+    let reqRole: {
+      id: string;
+      name: string;
+      isRequired?: boolean;
+      minOccurrences?: number;
+    } = {
+      id: '',
+      name: '',
+    };
+    act(() => {
+      reqRole = result.current.addRole({
+        name: 'Lead Conveyancer',
+        description: 'Primary legal counsel',
+        isRequired: true,
+        minOccurrences: 1,
+      });
+    });
+
+    expect(reqRole.isRequired).toBe(true);
+    expect(reqRole.minOccurrences).toBe(1);
+    const inState = result.current.roles.find((r) => r.id === reqRole.id);
+    expect(inState?.isRequired).toBe(true);
+
+    // Verify payload serialization
+    const payload = result.current.toBackendDraftPayload();
+    const roleInPayload = payload.roles?.find((r) => r.id === reqRole.id);
+    expect(roleInPayload?.isRequired).toBe(true);
+  });
+
   it('loads dynamic preset from backend endpoint', async () => {
     vi.spyOn(apiClient, 'getTemplatePreset').mockResolvedValue({
       key: 'commercial',

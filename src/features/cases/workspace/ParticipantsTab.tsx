@@ -259,16 +259,15 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Top Header with Role Visibility Banner */}
+      {/* Top Header with Case Directory Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
         <div>
           <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
             <Shield className="w-4 h-4 text-[#E1007A]" />
-            Case Stakeholders & Legal Network ({participants.length})
+            Case Stakeholders & Contact Directory ({participants.length})
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Role-based milestone visibility, conveyancer assignments, and secure
-            communication ledger.
+            Address book of legal representatives, buyers, sellers, and advisors connected to this transaction.
           </p>
         </div>
 
@@ -278,19 +277,18 @@ export const ParticipantsTab: React.FC<ParticipantsTabProps> = ({
           leftIcon={<UserPlus className="w-3.5 h-3.5" />}
           onClick={handleOpenModal}
         >
-          Assign Stakeholder / Solicitor
+          Assign Stakeholder / Contact
         </Button>
       </div>
 
-      {/* Role Visibility Information Box */}
+      {/* Stakeholder Responsibility Mapping Information Box */}
       <div className="p-4 rounded-2xl bg-pink-50/40 border border-pink-100 text-xs text-slate-600 space-y-1.5">
         <div className="flex items-center gap-2 font-bold text-slate-900">
           <Eye className="w-4 h-4 text-[#E1007A]" />
-          <span>Role-Based Access & Dynamic Work Item Ownership</span>
+          <span>Case Directory & Real-World Responsibility</span>
         </div>
         <p className="text-[11px] text-slate-500 leading-relaxed">
-          Assigned solicitors and parties will automatically be mapped to
-          governing milestone work items in the Workflow Progression timeline.
+          Assigned contacts represent external parties whose real-world actions and documents are recorded by the estate agent. Linking a solicitor or client maps their contact details to relevant workflow milestones.
         </p>
       </div>
 

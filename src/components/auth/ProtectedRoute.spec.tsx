@@ -33,8 +33,8 @@ describe('ProtectedRoute', () => {
   });
 
   it('redirects to fallback route when non-super-user accesses restricted route', () => {
-    // Set active persona to Buyer Solicitor (non-super-user)
-    localStorage.setItem('iceberg_active_persona_id', 'usr_buyer_sol_3');
+    // Set active persona to Sales Negotiator Alex Turner (non-super-user internal operator)
+    localStorage.setItem('iceberg_active_persona_id', 'usr_agent_3');
 
     render(
       <AuthProvider>

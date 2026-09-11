@@ -211,17 +211,17 @@ describe('usePermissions & Role Utilities', () => {
       ).toBe(true);
     });
 
-    it('allows execution if user has matching role in roles array', () => {
+    it('allows execution if user has work_item:execute permission regardless of task role', () => {
       vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue(
         createMockAuth({
-          id: 'usr-conveyancer',
-          name: 'David Vance',
-          email: 'david@example.com',
-          roles: ['Buyer Solicitor'],
-          permissions: [],
-          description: 'Solicitor',
-          avatarText: 'DV',
-          badgeVariant: 'default',
+          id: 'usr-agent-marcus',
+          name: 'Marcus Cole',
+          email: 'marcus@turnerproperties.co.uk',
+          roles: ['Estate Agent'],
+          permissions: ['work_item:execute'],
+          description: 'Estate Agent',
+          avatarText: 'MC',
+          badgeVariant: 'primary',
         }),
       );
 
@@ -237,18 +237,21 @@ describe('usePermissions & Role Utilities', () => {
       expect(
         result.current.canExecuteWorkItem(solicitorWorkItem).canExecute,
       ).toBe(true);
+      expect(
+        result.current.canExecuteWorkItem(solicitorWorkItem).targetRoleDisplayName,
+      ).toBe("Buyer's Conveyancer / Solicitor");
     });
 
-    it('denies execution with reason when user is unauthorized and task is locked', () => {
+    it('denies execution when user lacks work_item:execute and task does not allow COMPLETE', () => {
       vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue(
         createMockAuth({
-          id: 'usr-vendor-frank',
-          name: 'Frank Miller',
-          email: 'frank@example.com',
-          roles: ['Vendor'],
-          permissions: [],
-          description: 'Vendor',
-          avatarText: 'FM',
+          id: 'usr-unprivileged',
+          name: 'Read Only User',
+          email: 'readonly@example.com',
+          roles: ['guest'],
+          permissions: ['case:read'],
+          description: 'Guest',
+          avatarText: 'RO',
           badgeVariant: 'default',
         }),
       );
@@ -257,7 +260,7 @@ describe('usePermissions & Role Utilities', () => {
 
       const check = result.current.canExecuteWorkItem(baseWorkItem);
       expect(check.canExecute).toBe(false);
-      expect(check.reason).toBe('Only yumuşak ge can complete this task.');
+      expect(check.targetRoleDisplayName).toBe('yumuşak ge');
     });
   });
 });

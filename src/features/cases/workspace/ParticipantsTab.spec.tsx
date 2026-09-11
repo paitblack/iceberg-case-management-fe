@@ -30,7 +30,7 @@ describe('ParticipantsTab & Directory Stakeholder Assignment', () => {
 
     expect(screen.getByText('Sarah Jenkins')).toBeDefined();
     expect(screen.getByText('Iceberg Estate Agency')).toBeDefined();
-    expect(screen.getByText('Case Stakeholders & Legal Network (1)')).toBeDefined();
+    expect(screen.getByText('Case Stakeholders & Contact Directory (1)')).toBeDefined();
   });
 
   it('opens modal, searches registered directory, and assigns David Vance', async () => {
@@ -45,7 +45,7 @@ describe('ParticipantsTab & Directory Stakeholder Assignment', () => {
     );
 
     // Open modal
-    const openBtn = screen.getByText('Assign Stakeholder / Solicitor');
+    const openBtn = screen.getByText('Assign Stakeholder / Contact');
     act(() => {
       fireEvent.click(openBtn);
     });
@@ -120,7 +120,7 @@ describe('ParticipantsTab & Directory Stakeholder Assignment', () => {
       />,
     );
 
-    fireEvent.click(screen.getByText('Assign Stakeholder / Solicitor'));
+    fireEvent.click(screen.getByText('Assign Stakeholder / Contact'));
 
     // Check dropdown options
     const fullOption = screen.getByRole('option', {
@@ -145,7 +145,7 @@ describe('ParticipantsTab & Directory Stakeholder Assignment', () => {
       />,
     );
 
-    fireEvent.click(screen.getByText('Assign Stakeholder / Solicitor'));
+    fireEvent.click(screen.getByText('Assign Stakeholder / Contact'));
 
     const helperText =
       'Setting this contact as Primary will change the current primary contact for this role to secondary.';
@@ -181,7 +181,7 @@ describe('ParticipantsTab & Directory Stakeholder Assignment', () => {
       />,
     );
 
-    fireEvent.click(screen.getByText('Assign Stakeholder / Solicitor'));
+    fireEvent.click(screen.getByText('Assign Stakeholder / Contact'));
 
     const searchInput = screen.getByPlaceholderText(
       'Search by name, company, role, or email...',
