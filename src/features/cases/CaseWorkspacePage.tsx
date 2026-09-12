@@ -106,6 +106,17 @@ export const CaseWorkspacePage: React.FC = () => {
     }, 2500);
   };
 
+  const handleViewFullTimeline = () => {
+    setActiveTab('activities');
+
+    setTimeout(() => {
+      const el = document.getElementById('workspace-tabs-nav');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 80);
+  };
+
   // Notification Toast state
   const [toastMessage, setToastMessage] = useState<{
     type: 'success' | 'error';
@@ -617,7 +628,7 @@ export const CaseWorkspacePage: React.FC = () => {
           <BlockersBanner blockers={blockersList} />
 
           {/* Workspace Tabs Navigation (Stakeholders tab removed) */}
-          <div className="flex items-center gap-2 border-b border-slate-200 pb-px">
+          <div id="workspace-tabs-nav" className="flex items-center gap-2 border-b border-slate-200 pb-px scroll-mt-6">
             <button
               type="button"
               onClick={() => setActiveTab('progression')}
@@ -757,7 +768,7 @@ export const CaseWorkspacePage: React.FC = () => {
           <div className="h-[185px] shrink-0 flex flex-col">
             <RecentActivitiesFeed
               activities={snapshot.recentActivities || []}
-              onViewFullTimeline={() => setActiveTab('activities')}
+              onViewFullTimeline={handleViewFullTimeline}
               className="h-full flex flex-col"
             />
           </div>

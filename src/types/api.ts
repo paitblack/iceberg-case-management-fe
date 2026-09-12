@@ -132,7 +132,6 @@ export interface TemplateDraft {
   edges: DependencyEdge[];
   roles: ParticipantRoleDefinition[];
   customFields: CustomFieldDefinition[];
-  reopenAllowedRoleIds?: string[];
   version: number;
 }
 
@@ -148,7 +147,6 @@ export interface TemplateVersion {
   edges: DependencyEdge[];
   roles: ParticipantRoleDefinition[];
   customFields: CustomFieldDefinition[];
-  reopenAllowedRoleIds?: string[];
   publishedByUserId: string;
   publishedAt: string;
 }
@@ -216,7 +214,6 @@ export interface TemplatePresetSchema {
     required: boolean;
     options?: string[];
   }>;
-  reopenAllowedRoleIds?: string[];
 }
 
 export interface TemplateDraftResponse {
@@ -264,7 +261,6 @@ export interface TemplateDraftResponse {
     required: boolean;
     options?: string[];
   }>;
-  reopenAllowedRoleIds?: string[];
 }
 
 export type TrafficLightStatus = 'green' | 'amber' | 'red';
