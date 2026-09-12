@@ -156,10 +156,60 @@ describe('ExpectedDurationCard', () => {
 
     render(<ExpectedDurationCard snapshot={snapshot} />);
 
-    expect(screen.getByText('Case Closed')).toBeInTheDocument();
-    expect(screen.getByText('Closed')).toBeInTheDocument();
+    expect(screen.getByText('Case Cancelled')).toBeInTheDocument();
+    expect(screen.getByText('Cancelled')).toBeInTheDocument();
+    expect(screen.getByText('Process discontinued')).toBeInTheDocument();
     expect(
       screen.getByText(/No remaining duration for cancelled case/i),
     ).toBeInTheDocument();
+  });
+
+  it('renders Cancelled state even when expectedCompletionDays is 0 (regression test)', () => {
+    const snapshot: BffWorkspaceSnapshot = {
+      ...baseMockSnapshot,
+      status: 'Cancelled',
+      expectedCompletionDays: 0,
+    };
+
+    render(<ExpectedDurationCard snapshot={snapshot} />);
+
+    expect(screen.getByText('Case Cancelled')).toBeInTheDocument();
+    expect(screen.getByText('Cancelled')).toBeInTheDocument();
+    expect(screen.queryByText('Completed')).not.toBeInTheDocument();
+    expect(screen.queryByText('Target Met')).not.toBeInTheDocument();
+  });
+
+  it('renders On Hold state when case status is OnHold with remaining days', () => {
+    const snapshot: BffWorkspaceSnapshot = {
+      ...baseMockSnapshot,
+      status: 'OnHold',
+      expectedCompletionDays: 14,
+    };
+
+    render(<ExpectedDurationCard snapshot={snapshot} />);
+
+    expect(screen.getByText('Case On Hold')).toBeInTheDocument();
+    expect(screen.getByText('Paused')).toBeInTheDocument();
+    expect(screen.getByText('~14 Days on hold')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Progression temporarily paused/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Active Pace')).not.toBeInTheDocument();
+  });
+
+  it('renders On Hold state even when expectedCompletionDays is 0', () => {
+    const snapshot: BffWorkspaceSnapshot = {
+      ...baseMockSnapshot,
+      status: 'OnHold',
+      expectedCompletionDays: 0,
+    };
+
+    render(<ExpectedDurationCard snapshot={snapshot} />);
+
+    expect(screen.getByText('Case On Hold')).toBeInTheDocument();
+    expect(screen.getByText('Paused')).toBeInTheDocument();
+    expect(screen.getByText('Progression paused')).toBeInTheDocument();
+    expect(screen.queryByText('Completed')).not.toBeInTheDocument();
+    expect(screen.queryByText('Target Met')).not.toBeInTheDocument();
   });
 });

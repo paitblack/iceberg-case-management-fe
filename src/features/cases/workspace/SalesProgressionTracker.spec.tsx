@@ -87,38 +87,13 @@ describe('SalesProgressionTracker', () => {
     expect(screen.getByText('Searches Ordered')).toBeInTheDocument();
   });
 
-  it('renders the Current Position card with all 4 telemetry columns', () => {
+  it('renders the Current Active Milestone callout bar with next action details', () => {
     render(<SalesProgressionTracker snapshot={mockSnapshot} />);
 
-    expect(screen.getByText('Current position')).toBeInTheDocument();
-
-    // Col 1: Current Blocker
-    expect(screen.getByText(/current blocker/i)).toBeInTheDocument();
-    expect(screen.getByText('Grant of probate')).toBeInTheDocument();
+    expect(screen.getByText('Current Active Milestone')).toBeInTheDocument();
     expect(
-      screen.getByText('Grant of probate delayed at top of chain.'),
+      screen.getByText(/Add buyer solicitor details/),
     ).toBeInTheDocument();
-
-    // Col 2: Next Action
-    expect(screen.getByText(/next action/i)).toBeInTheDocument();
-    expect(
-      screen.getByText('Add buyer solicitor details'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('Manual task - Estate Agent'),
-    ).toBeInTheDocument();
-
-    // Col 3: Next Chase
-    expect(screen.getByText(/next chase/i)).toBeInTheDocument();
-    expect(screen.getByText('Action Required')).toBeInTheDocument();
-    expect(
-      screen.getByText('Chase Grant of probate'),
-    ).toBeInTheDocument();
-
-    // Col 4: Days in Current Milestone
-    expect(
-      screen.getAllByText('Buyer Solicitor Instructed').length,
-    ).toBeGreaterThanOrEqual(1);
   });
 
   it('triggers onSelectStep when clicking a milestone node', () => {
@@ -132,20 +107,6 @@ describe('SalesProgressionTracker', () => {
 
     fireEvent.click(screen.getByText('Searches Ordered'));
     expect(onSelectSpy).toHaveBeenCalledWith('step-4');
-  });
-
-  it('renders None when there are no active blockers', () => {
-    const unblockedSnapshot: BffWorkspaceSnapshot = {
-      ...mockSnapshot,
-      blockers: [],
-    };
-
-    render(<SalesProgressionTracker snapshot={unblockedSnapshot} />);
-
-    expect(screen.getByText('None')).toBeInTheDocument();
-    expect(
-      screen.getByText('All milestone progression clear'),
-    ).toBeInTheDocument();
   });
 
   it('correctly prioritizes Available step over Pending step as active milestone', () => {
@@ -203,8 +164,8 @@ describe('SalesProgressionTracker', () => {
     expect(
       screen.getAllByText('Draft Contracts Prepared').length,
     ).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Prepare contract pack')).toBeInTheDocument();
-    expect(screen.getByText('Manual task - Seller Solicitor')).toBeInTheDocument();
+    expect(screen.getByText(/Prepare contract pack/)).toBeInTheDocument();
+    expect(screen.getByText(/Manual task - Seller Solicitor/)).toBeInTheDocument();
   });
 
   it('renders orphan/standalone step with distinct amber styling and Standalone badge', () => {
@@ -262,4 +223,66 @@ describe('SalesProgressionTracker', () => {
     const hiddenLines = container.querySelectorAll('.opacity-0');
     expect(hiddenLines.length).toBeGreaterThan(0);
   });
+
+  it('correctly reflects waived work items in the hover card with Waived indicator and completed progress', () => {
+    const snapshotWithWaived: BffWorkspaceSnapshot = {
+      ...mockSnapshot,
+      steps: [
+        {
+          id: 'step-1',
+          stepDefinitionId: 'sd-1',
+          name: 'Offer Accepted',
+          status: 'Completed',
+          displayOrder: 1,
+          dependencyJoinType: 'ALL',
+          dependencies: [],
+          allowedActions: [],
+          workItems: [],
+        },
+        {
+          id: 'step-2',
+          stepDefinitionId: 'sd-2',
+          name: 'Exchange of Contracts',
+          status: 'InProgress',
+          displayOrder: 2,
+          dependencyJoinType: 'ALL',
+          dependencies: ['step-1'],
+          allowedActions: ['COMPLETE_STEP'],
+          workItems: [
+            {
+              id: 'wi-waived',
+              name: 'Transfer 10% Deposit',
+              status: 'Waived',
+              requirement: 'required',
+              role: 'role-buyer-solicitor',
+              allowedActions: [],
+            },
+            {
+              id: 'wi-pending',
+              name: 'Sign Contracts & TR1',
+              status: 'Pending',
+              requirement: 'required',
+              role: 'role-buyer-solicitor',
+              allowedActions: ['COMPLETE'],
+            },
+          ],
+        },
+      ],
+    };
+
+    render(<SalesProgressionTracker snapshot={snapshotWithWaived} />);
+    const node = screen
+      .getAllByText('Exchange of Contracts')[0]
+      .closest('div[data-no-drag]');
+    expect(node).not.toBeNull();
+    if (node) {
+      fireEvent.mouseEnter(node);
+    }
+
+    expect(screen.getByText(/1\/2 \(50%\)/)).toBeInTheDocument();
+    expect(screen.getByText('(1 waived)')).toBeInTheDocument();
+    expect(screen.getByText('Transfer 10% Deposit')).toBeInTheDocument();
+    expect(screen.getByText('Waived')).toBeInTheDocument();
+  });
 });
+
