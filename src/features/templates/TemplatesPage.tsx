@@ -69,9 +69,9 @@ const TemplateCanvas: React.FC = () => {
 export const TemplatesPage: React.FC = () => {
   return (
     <TemplateBuilderProvider>
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start h-auto lg:h-[calc(100vh-5.5rem)]">
-        {/* Left Column: Sidebar / Settings / Toolbox (4 cols) with independent scroll */}
-        <div className="lg:col-span-4 h-full lg:overflow-y-auto lg:pr-2 custom-scrollbar">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start h-auto lg:h-[calc(100vh-8.5rem)]">
+        {/* Left Column: Fixed Studio Control Dock (4 cols) */}
+        <div className="lg:col-span-4 h-full flex flex-col min-h-0">
           <TemplateSidebar />
         </div>
 

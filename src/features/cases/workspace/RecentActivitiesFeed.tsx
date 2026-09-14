@@ -152,16 +152,6 @@ export const RecentActivitiesFeed: React.FC<RecentActivitiesFeedProps> = ({
           })}
         </div>
       )}
-
-      {/* Footer Link */}
-      <button
-        type="button"
-        onClick={onViewFullTimeline}
-        className="w-full py-1.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 text-center text-[11px] font-bold text-slate-700 hover:text-slate-900 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs shrink-0 mt-1"
-      >
-        <span>View Full Audit Trail</span>
-        <ArrowRight className="w-3 h-3 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-      </button>
     </div>
   );
 };

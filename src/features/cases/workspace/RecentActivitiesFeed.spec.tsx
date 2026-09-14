@@ -46,7 +46,7 @@ describe('RecentActivitiesFeed', () => {
     expect(screen.getByText('Sarah Jenkins')).toBeInTheDocument();
   });
 
-  it('calls onViewFullTimeline when clicking View All or View Full Audit Trail', () => {
+  it('calls onViewFullTimeline when clicking View All', () => {
     const onTimelineSpy = vi.fn();
     render(
       <RecentActivitiesFeed
@@ -59,11 +59,9 @@ describe('RecentActivitiesFeed', () => {
     fireEvent.click(viewAllBtn);
     expect(onTimelineSpy).toHaveBeenCalledTimes(1);
 
-    const auditTrailBtn = screen.getByRole('button', {
-      name: /View Full Audit Trail/i,
-    });
-    fireEvent.click(auditTrailBtn);
-    expect(onTimelineSpy).toHaveBeenCalledTimes(2);
+    expect(
+      screen.queryByRole('button', { name: /View Full Audit Trail/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('renders empty message when no activities are provided', () => {
