@@ -11,6 +11,7 @@ import {
   ArrowRight,
   AlertTriangle,
   Flag,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
@@ -157,9 +158,23 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
   }, [steps, currentStepIndex]);
 
   // Calculate DAG Node Layout & Bézier Edges
-  const { nodes, edges, canvasWidth, canvasHeight } = useMemo(() => {
+  const {
+    nodes,
+    edges,
+    canvasWidth,
+    canvasHeight,
+    standaloneLaneTop,
+    hasStandaloneSteps,
+  } = useMemo(() => {
     if (steps.length === 0) {
-      return { nodes: [], edges: [], canvasWidth: 800, canvasHeight: 240 };
+      return {
+        nodes: [],
+        edges: [],
+        canvasWidth: 800,
+        canvasHeight: 240,
+        standaloneLaneTop: 0,
+        hasStandaloneSteps: false,
+      };
     }
 
     const stepMap = new Map<string, BffWorkspaceStep>();
@@ -209,7 +224,16 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
     const colWidth = 175;
     const rowHeight = 90;
     const paddingLeft = 70;
-    const centerY = 120;
+
+    // Dynamically calculate DAG vertical center based on max parallel branch spread
+    let maxBranchCount = 1;
+    levelBuckets.forEach((bucket) => {
+      if (bucket && bucket.length > maxBranchCount) {
+        maxBranchCount = bucket.length;
+      }
+    });
+    const upperSpread = ((maxBranchCount - 1) / 2) * rowHeight;
+    const dagCenterY = Math.max(95, 55 + upperSpread);
 
     const computedNodes: MapNode[] = [];
     const nodeCoords = new Map<string, { x: number; y: number }>();
@@ -220,7 +244,7 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
       const x = paddingLeft + lvl * colWidth;
 
       bucket.forEach((step, idx) => {
-        const y = centerY + (idx - (count - 1) / 2) * rowHeight;
+        const y = dagCenterY + (idx - (count - 1) / 2) * rowHeight;
         const isCompleted =
           step.status === 'Completed' || step.status === 'Skipped';
         const isActive =
@@ -244,11 +268,20 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
       });
     });
 
-    // Add standalone steps in bottom lane if any exist
+    // Determine the lower boundary of DAG nodes (factoring circle radius and label height)
+    const dagNodeYs = computedNodes.filter((n) => !n.isOrphan).map((n) => n.y);
+    const maxDagY = dagNodeYs.length > 0 ? Math.max(...dagNodeYs) : dagCenterY;
+    const maxDagBottom = maxDagY + 65;
+
+    // Position standalone/ad-hoc steps in their own dedicated lane below the DAG
+    const standaloneLaneTop = maxDagBottom + 30;
+    const standaloneY = standaloneLaneTop + 50;
+    const standalonePaddingLeft = 70;
+    const standaloneColWidth = 175;
+
     if (standaloneSteps.length > 0) {
-      const standaloneY = centerY + 105;
       standaloneSteps.forEach((step, idx) => {
-        const x = paddingLeft + idx * (colWidth * 0.95);
+        const x = standalonePaddingLeft + idx * standaloneColWidth;
         const isCompleted =
           step.status === 'Completed' || step.status === 'Skipped';
         const isActive =
@@ -313,17 +346,24 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
     }
 
     const maxLevel = Math.max(...Array.from(levelMap.values()), 0);
-    const calculatedWidth = Math.max(
-      820,
-      paddingLeft * 2 + (maxLevel + 1) * colWidth,
-    );
-    const calculatedHeight = standaloneSteps.length > 0 ? 300 : 250;
+    const dagWidth = paddingLeft * 2 + (maxLevel + 1) * colWidth;
+    const standaloneWidth =
+      standaloneSteps.length > 0
+        ? standalonePaddingLeft * 2 + standaloneSteps.length * standaloneColWidth
+        : 0;
+    const calculatedWidth = Math.max(820, dagWidth, standaloneWidth);
+    const calculatedHeight =
+      standaloneSteps.length > 0
+        ? standaloneY + 95
+        : Math.max(250, maxDagBottom + 45);
 
     return {
       nodes: computedNodes,
       edges: computedEdges,
       canvasWidth: calculatedWidth,
       canvasHeight: calculatedHeight,
+      standaloneLaneTop,
+      hasStandaloneSteps: standaloneSteps.length > 0,
     };
   }, [steps]);
 
@@ -485,7 +525,11 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
           onMouseLeave={handleMouseUp}
           onWheel={handleWheel}
           className={`w-full relative transition-all overflow-hidden ${
-            isExpanded ? 'h-[420px]' : 'h-[270px]'
+            isExpanded
+              ? 'h-[480px]'
+              : hasStandaloneSteps
+                ? 'h-[370px]'
+                : 'h-[270px]'
           } ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
           style={{
             backgroundImage:
@@ -544,13 +588,30 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
               ))}
             </svg>
 
+            {/* Standalone Milestones Lane Container & Pill Badge */}
+            {hasStandaloneSteps && (
+              <div
+                className="absolute left-6 select-none pointer-events-none rounded-2xl bg-amber-500/[0.025] border border-dashed border-amber-300/60"
+                style={{
+                  top: `${standaloneLaneTop}px`,
+                  width: `${Math.max(canvasWidth - 48, 760)}px`,
+                  height: `${canvasHeight - standaloneLaneTop - 16}px`,
+                }}
+              >
+                <div className="absolute -top-3 left-8 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-50 border border-amber-300/80 text-amber-900 shadow-2xs">
+                  <Sparkles className="w-2.5 h-2.5 text-amber-600" />
+                  Independent &amp; Ad-Hoc Milestones
+                </div>
+              </div>
+            )}
+
             {/* DOM Milestone Nodes Layer */}
             {nodes.map((node) => {
               return (
                 <div
                   key={node.step.id}
-                  className="absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center select-none"
-                  style={{ left: `${node.x}px`, top: `${node.y}px` }}
+                  className="absolute -translate-x-1/2 flex flex-col items-center select-none"
+                  style={{ left: `${node.x}px`, top: `${node.y - 22}px` }}
                   onMouseEnter={() => setHoveredNodeId(node.step.id)}
                   onMouseLeave={() => setHoveredNodeId(null)}
                   data-no-drag
@@ -616,10 +677,10 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
                       {node.step.name}
                     </span>
 
-                    {/* Standalone Badge */}
+                    {/* Standalone / Ad-hoc Badge */}
                     {node.isOrphan && (
                       <span className="inline-block mt-0.5 text-[9px] font-extrabold uppercase tracking-wider text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.2 rounded-full">
-                        Standalone
+                        {node.step.isAdHoc ? 'Ad-Hoc' : 'Standalone'}
                       </span>
                     )}
                   </div>
@@ -688,7 +749,8 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
           }
 
           // If node is in upper portion of canvas, show BELOW. Otherwise show ABOVE.
-          const showBelow = nodeContainerY < (isExpanded ? 280 : 210);
+          const showBelow =
+            nodeContainerY < (isExpanded ? 280 : hasStandaloneSteps ? 240 : 210);
           const popoverTop = showBelow
             ? nodeContainerY + 22 * zoom + 32
             : nodeContainerY - 22 * zoom - 10;
@@ -725,7 +787,7 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
                     </span>
                     {hoveredNode.isOrphan && (
                       <span className="text-[9px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-1.5 py-0.2 rounded-full">
-                        Standalone
+                        {hoveredNode.step.isAdHoc ? 'Ad-Hoc' : 'Standalone'}
                       </span>
                     )}
                   </div>

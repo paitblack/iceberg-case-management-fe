@@ -413,6 +413,7 @@ export interface BffWorkspaceWorkItem {
   assignee?: AssigneeInfo;
   isKeyDate?: boolean;
   evidenceRequired?: boolean;
+  isAdHoc?: boolean;
   allowedActions: WorkItemActionType[];
   targetDate?: string;
   completedAt?: string;
@@ -492,6 +493,7 @@ export interface BffWorkspaceStep {
   dependencies: string[];
   isOptional?: boolean;
   isStandalone?: boolean;
+  isAdHoc?: boolean;
   isBlocked?: boolean;
   blockerReason?: string;
   targetDate?: string;
@@ -639,7 +641,12 @@ export interface BffWorkspaceSnapshot {
   trafficLight?: TrafficLightData;
   blockers: string[];
   steps: BffWorkspaceStep[];
-  roles?: Array<{ id: string; name: string; description?: string; maxOccurrences?: number }>;
+  roles?: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    maxOccurrences?: number;
+  }>;
   documents: BffCaseDocument[];
   participants: BffParticipant[];
   notes?: NoteSnapshot[];
@@ -663,3 +670,35 @@ export type CaseSummary = {
   price?: number;
   updatedAt: string;
 };
+
+export interface AddAdHocStepPayload {
+  name: string;
+  isOptional?: boolean;
+  targetDate?: string;
+  workItems?: Array<{
+    name: string;
+    requirement?: 'required' | 'optional' | 'conditional';
+    evidenceRequired?: boolean;
+    ownerRoleId?: string;
+    targetDate?: string;
+  }>;
+}
+
+export interface ReorderStepsPayload {
+  stepOrder: string[];
+}
+
+export interface ReorderStepsResponse {
+  steps: Array<{
+    id: string;
+    displayOrder: number;
+  }>;
+}
+
+export interface AddAdHocWorkItemPayload {
+  name: string;
+  requirement?: 'required' | 'optional' | 'conditional';
+  evidenceRequired?: boolean;
+  ownerRoleId?: string;
+  targetDate?: string;
+}

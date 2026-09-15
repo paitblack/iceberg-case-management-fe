@@ -7,6 +7,12 @@ import {
   FastForward,
   CheckCheck,
   Info,
+  Trash2,
+  ArrowUp,
+  ArrowDown,
+  Plus,
+  GripVertical,
+  Sparkles,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -29,6 +35,7 @@ interface StepExecutionCardProps {
   allSteps?: BffWorkspaceStep[];
   documents?: BffCaseDocument[];
   participants?: BffParticipant[];
+  canCustomize?: boolean;
   onStepAction: (stepId: string, action: StepActionType) => Promise<void>;
   onWorkItemAction: (
     stepId: string,
@@ -47,6 +54,13 @@ interface StepExecutionCardProps {
   ) => Promise<void>;
   onUploadDocument?: (file: File, workItemId: string) => Promise<void>;
   onDownloadDocument?: (documentId: string, fileName?: string) => Promise<void>;
+  onDeleteStep?: (stepId: string) => void;
+  onMoveStepUp?: (stepId: string) => void;
+  onMoveStepDown?: (stepId: string) => void;
+  isFirstStep?: boolean;
+  isLastStep?: boolean;
+  onOpenAddWorkItem?: (stepId: string) => void;
+  onDeleteWorkItem?: (stepId: string, workItemId: string) => void;
   loadingStepId: string | null;
   loadingWorkItemId: string | null;
   uploadingWorkItemId?: string | null;
@@ -58,6 +72,7 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
   step,
   documents = [],
   participants = [],
+  canCustomize = false,
   onStepAction,
   onWorkItemAction,
   onAddNote,
@@ -65,6 +80,13 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
   onUpdateWorkItemTargetDate,
   onUploadDocument,
   onDownloadDocument,
+  onDeleteStep,
+  onMoveStepUp,
+  onMoveStepDown,
+  isFirstStep = false,
+  isLastStep = false,
+  onOpenAddWorkItem,
+  onDeleteWorkItem,
   loadingStepId,
   loadingWorkItemId,
   uploadingWorkItemId = null,
@@ -122,6 +144,15 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
           className="flex items-center gap-3.5 flex-1 min-w-0 cursor-pointer select-none"
           onClick={() => setIsExpanded(!isExpanded)}
         >
+          {canCustomize && (
+            <div
+              className="shrink-0 text-slate-300 hover:text-slate-500 cursor-grab"
+              title="Customizable milestone step"
+            >
+              <GripVertical className="w-4 h-4" />
+            </div>
+          )}
+
           {/* Status Indicator Icon */}
           <div className="shrink-0">
             {isCompleted ? (
@@ -190,6 +221,13 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                 </span>
               )}
 
+              {step.isAdHoc && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-pink-700 bg-pink-50 border border-pink-200 px-2 py-0.5 rounded-md">
+                  <Sparkles className="w-2.5 h-2.5 text-[#E1007A]" />
+                  Custom
+                </span>
+              )}
+
               {isPending && (
                 <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/70 px-2 py-0.5 rounded-md">
                   <Lock className="w-3 h-3 text-amber-600 shrink-0" />
@@ -239,8 +277,40 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
           </div>
         </div>
 
-        {/* Step Action Buttons (Complete Step / Skip Step) */}
+        {/* Step Action Buttons (Complete Step / Skip Step / Reorder / Delete) */}
         <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+          {/* Move Up / Move Down Reorder Actions */}
+          {canCustomize && onMoveStepUp && onMoveStepDown && (
+            <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200/60">
+              <button
+                type="button"
+                disabled={isFirstStep}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMoveStepUp(step.id);
+                }}
+                className="p-1 text-slate-500 hover:text-slate-900 rounded disabled:opacity-25 disabled:cursor-not-allowed hover:bg-white transition-colors"
+                title="Move step up"
+                aria-label="Move step up"
+              >
+                <ArrowUp className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                disabled={isLastStep}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMoveStepDown(step.id);
+                }}
+                className="p-1 text-slate-500 hover:text-slate-900 rounded disabled:opacity-25 disabled:cursor-not-allowed hover:bg-white transition-colors"
+                title="Move step down"
+                aria-label="Move step down"
+              >
+                <ArrowDown className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           {canSkipStep && (
             <Button
               variant="ghost"
@@ -270,6 +340,36 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
               Complete Step
             </Button>
           )}
+
+          {/* Delete Ad-hoc Step Action */}
+          {step.isAdHoc &&
+            canCustomize &&
+            onDeleteStep &&
+            (step.status === 'InProgress' || step.status === 'Completed' ? (
+              <button
+                type="button"
+                disabled
+                onClick={(e) => e.stopPropagation()}
+                className="p-1.5 rounded-lg text-slate-300 cursor-not-allowed"
+                title="Cannot delete an active or completed step."
+                aria-label="Cannot delete an active or completed step."
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteStep(step.id);
+                }}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                title="Delete custom step"
+                aria-label="Delete custom step"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            ))}
 
           {/* Toggle Expand / Collapse */}
           <button
@@ -312,18 +412,46 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
             </div>
           )}
 
+          {/* Tasks Section Header & Add Task Button */}
+          <div className="flex items-center justify-between pt-3 pb-1">
+            <span className="text-xs font-bold text-slate-700">
+              Tasks & Checkpoints ({step.workItems.length})
+            </span>
+            {canCustomize &&
+              onOpenAddWorkItem &&
+              step.status !== 'Completed' &&
+              step.status !== 'Skipped' && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="xs"
+                  onClick={() => onOpenAddWorkItem(step.id)}
+                  leftIcon={<Plus className="w-3.5 h-3.5 text-[#E1007A]" />}
+                  className="text-xs font-semibold hover:border-[#E1007A]/40"
+                >
+                  Add Task
+                </Button>
+              )}
+          </div>
+
           {step.workItems.length === 0 ? (
-            <div className="p-4 rounded-xl text-center text-xs text-slate-400 bg-white border border-dashed border-slate-200 mt-3">
+            <div className="p-4 rounded-xl text-center text-xs text-slate-400 bg-white border border-dashed border-slate-200">
               No specific work items defined for this step.
             </div>
           ) : (
-            <div className="space-y-2 pt-3">
+            <div className="space-y-2">
               {step.workItems.map((wi) => (
                 <WorkItemExecutionRow
                   key={wi.id}
                   workItem={wi}
                   documents={documents}
                   isReadOnly={isPending}
+                  canCustomize={canCustomize}
+                  onDelete={
+                    onDeleteWorkItem
+                      ? (workItemId) => onDeleteWorkItem(step.id, workItemId)
+                      : undefined
+                  }
                   isLoading={loadingWorkItemId === wi.id}
                   isUploadingDoc={uploadingWorkItemId === wi.id}
                   onAction={(workItemId, action) =>

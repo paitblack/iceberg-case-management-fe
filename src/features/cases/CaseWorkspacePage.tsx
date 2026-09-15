@@ -10,6 +10,7 @@ import {
   AlertCircle,
   CheckCircle2,
   ShieldAlert,
+  Plus,
 } from 'lucide-react';
 import { WorkspaceHeader } from './workspace/WorkspaceHeader';
 import { AiCaseSummaryCard } from './workspace/AiCaseSummaryCard';
@@ -23,8 +24,12 @@ import { RecentActivitiesFeed } from './workspace/RecentActivitiesFeed';
 import { CaseStakeholdersWidget } from './workspace/CaseStakeholdersWidget';
 import { ExpectedDurationCard } from './workspace/ExpectedDurationCard';
 import { ChangeStatusModal } from './components/ChangeStatusModal';
+import { AddAdHocStepModal } from './workspace/AddAdHocStepModal';
+import { AddAdHocWorkItemModal } from './workspace/AddAdHocWorkItemModal';
+import { ConfirmDeleteModal } from './workspace/ConfirmDeleteModal';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Spinner';
+import { usePermissions } from '../auth/usePermissions';
 import {
   fetchCaseWorkspace,
   executeStepAction,
@@ -39,6 +44,11 @@ import {
   changeCaseStatus,
   setStepTargetDate,
   setWorkItemTargetDate,
+  addAdHocStep,
+  reorderSteps,
+  deleteAdHocStep,
+  addAdHocWorkItem,
+  deleteAdHocWorkItem,
   ApiError,
 } from '../../lib/api-client';
 import type {
@@ -50,14 +60,12 @@ import type {
   CreateAnnouncementPayload,
   CreateAnnouncementReplyPayload,
   CaseStatusAction,
+  AddAdHocStepPayload,
+  AddAdHocWorkItemPayload,
 } from '../../types/api';
 
 type WorkspaceTab =
-  | 'progression'
-  | 'documents'
-  | 'participants'
-  | 'announcements'
-  | 'activities';
+  'progression' | 'documents' | 'participants' | 'announcements' | 'activities';
 
 export const CaseWorkspacePage: React.FC = () => {
   const { caseId = '' } = useParams<{ caseId?: string }>();
@@ -89,6 +97,26 @@ export const CaseWorkspacePage: React.FC = () => {
     useState<CaseStatusAction | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
   const [targetedStepId, setTargetedStepId] = useState<string | null>(null);
+
+  // Ad-hoc customization RBAC & modal state
+  const { canCustomizeCase } = usePermissions();
+  const canCustomize = Boolean(snapshot && canCustomizeCase(snapshot.status));
+
+  const [isAddStepModalOpen, setIsAddStepModalOpen] = useState<boolean>(false);
+  const [isSubmittingStep, setIsSubmittingStep] = useState<boolean>(false);
+  const [addWorkItemTargetStep, setAddWorkItemTargetStep] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [isSubmittingWorkItem, setIsSubmittingWorkItem] =
+    useState<boolean>(false);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    type: 'step' | 'work_item';
+    stepId: string;
+    workItemId?: string;
+    name: string;
+  } | null>(null);
+  const [isDeletingItem, setIsDeletingItem] = useState<boolean>(false);
 
   const handleSelectStep = (stepId: string) => {
     setActiveTab('progression');
@@ -358,9 +386,7 @@ export const CaseWorkspacePage: React.FC = () => {
     }
   };
 
-  const handlePostAnnouncement = async (
-    payload: CreateAnnouncementPayload,
-  ) => {
+  const handlePostAnnouncement = async (payload: CreateAnnouncementPayload) => {
     if (!caseId) return;
     setIsPostingAnnouncement(true);
     try {
@@ -477,6 +503,163 @@ export const CaseWorkspacePage: React.FC = () => {
     }
   };
 
+  // Ad-hoc Customization Handlers (Epic 1)
+  const handleAddAdHocStep = async (payload: AddAdHocStepPayload) => {
+    if (!caseId) return;
+    setIsSubmittingStep(true);
+    try {
+      await addAdHocStep(caseId, payload);
+      showToast('success', 'Custom step added successfully.');
+      await loadWorkspace();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        showToast(
+          'error',
+          err.problem.detail || err.problem.title || err.message,
+        );
+      } else {
+        showToast('error', 'Failed to create custom step.');
+      }
+      throw err;
+    } finally {
+      setIsSubmittingStep(false);
+    }
+  };
+
+  const handleReorderStep = async (
+    stepId: string,
+    direction: 'up' | 'down',
+  ) => {
+    if (!caseId || !snapshot) return;
+    const currentSteps = snapshot.steps || [];
+    const index = currentSteps.findIndex((s) => s.id === stepId);
+    if (index === -1) return;
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= currentSteps.length) return;
+
+    const reorderedSteps = [...currentSteps];
+    const [movedStep] = reorderedSteps.splice(index, 1);
+    reorderedSteps.splice(targetIndex, 0, movedStep);
+
+    // Optimistically update local order in UI
+    const updatedStepsWithOrder = reorderedSteps.map((s, idx) => ({
+      ...s,
+      displayOrder: idx + 1,
+    }));
+    setSnapshot({
+      ...snapshot,
+      steps: updatedStepsWithOrder,
+    });
+
+    const stepOrder = reorderedSteps.map((s) => s.id);
+    try {
+      await reorderSteps(caseId, { stepOrder });
+      showToast('success', 'Step order updated successfully.');
+      await loadWorkspace();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        showToast(
+          'error',
+          err.problem.detail || err.problem.title || err.message,
+        );
+      } else {
+        showToast('error', 'Failed to reorder steps. Re-syncing workspace...');
+      }
+      await loadWorkspace();
+    }
+  };
+
+  const handleOpenAddWorkItem = (stepId: string) => {
+    const step = snapshot?.steps?.find((s) => s.id === stepId);
+    if (step) {
+      setAddWorkItemTargetStep({ id: step.id, name: step.name });
+    }
+  };
+
+  const handleAddAdHocWorkItem = async (payload: AddAdHocWorkItemPayload) => {
+    if (!caseId || !addWorkItemTargetStep) return;
+    setIsSubmittingWorkItem(true);
+    try {
+      await addAdHocWorkItem(caseId, addWorkItemTargetStep.id, payload);
+      showToast('success', 'Custom task added successfully.');
+      await loadWorkspace();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        showToast(
+          'error',
+          err.problem.detail || err.problem.title || err.message,
+        );
+      } else {
+        showToast('error', 'Failed to add custom task.');
+      }
+      throw err;
+    } finally {
+      setIsSubmittingWorkItem(false);
+    }
+  };
+
+  const handlePromptDeleteStep = (stepId: string) => {
+    const step = snapshot?.steps?.find((s) => s.id === stepId);
+    if (!step || !step.isAdHoc) return;
+    if (step.status === 'InProgress' || step.status === 'Completed') {
+      showToast('error', 'Cannot delete an active or completed step.');
+      return;
+    }
+    setDeleteTarget({
+      type: 'step',
+      stepId: step.id,
+      name: step.name,
+    });
+  };
+
+  const handlePromptDeleteWorkItem = (stepId: string, workItemId: string) => {
+    const step = snapshot?.steps?.find((s) => s.id === stepId);
+    const workItem = step?.workItems?.find((wi) => wi.id === workItemId);
+    if (!workItem || !workItem.isAdHoc) return;
+    if (workItem.status === 'Completed') {
+      showToast('error', 'Completed tasks cannot be deleted.');
+      return;
+    }
+    setDeleteTarget({
+      type: 'work_item',
+      stepId,
+      workItemId,
+      name: workItem.name || workItem.title || 'Custom task',
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!caseId || !deleteTarget) return;
+    setIsDeletingItem(true);
+    try {
+      if (deleteTarget.type === 'step') {
+        await deleteAdHocStep(caseId, deleteTarget.stepId);
+        showToast('success', `Custom step "${deleteTarget.name}" deleted.`);
+      } else if (deleteTarget.type === 'work_item' && deleteTarget.workItemId) {
+        await deleteAdHocWorkItem(
+          caseId,
+          deleteTarget.stepId,
+          deleteTarget.workItemId,
+        );
+        showToast('success', `Custom task "${deleteTarget.name}" deleted.`);
+      }
+      setDeleteTarget(null);
+      await loadWorkspace();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        showToast(
+          'error',
+          err.problem.detail || err.problem.title || err.message,
+        );
+      } else {
+        showToast('error', 'Failed to delete custom item.');
+      }
+    } finally {
+      setIsDeletingItem(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-28 space-y-4">
@@ -494,10 +677,13 @@ export const CaseWorkspacePage: React.FC = () => {
         <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-4 border border-amber-200">
           <ShieldAlert className="w-8 h-8 text-amber-600" />
         </div>
-        <h2 className="text-xl font-bold text-slate-900 mb-2">Access Restricted</h2>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">
+          Access Restricted
+        </h2>
         <p className="text-sm text-slate-600 max-w-md mb-6">
-          You are not assigned as an authorized stakeholder or solicitor on this case. 
-          Only assigned case participants or system administrators can view this workspace.
+          You are not assigned as an authorized stakeholder or solicitor on this
+          case. Only assigned case participants or system administrators can
+          view this workspace.
         </p>
         <Button onClick={() => navigate('/cases')} variant="outline">
           Back to Cases
@@ -628,7 +814,10 @@ export const CaseWorkspacePage: React.FC = () => {
           <BlockersBanner blockers={blockersList} />
 
           {/* Workspace Tabs Navigation (Stakeholders tab removed) */}
-          <div id="workspace-tabs-nav" className="flex items-center gap-2 border-b border-slate-200 pb-px scroll-mt-6">
+          <div
+            id="workspace-tabs-nav"
+            className="flex items-center gap-2 border-b border-slate-200 pb-px scroll-mt-6"
+          >
             <button
               type="button"
               onClick={() => setActiveTab('progression')}
@@ -666,7 +855,8 @@ export const CaseWorkspacePage: React.FC = () => {
             >
               <MessageSquare className="w-4 h-4" />
               <span>
-                Discussions & Announcements ({(snapshot.announcements || []).length})
+                Discussions & Announcements (
+                {(snapshot.announcements || []).length})
               </span>
             </button>
 
@@ -687,6 +877,30 @@ export const CaseWorkspacePage: React.FC = () => {
           {/* Tab Content Render */}
           {activeTab === 'progression' && (
             <div className="space-y-4">
+              {/* Progression Section Header & Custom Step Button */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900">
+                    Progression Milestones & Action Steps
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Linear progression pathway and ad-hoc case customizations.
+                  </p>
+                </div>
+                {canCustomize && (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setIsAddStepModalOpen(true)}
+                    leftIcon={<Plus className="w-4 h-4" />}
+                    className="font-bold text-xs shrink-0 self-start sm:self-center"
+                  >
+                    Add Custom Step
+                  </Button>
+                )}
+              </div>
+
               {stepsList.length === 0 ? (
                 <div className="p-12 rounded-2xl bg-white border border-dashed border-slate-200 text-center space-y-2">
                   <Layers className="w-8 h-8 text-slate-300 mx-auto" />
@@ -694,18 +908,28 @@ export const CaseWorkspacePage: React.FC = () => {
                     No Progression Steps Initialized
                   </h4>
                   <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                    This case instance is waiting for milestone instantiation from
-                    its template version.
+                    This case instance is waiting for milestone instantiation
+                    from its template version.
                   </p>
                 </div>
               ) : (
-                stepsList.map((step) => (
+                stepsList.map((step, idx) => (
                   <StepExecutionCard
                     key={step.id}
                     step={step}
                     allSteps={stepsList}
                     documents={documentsList}
                     participants={participantsList}
+                    canCustomize={canCustomize}
+                    isFirstStep={idx === 0}
+                    isLastStep={idx === stepsList.length - 1}
+                    onMoveStepUp={(stepId) => handleReorderStep(stepId, 'up')}
+                    onMoveStepDown={(stepId) =>
+                      handleReorderStep(stepId, 'down')
+                    }
+                    onDeleteStep={handlePromptDeleteStep}
+                    onOpenAddWorkItem={handleOpenAddWorkItem}
+                    onDeleteWorkItem={handlePromptDeleteWorkItem}
                     onStepAction={handleStepAction}
                     onWorkItemAction={handleWorkItemAction}
                     onAddNote={handleAddNote}
@@ -809,6 +1033,45 @@ export const CaseWorkspacePage: React.FC = () => {
         action={statusModalAction}
         onConfirm={handleConfirmStatusChange}
         isLoading={isUpdatingStatus}
+      />
+
+      {/* Add Ad-hoc Step Modal */}
+      <AddAdHocStepModal
+        isOpen={isAddStepModalOpen}
+        onClose={() => setIsAddStepModalOpen(false)}
+        onSubmit={handleAddAdHocStep}
+        isSubmitting={isSubmittingStep}
+      />
+
+      {/* Add Ad-hoc Work Item Modal */}
+      <AddAdHocWorkItemModal
+        isOpen={addWorkItemTargetStep !== null}
+        stepName={addWorkItemTargetStep?.name || ''}
+        roles={snapshot?.roles || []}
+        onClose={() => setAddWorkItemTargetStep(null)}
+        onSubmit={handleAddAdHocWorkItem}
+        isSubmitting={isSubmittingWorkItem}
+      />
+
+      {/* Confirm Delete Ad-hoc Step or Work Item Modal */}
+      <ConfirmDeleteModal
+        isOpen={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        title={
+          deleteTarget?.type === 'step'
+            ? 'Delete Custom Step'
+            : 'Delete Custom Task'
+        }
+        description={
+          deleteTarget?.type === 'step'
+            ? `Are you sure you want to delete custom step "${deleteTarget.name}"? Any associated tasks will also be deleted.`
+            : `Are you sure you want to delete custom task "${deleteTarget?.name}"?`
+        }
+        confirmButtonText={
+          deleteTarget?.type === 'step' ? 'Delete Step' : 'Delete Task'
+        }
+        isDeleting={isDeletingItem}
       />
     </div>
   );
