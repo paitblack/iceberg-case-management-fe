@@ -11,7 +11,6 @@ import {
   ArrowRight,
   AlertTriangle,
   Flag,
-  Sparkles,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
@@ -591,16 +590,15 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
             {/* Standalone Milestones Lane Container & Pill Badge */}
             {hasStandaloneSteps && (
               <div
-                className="absolute left-6 select-none pointer-events-none rounded-2xl bg-amber-500/[0.025] border border-dashed border-amber-300/60"
+                className="absolute left-6 select-none pointer-events-none rounded-2xl bg-slate-50/70 border border-dashed border-slate-300/80"
                 style={{
                   top: `${standaloneLaneTop}px`,
                   width: `${Math.max(canvasWidth - 48, 760)}px`,
                   height: `${canvasHeight - standaloneLaneTop - 16}px`,
                 }}
               >
-                <div className="absolute -top-3 left-8 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-50 border border-amber-300/80 text-amber-900 shadow-2xs">
-                  <Sparkles className="w-2.5 h-2.5 text-amber-600" />
-                  Independent &amp; Ad-Hoc Milestones
+                <div className="absolute -top-3 left-8 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-white border border-slate-200 text-slate-700 shadow-2xs">
+                  Parallel &amp; Independent Milestones
                 </div>
               </div>
             )}
@@ -623,10 +621,10 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
                     className={`w-11 h-11 rounded-full flex items-center justify-center font-extrabold text-xs transition-all relative cursor-pointer shadow-md group ${
                       node.isOrphan
                         ? node.isCompleted
-                          ? 'bg-amber-500 text-white shadow-amber-200 border-2 border-amber-400'
+                          ? 'bg-emerald-500 text-white shadow-emerald-200/80 border-2 border-emerald-400'
                           : node.isActive
-                            ? 'bg-amber-400 text-amber-950 ring-4 ring-amber-300 shadow-lg font-black border-2 border-amber-500'
-                            : 'bg-amber-50 text-amber-900 border-2 border-dashed border-amber-300'
+                            ? 'bg-indigo-600 text-white ring-4 ring-indigo-200 shadow-lg font-black border-2 border-indigo-500 scale-105'
+                            : 'bg-white text-indigo-700 border-2 border-slate-200 hover:border-indigo-300'
                         : node.isCompleted
                           ? 'bg-emerald-500 text-white shadow-emerald-200/80 border-2 border-emerald-400 hover:scale-105'
                           : node.isActive
@@ -635,7 +633,7 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
                     }`}
                     title={`Click to view ${node.step.name}`}
                   >
-                    {/* Pulsing Active Ring (Inspired by Image 2 Halo) */}
+                    {/* Pulsing Active Ring */}
                     {node.isActive && (
                       <span className="absolute -inset-1 rounded-full border-2 border-[#E1007A] opacity-75 animate-ping pointer-events-none" />
                     )}
@@ -664,13 +662,13 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
                     }}
                   >
                     <span
-                      className={`text-[11px] font-extrabold uppercase leading-tight line-clamp-2 block transition-colors ${
+                      className={`text-[11px] font-bold uppercase leading-tight line-clamp-2 block transition-colors ${
                         node.isOrphan
-                          ? 'text-amber-950 hover:text-amber-700'
+                          ? 'text-slate-800 hover:text-indigo-700'
                           : node.isCompleted
                             ? 'text-slate-800 hover:text-emerald-700'
                             : node.isActive
-                              ? 'text-[#E1007A] hover:text-pink-700 font-black'
+                              ? 'text-[#E1007A] hover:text-pink-700 font-extrabold'
                               : 'text-slate-500 hover:text-slate-800'
                       }`}
                     >
@@ -678,11 +676,15 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
                     </span>
 
                     {/* Standalone / Ad-hoc Badge */}
-                    {node.isOrphan && (
-                      <span className="inline-block mt-0.5 text-[9px] font-extrabold uppercase tracking-wider text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.2 rounded-full">
+                    {node.isOrphan ? (
+                      <span className="inline-block mt-0.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-full">
                         {node.step.isAdHoc ? 'Ad-Hoc' : 'Standalone'}
                       </span>
-                    )}
+                    ) : node.step.isAdHoc ? (
+                      <span className="inline-block mt-0.5 text-[9px] font-semibold tracking-wider text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded-full">
+                        Custom
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               );

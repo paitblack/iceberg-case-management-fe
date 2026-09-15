@@ -12,7 +12,6 @@ import {
   ArrowDown,
   Plus,
   GripVertical,
-  Sparkles,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -128,13 +127,13 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
       } ${
         isCompleted
           ? 'bg-white border-emerald-200/90'
-          : isOrphan
-            ? 'bg-white border-amber-300 ring-2 ring-amber-100/80 shadow-xs'
-            : isInProgress
-              ? 'bg-white border-[#E1007A]/40 ring-2 ring-[#E1007A]/10 shadow-sm'
-              : isSkipped
-                ? 'bg-slate-50 border-slate-200 opacity-60'
-                : 'bg-slate-50/70 border-slate-200'
+          : isInProgress
+            ? step.isAdHoc || isOrphan
+              ? 'bg-white border-indigo-400/50 ring-2 ring-indigo-500/10 shadow-sm'
+              : 'bg-white border-[#E1007A]/40 ring-2 ring-[#E1007A]/10 shadow-sm'
+            : isSkipped
+              ? 'bg-slate-50 border-slate-200 opacity-60'
+              : 'bg-slate-50/70 border-slate-200'
       }`}
     >
       {/* Step Header Banner */}
@@ -159,17 +158,17 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
               <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-xs">
                 <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
               </div>
-            ) : isOrphan ? (
-              <div className="w-8 h-8 rounded-xl bg-amber-400 text-amber-950 flex items-center justify-center font-black text-sm shadow-xs ring-2 ring-amber-200">
-                {step.displayOrder}
-              </div>
             ) : isInProgress ? (
-              <div className="w-8 h-8 rounded-xl bg-[#E1007A] text-white flex items-center justify-center font-extrabold text-sm shadow-xs animate-pulse">
+              <div
+                className={`w-8 h-8 rounded-xl text-white flex items-center justify-center font-extrabold text-sm shadow-xs animate-pulse ${
+                  step.isAdHoc || isOrphan ? 'bg-indigo-600' : 'bg-[#E1007A]'
+                }`}
+              >
                 {step.displayOrder}
               </div>
             ) : isPending ? (
-              <div className="w-8 h-8 rounded-xl bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-xs">
-                <Lock className="w-4 h-4" />
+              <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center font-bold text-xs">
+                <Lock className="w-4 h-4 text-slate-400" />
               </div>
             ) : (
               <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center font-bold text-xs">
@@ -178,17 +177,18 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
             )}
           </div>
 
-          <div className="space-y-1 flex-1 min-w-0">
+          <div className="space-y-1.5 flex-1 min-w-0">
+            {/* Row 1: Title & Key Status Badges */}
             <div className="flex flex-wrap items-center gap-2">
               <h3
                 className={`text-sm md:text-base font-extrabold truncate ${
                   isCompleted
                     ? 'text-slate-800'
-                    : isOrphan
-                      ? 'text-amber-950'
-                      : isInProgress
-                        ? 'text-[#E1007A]'
-                        : 'text-slate-600'
+                    : isInProgress
+                      ? step.isAdHoc || isOrphan
+                        ? 'text-indigo-600'
+                        : 'text-[#E1007A]'
+                      : 'text-slate-800'
                 }`}
               >
                 {step.name}
@@ -198,46 +198,47 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                 variant={
                   isCompleted
                     ? 'success'
-                    : isOrphan
-                      ? 'warning'
-                      : isInProgress
-                        ? 'required'
-                        : 'default'
+                    : isInProgress
+                      ? 'required'
+                      : 'default'
                 }
                 size="xs"
               >
                 {step.status}
               </Badge>
 
+              {step.isAdHoc && (
+                <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md">
+                  Custom
+                </span>
+              )}
+
               {isOrphan && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md">
+                <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-md">
                   Standalone
                 </span>
               )}
 
               {step.isOptional && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md">
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
                   (Optional)
                 </span>
               )}
 
-              {step.isAdHoc && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-pink-700 bg-pink-50 border border-pink-200 px-2 py-0.5 rounded-md">
-                  <Sparkles className="w-2.5 h-2.5 text-[#E1007A]" />
-                  Custom
-                </span>
-              )}
-
               {isPending && (
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/70 px-2 py-0.5 rounded-md">
-                  <Lock className="w-3 h-3 text-amber-600 shrink-0" />
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                  <Lock className="w-3 h-3 text-slate-500 shrink-0" />
                   This step is not active yet
                 </span>
               )}
+            </div>
+
+            {/* Row 2: Secondary Context, Tasks progress, SLA deadline, & Description */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
 
               {step.workItems.length > 0 && (
-                <span className="text-[11px] font-semibold text-slate-500">
-                  {completedWorkItemsCount}/{step.workItems.length} tasks
+                <span className="text-[11px] font-medium text-slate-600">
+                  {completedWorkItemsCount} of {step.workItems.length} tasks completed
                 </span>
               )}
 
@@ -263,17 +264,13 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                   />
                 </div>
               )}
-            </div>
 
-            {step.description ? (
-              <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed font-normal">
-                {step.description}
-              </p>
-            ) : isOrphan ? (
-              <p className="text-xs text-amber-800/80 line-clamp-1 leading-relaxed font-medium">
-                Independent milestone — can be progressed at any time.
-              </p>
-            ) : null}
+              {step.description && (
+                <span className="text-slate-400 line-clamp-1 font-normal">
+                  — {step.description}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -326,16 +323,11 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
 
           {canCompleteStep && (
             <Button
-              variant={isOrphan ? 'secondary' : 'primary'}
+              variant="primary"
               size="xs"
               isLoading={isThisStepLoading}
               onClick={() => onStepAction(step.id, 'COMPLETE_STEP')}
               leftIcon={<CheckCheck className="w-3.5 h-3.5" />}
-              className={
-                isOrphan
-                  ? 'bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold border border-amber-300 shadow-xs'
-                  : undefined
-              }
             >
               Complete Step
             </Button>
@@ -391,23 +383,20 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
       {isExpanded && (
         <div className="p-4 md:p-5 pt-0 space-y-2.5 border-t border-slate-100/80 bg-slate-50/40 rounded-b-2xl">
           {isOrphan && (
-            <div className="p-3 mt-3 rounded-xl bg-amber-50/90 border border-amber-200/90 flex items-start sm:items-center gap-2.5 text-xs text-amber-950 font-medium">
-              <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
-              <div className="flex-1 leading-relaxed">
-                <span className="font-bold">Independent Milestone:</span> This
-                step is not linked to the sequential progression flow. You can
-                work on and complete it at any time without waiting for or
-                delaying other steps.
-              </div>
+            <div className="flex items-center gap-2 pt-2.5 px-1 text-xs text-slate-500">
+              <Info className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+              <span>
+                <span className="font-bold text-slate-900">Independent Milestone:</span>{' '}
+                This step is not linked to the sequential progression flow. You can work on and complete it at any time without waiting for or delaying other steps.
+              </span>
             </div>
           )}
 
           {isPending && (
-            <div className="p-3.5 mt-3 rounded-xl bg-amber-50/80 border border-amber-200/80 flex items-center gap-2.5 text-xs text-amber-900 font-medium">
-              <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+            <div className="p-3.5 mt-3 rounded-xl bg-slate-100/80 border border-slate-200/80 flex items-center gap-2.5 text-xs text-slate-600 font-medium">
+              <Lock className="w-4 h-4 text-slate-400 shrink-0" />
               <span>
-                This step is not active yet. Complete all prerequisite
-                predecessor milestones to unlock task execution.
+                This step is not active yet. Complete all prerequisite predecessor milestones to unlock task execution.
               </span>
             </div>
           )}

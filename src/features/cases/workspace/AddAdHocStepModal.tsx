@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, Layers, Sparkles } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Plus, Trash2, GitCommit, Split } from 'lucide-react';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import type { AddAdHocStepPayload } from '../../../types/api';
@@ -17,6 +17,13 @@ interface AddAdHocStepModalProps {
   onClose: () => void;
   onSubmit: (payload: AddAdHocStepPayload) => Promise<void>;
   isSubmitting: boolean;
+  existingSteps?: Array<{
+    id: string;
+    name: string;
+    displayOrder: number;
+    isStandalone?: boolean;
+  }>;
+  defaultInsertAfterStepId?: string;
 }
 
 export const AddAdHocStepModal: React.FC<AddAdHocStepModalProps> = ({
@@ -24,12 +31,33 @@ export const AddAdHocStepModal: React.FC<AddAdHocStepModalProps> = ({
   onClose,
   onSubmit,
   isSubmitting,
+  existingSteps = [],
+  defaultInsertAfterStepId,
 }) => {
+  const inSequenceSteps = useMemo(() => {
+    return existingSteps
+      .filter((s) => !s.isStandalone)
+      .slice()
+      .sort((a, b) => a.displayOrder - b.displayOrder);
+  }, [existingSteps]);
+
   const [stepName, setStepName] = useState('');
+  const [placement, setPlacement] = useState<'in_sequence' | 'standalone'>('in_sequence');
+  const [insertAfterStepId, setInsertAfterStepId] = useState<string>('');
   const [isOptional, setIsOptional] = useState(true);
   const [targetDate, setTargetDate] = useState('');
   const [tasks, setTasks] = useState<InitialTaskItem[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (defaultInsertAfterStepId) {
+      setInsertAfterStepId(defaultInsertAfterStepId);
+    } else if (inSequenceSteps.length > 0) {
+      setInsertAfterStepId(inSequenceSteps[inSequenceSteps.length - 1].id);
+    } else {
+      setInsertAfterStepId('');
+    }
+  }, [defaultInsertAfterStepId, inSequenceSteps]);
 
   const handleReset = () => {
     setStepName('');
@@ -37,6 +65,14 @@ export const AddAdHocStepModal: React.FC<AddAdHocStepModalProps> = ({
     setTargetDate('');
     setTasks([]);
     setValidationError(null);
+    setPlacement('in_sequence');
+    if (defaultInsertAfterStepId) {
+      setInsertAfterStepId(defaultInsertAfterStepId);
+    } else if (inSequenceSteps.length > 0) {
+      setInsertAfterStepId(inSequenceSteps[inSequenceSteps.length - 1].id);
+    } else {
+      setInsertAfterStepId('');
+    }
   };
 
   const handleClose = () => {
@@ -89,6 +125,11 @@ export const AddAdHocStepModal: React.FC<AddAdHocStepModalProps> = ({
     const payload: AddAdHocStepPayload = {
       name: trimmedName,
       isOptional,
+      placement,
+      insertAfterStepId:
+        placement === 'in_sequence' && insertAfterStepId
+          ? insertAfterStepId
+          : undefined,
       targetDate: targetDate ? new Date(targetDate).toISOString() : undefined,
       workItems:
         tasks.length > 0
@@ -116,21 +157,12 @@ export const AddAdHocStepModal: React.FC<AddAdHocStepModalProps> = ({
       isOpen={isOpen}
       onClose={handleClose}
       title={
-        <div className="flex items-center gap-2.5 text-slate-900">
-          <div className="w-8 h-8 rounded-xl bg-pink-100 text-[#E1007A] flex items-center justify-center shrink-0">
-            <Layers className="w-4 h-4" />
-          </div>
-          <div className="flex items-center gap-2">
-            <span>Add Custom Step</span>
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-pink-700 bg-pink-50 border border-pink-200 px-2 py-0.5 rounded-md">
-              <Sparkles className="w-2.5 h-2.5 text-[#E1007A]" />
-              Ad-hoc
-            </span>
-          </div>
-        </div>
+        <span className="font-bold text-slate-900 text-base">
+          Add Custom Step
+        </span>
       }
-      subtitle="Create a new milestone step dynamically for this case without altering the master template."
-      maxWidth="lg"
+      subtitle="Add a new milestone step to this case progression."
+      maxWidth="md"
       footer={
         <>
           <Button
@@ -179,62 +211,123 @@ export const AddAdHocStepModal: React.FC<AddAdHocStepModalProps> = ({
           />
         </div>
 
+        {/* Workflow Placement Strategy */}
+        <div className="space-y-2 pt-0.5">
+          <label className="block text-xs font-bold text-slate-700">
+            Workflow Placement
+          </label>
+          <div className="grid grid-cols-2 gap-2.5">
+            {/* Option 1: In-Sequence */}
+            <button
+              type="button"
+              onClick={() => setPlacement('in_sequence')}
+              className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                placement === 'in_sequence'
+                  ? 'border-[#E1007A] bg-pink-50/40 ring-1 ring-[#E1007A]'
+                  : 'border-slate-200 bg-white hover:bg-slate-50'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                <GitCommit className="w-3.5 h-3.5 text-[#E1007A]" />
+                <span>In Workflow</span>
+              </div>
+              <span className="text-[11px] text-slate-500 leading-tight">
+                Sequential milestone in progression
+              </span>
+            </button>
+
+            {/* Option 2: Standalone */}
+            <button
+              type="button"
+              onClick={() => setPlacement('standalone')}
+              className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                placement === 'standalone'
+                  ? 'border-indigo-600 bg-indigo-50/40 ring-1 ring-indigo-600'
+                  : 'border-slate-200 bg-white hover:bg-slate-50'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                <Split className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Parallel Track</span>
+              </div>
+              <span className="text-[11px] text-slate-500 leading-tight">
+                Runs independently alongside
+              </span>
+            </button>
+          </div>
+
+          {/* If In-Sequence, show Insert After Dropdown */}
+          {placement === 'in_sequence' && inSequenceSteps.length > 0 && (
+            <div className="flex items-center gap-2 pt-1">
+              <label
+                htmlFor="adhoc-step-insert-after"
+                className="text-xs font-semibold text-slate-700 shrink-0"
+              >
+                Place after:
+              </label>
+              <select
+                id="adhoc-step-insert-after"
+                value={insertAfterStepId}
+                onChange={(e) => setInsertAfterStepId(e.target.value)}
+                className="flex-1 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg shadow-2xs focus:outline-none focus:ring-2 focus:ring-[#E1007A]/40 text-slate-800 font-medium"
+              >
+                <option value="">At the beginning (Step 1)</option>
+                {inSequenceSteps.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    Step {s.displayOrder}: {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
         {/* Optional & Target Date Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
           {/* Is Optional Checkbox */}
-          <div className="flex items-start gap-3 p-3 bg-slate-50 border border-slate-200/80 rounded-xl">
+          <div className="flex items-center gap-2.5 p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl">
             <input
               id="adhoc-step-optional"
               type="checkbox"
               checked={isOptional}
               onChange={(e) => setIsOptional(e.target.checked)}
-              className="mt-0.5 w-4 h-4 text-[#E1007A] rounded border-slate-300 focus:ring-[#E1007A]"
+              className="w-4 h-4 text-[#E1007A] rounded border-slate-300 focus:ring-[#E1007A]"
             />
             <label
               htmlFor="adhoc-step-optional"
-              className="cursor-pointer select-none"
+              className="cursor-pointer select-none text-xs font-semibold text-slate-800"
             >
-              <span className="text-xs font-bold text-slate-800 block">
-                Optional Step
-              </span>
-              <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">
-                Optional steps do not block sequential case completion.
+              Optional Step{' '}
+              <span className="text-[11px] text-slate-400 font-normal">
+                (non-blocking)
               </span>
             </label>
           </div>
 
           {/* Target Date */}
-          <div className="space-y-1.5">
+          <div className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-200/80 rounded-xl">
             <label
               htmlFor="adhoc-step-target-date"
-              className="block text-xs font-bold text-slate-700"
+              className="text-xs font-semibold text-slate-700 shrink-0 pl-1"
             >
-              Target Date{' '}
-              <span className="text-slate-400 font-normal">(Optional)</span>
+              Target Date:
             </label>
-            <div className="relative">
-              <input
-                id="adhoc-step-target-date"
-                type="date"
-                value={targetDate}
-                onChange={(e) => setTargetDate(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-xl shadow-2xs focus:outline-none focus:ring-2 focus:ring-[#E1007A]/40 focus:border-[#E1007A] transition-all text-slate-700"
-              />
-            </div>
+            <input
+              id="adhoc-step-target-date"
+              type="date"
+              value={targetDate}
+              onChange={(e) => setTargetDate(e.target.value)}
+              className="flex-1 px-2.5 py-1 text-xs bg-white border border-slate-200 rounded-lg shadow-2xs focus:outline-none focus:ring-2 focus:ring-[#E1007A]/40 transition-all text-slate-700"
+            />
           </div>
         </div>
 
         {/* Initial Tasks Section */}
-        <div className="pt-3 border-t border-slate-100 space-y-3">
+        <div className="pt-2.5 border-t border-slate-100 space-y-2.5">
           <div className="flex items-center justify-between">
-            <div>
-              <span className="text-xs font-bold text-slate-800 block">
-                Initial Tasks / Work Items
-              </span>
-              <span className="text-[11px] text-slate-500">
-                Optionally define tasks to be completed inside this step.
-              </span>
-            </div>
+            <span className="text-xs font-bold text-slate-800">
+              Tasks <span className="text-slate-400 font-normal">({tasks.length})</span>
+            </span>
             <Button
               type="button"
               variant="secondary"
@@ -246,15 +339,8 @@ export const AddAdHocStepModal: React.FC<AddAdHocStepModalProps> = ({
             </Button>
           </div>
 
-          {tasks.length === 0 ? (
-            <div className="p-4 border border-dashed border-slate-200 rounded-xl text-center bg-slate-50/50">
-              <p className="text-xs text-slate-400">
-                No initial tasks added. You can also add tasks later once the
-                step is created.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+          {tasks.length > 0 && (
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
               {tasks.map((task, idx) => (
                 <div
                   key={task.id}

@@ -400,7 +400,7 @@ describe('Case Workspace Components', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Complete Step/i })).toHaveClass(
-      'bg-amber-400',
+      'bg-[#E1007A]',
     );
   });
 

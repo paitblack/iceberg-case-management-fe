@@ -674,6 +674,8 @@ export type CaseSummary = {
 export interface AddAdHocStepPayload {
   name: string;
   isOptional?: boolean;
+  placement?: 'in_sequence' | 'standalone';
+  insertAfterStepId?: string;
   targetDate?: string;
   workItems?: Array<{
     name: string;

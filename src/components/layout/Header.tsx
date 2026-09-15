@@ -40,7 +40,7 @@ export const Header: React.FC = () => {
   const { title, breadcrumb } = getPageInfo();
 
   return (
-    <header className="px-8 pt-5 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/70 bg-white/60 backdrop-blur-xs">
+    <header className="relative z-50 px-8 pt-5 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/70 bg-white/60 backdrop-blur-xs">
       {/* Page Title & Breadcrumb */}
       <div>
         <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-slate-400 font-medium mb-1">

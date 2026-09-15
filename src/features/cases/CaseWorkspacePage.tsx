@@ -710,14 +710,23 @@ export const CaseWorkspacePage: React.FC = () => {
           </div>
           <div className="max-w-md mx-auto space-y-1">
             <h3 className="text-sm font-bold text-slate-800">
-              Case Not Found in Backend Database
+              {errorBanner
+                ? 'Unable to Load Case Workspace'
+                : 'Case Not Found in Backend Database'}
             </h3>
             <p className="text-xs text-slate-500">
               {errorBanner ||
                 `The requested case identifier "${caseId}" does not exist in the database or could not be loaded.`}
             </p>
           </div>
-          <div className="flex justify-center pt-2">
+          <div className="flex items-center justify-center gap-2.5 pt-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => loadWorkspace()}
+            >
+              Retry
+            </Button>
             <Button
               variant="primary"
               size="sm"
@@ -1041,6 +1050,7 @@ export const CaseWorkspacePage: React.FC = () => {
         onClose={() => setIsAddStepModalOpen(false)}
         onSubmit={handleAddAdHocStep}
         isSubmitting={isSubmittingStep}
+        existingSteps={snapshot?.steps || []}
       />
 
       {/* Add Ad-hoc Work Item Modal */}

@@ -10,7 +10,6 @@ import {
   UploadCloud,
   Download,
   Trash2,
-  Sparkles,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -166,8 +165,7 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
             )}
 
             {workItem.isAdHoc && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-pink-700 bg-pink-50 border border-pink-200 px-1.5 py-0.5 rounded-md">
-                <Sparkles className="w-2.5 h-2.5 text-[#E1007A]" />
+              <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded-md">
                 Custom
               </span>
             )}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Sparkles, CheckSquare } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import type { AddAdHocWorkItemPayload } from '../../../types/api';
@@ -75,18 +75,9 @@ export const AddAdHocWorkItemModal: React.FC<AddAdHocWorkItemModalProps> = ({
       isOpen={isOpen}
       onClose={handleClose}
       title={
-        <div className="flex items-center gap-2.5 text-slate-900">
-          <div className="w-8 h-8 rounded-xl bg-pink-100 text-[#E1007A] flex items-center justify-center shrink-0">
-            <CheckSquare className="w-4 h-4" />
-          </div>
-          <div className="flex items-center gap-2">
-            <span>Add Custom Task</span>
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-pink-700 bg-pink-50 border border-pink-200 px-2 py-0.5 rounded-md">
-              <Sparkles className="w-2.5 h-2.5 text-[#E1007A]" />
-              Ad-hoc
-            </span>
-          </div>
-        </div>
+        <span className="font-bold text-slate-900 text-base">
+          Add Custom Task
+        </span>
       }
       subtitle={`Adding a custom task to milestone step: "${stepName}"`}
       maxWidth="md"
@@ -205,31 +196,24 @@ export const AddAdHocWorkItemModal: React.FC<AddAdHocWorkItemModalProps> = ({
               </option>
             ))}
           </select>
-          <p className="text-[11px] text-slate-400">
-            Identifies which stakeholder or party is responsible for providing
-            info.
-          </p>
         </div>
 
         {/* Evidence Required Checkbox */}
-        <div className="flex items-start gap-3 p-3 bg-slate-50 border border-slate-200/80 rounded-xl">
+        <div className="flex items-center gap-2.5 p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl">
           <input
             id="adhoc-task-evidence"
             type="checkbox"
             checked={evidenceRequired}
             onChange={(e) => setEvidenceRequired(e.target.checked)}
-            className="mt-0.5 w-4 h-4 text-[#E1007A] rounded border-slate-300 focus:ring-[#E1007A]"
+            className="w-4 h-4 text-[#E1007A] rounded border-slate-300 focus:ring-[#E1007A]"
           />
           <label
             htmlFor="adhoc-task-evidence"
-            className="cursor-pointer select-none"
+            className="cursor-pointer select-none text-xs font-semibold text-slate-800"
           >
-            <span className="text-xs font-bold text-slate-800 block">
-              Evidence Document Required
-            </span>
-            <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">
-              Requires a document to be uploaded and linked before this task can
-              be marked complete.
+            Evidence Document Required{' '}
+            <span className="text-[11px] text-slate-400 font-normal">
+              (file upload required to complete)
             </span>
           </label>
         </div>

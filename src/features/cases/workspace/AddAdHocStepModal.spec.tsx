@@ -78,6 +78,8 @@ describe('AddAdHocStepModal', () => {
       expect(handleSubmit).toHaveBeenCalledWith({
         name: 'Structural Timber Survey',
         isOptional: true,
+        placement: 'in_sequence',
+        insertAfterStepId: undefined,
         targetDate: undefined,
         workItems: [
           {
@@ -87,6 +89,40 @@ describe('AddAdHocStepModal', () => {
             targetDate: undefined,
           },
         ],
+      });
+    });
+  });
+
+  it('submits with standalone placement when Parallel Track is selected', async () => {
+    const handleSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AddAdHocStepModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onSubmit={handleSubmit}
+        isSubmitting={false}
+      />,
+    );
+
+    const stepNameInput = screen.getByLabelText(/Step Name/i);
+    fireEvent.change(stepNameInput, {
+      target: { value: 'Independent Boundary Inspection' },
+    });
+
+    const parallelOption = screen.getByText('Parallel Track');
+    fireEvent.click(parallelOption);
+
+    const submitBtn = screen.getByRole('button', { name: /Create Step/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(handleSubmit).toHaveBeenCalledWith({
+        name: 'Independent Boundary Inspection',
+        isOptional: true,
+        placement: 'standalone',
+        insertAfterStepId: undefined,
+        targetDate: undefined,
+        workItems: undefined,
       });
     });
   });
