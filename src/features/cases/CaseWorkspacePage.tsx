@@ -542,11 +542,22 @@ export const CaseWorkspacePage: React.FC = () => {
     const [movedStep] = reorderedSteps.splice(index, 1);
     reorderedSteps.splice(targetIndex, 0, movedStep);
 
-    // Optimistically update local order in UI
-    const updatedStepsWithOrder = reorderedSteps.map((s, idx) => ({
-      ...s,
-      displayOrder: idx + 1,
-    }));
+    const inSeq = reorderedSteps.filter((s) => !s.isStandalone);
+    const isLinear = inSeq.every((s) => (s.dependencies?.length ?? 0) <= 1);
+
+    // Optimistically update local order and dependencies in UI
+    const updatedStepsWithOrder = reorderedSteps.map((s, idx) => {
+      const inSeqIdx = inSeq.findIndex((x) => x.id === s.id);
+      let optimisticDeps = s.dependencies ?? [];
+      if (!s.isStandalone && isLinear && inSeqIdx !== -1) {
+        optimisticDeps = inSeqIdx === 0 ? [] : [inSeq[inSeqIdx - 1]!.id];
+      }
+      return {
+        ...s,
+        displayOrder: idx + 1,
+        dependencies: optimisticDeps,
+      };
+    });
     setSnapshot({
       ...snapshot,
       steps: updatedStepsWithOrder,

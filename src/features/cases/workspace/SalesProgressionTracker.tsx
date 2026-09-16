@@ -65,28 +65,9 @@ function formatRoleLabel(roleIdOrText?: string | null): string {
 
 export function isStepOrphan(
   step: BffWorkspaceStep,
-  allSteps: BffWorkspaceStep[],
+  _allSteps: BffWorkspaceStep[],
 ): boolean {
   if (step.isStandalone) return true;
-
-  const hasWorkflowEdges = allSteps.some(
-    (s) => s.dependencies && s.dependencies.length > 0,
-  );
-  if (hasWorkflowEdges) {
-    const hasIncoming = Boolean(
-      step.dependencies && step.dependencies.length > 0,
-    );
-    const hasOutgoing = allSteps.some(
-      (other) =>
-        other.id !== step.id &&
-        (other.dependencies?.includes(step.id) ||
-          other.dependencies?.includes(step.stepDefinitionId)),
-    );
-    if (!hasIncoming && !hasOutgoing) {
-      return true;
-    }
-  }
-
   return false;
 }
 
@@ -194,17 +175,29 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
       const st = stepMap.get(sId);
       if (!st || !st.dependencies || st.dependencies.length === 0) {
         levelMap.set(sId, 0);
+        if (st) {
+          levelMap.set(st.id, 0);
+          levelMap.set(st.stepDefinitionId, 0);
+        }
         return 0;
       }
 
       let maxPred = -1;
       for (const predId of st.dependencies) {
         if (stepMap.has(predId)) {
-          maxPred = Math.max(maxPred, getLevel(predId, new Set(visited)));
+          const predStep = stepMap.get(predId)!;
+          // Guard: Only follow forward dependencies (predStep.displayOrder < st.displayOrder)
+          if (predStep.displayOrder < st.displayOrder) {
+            maxPred = Math.max(maxPred, getLevel(predStep.id, new Set(visited)));
+          }
         }
       }
       const calculated = maxPred + 1;
       levelMap.set(sId, calculated);
+      if (st) {
+        levelMap.set(st.id, calculated);
+        levelMap.set(st.stepDefinitionId, calculated);
+      }
       return calculated;
     };
 
@@ -219,6 +212,13 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
       if (!levelBuckets[lvl]) levelBuckets[lvl] = [];
       levelBuckets[lvl].push(s);
     }
+
+    // Ensure steps within each level bucket are consistently sorted by displayOrder
+    levelBuckets.forEach((bucket) => {
+      if (bucket) {
+        bucket.sort((a, b) => a.displayOrder - b.displayOrder);
+      }
+    });
 
     const colWidth = 175;
     const rowHeight = 90;
