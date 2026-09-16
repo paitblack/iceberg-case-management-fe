@@ -284,5 +284,78 @@ describe('SalesProgressionTracker', () => {
     expect(screen.getByText('Transfer 10% Deposit')).toBeInTheDocument();
     expect(screen.getByText('Waived')).toBeInTheDocument();
   });
+
+  it('renders reordered milestones with correct horizontal positions and ascending displayOrder badge numbers', () => {
+    const reorderedSnapshot: BffWorkspaceSnapshot = {
+      ...mockSnapshot,
+      steps: [
+        {
+          id: 'step-1',
+          stepDefinitionId: 'sd-1',
+          name: 'Offer Accepted',
+          status: 'Completed',
+          displayOrder: 1,
+          dependencyJoinType: 'ALL',
+          dependencies: [],
+          allowedActions: [],
+          workItems: [],
+        },
+        {
+          id: 'step-3',
+          stepDefinitionId: 'sd-3',
+          name: 'Searches Ordered',
+          status: 'InProgress',
+          displayOrder: 2,
+          dependencyJoinType: 'ALL',
+          dependencies: ['step-1'],
+          allowedActions: ['COMPLETE_STEP'],
+          workItems: [],
+        },
+        {
+          id: 'step-2',
+          stepDefinitionId: 'sd-2',
+          name: 'Buyer Solicitor Instructed',
+          status: 'Pending',
+          displayOrder: 3,
+          dependencyJoinType: 'ALL',
+          dependencies: ['step-3'],
+          allowedActions: [],
+          workItems: [],
+        },
+      ],
+    };
+
+    render(
+      <SalesProgressionTracker snapshot={reorderedSnapshot} />,
+    );
+
+    // Find nodes by text
+    const node1El = screen
+      .getAllByText('Offer Accepted')[0]
+      .closest('div[data-no-drag]') as HTMLElement;
+    const node3El = screen
+      .getAllByText('Searches Ordered')[0]
+      .closest('div[data-no-drag]') as HTMLElement;
+    const node2El = screen
+      .getAllByText('Buyer Solicitor Instructed')[0]
+      .closest('div[data-no-drag]') as HTMLElement;
+
+    expect(node1El).not.toBeNull();
+    expect(node3El).not.toBeNull();
+    expect(node2El).not.toBeNull();
+
+    const left1 = parseFloat(node1El.style.left);
+    const left3 = parseFloat(node3El.style.left);
+    const left2 = parseFloat(node2El.style.left);
+
+    // Node 1 (X=70) < Node 3 (X=245) < Node 2 (X=420)
+    expect(left1).toBeLessThan(left3);
+    expect(left3).toBeLessThan(left2);
+
+    // Badge inside Searches Ordered is 2, and Buyer Solicitor Instructed is 3
+    expect(node3El.textContent).toContain('2');
+    expect(node2El.textContent).toContain('3');
+  });
 });
+
 

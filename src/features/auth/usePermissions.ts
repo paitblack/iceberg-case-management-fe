@@ -33,7 +33,10 @@ export function hasSuperUserRole(roles?: string[]): boolean {
 /**
  * Formats a role slug or key into human-readable display name.
  */
-export function formatRoleDisplayName(role?: string, ownerRoleId?: string): string {
+export function formatRoleDisplayName(
+  role?: string,
+  ownerRoleId?: string,
+): string {
   const roleText = role || ownerRoleId;
   if (!roleText) return 'Assigned Role';
 
@@ -68,14 +71,21 @@ export function formatRoleDisplayName(role?: string, ownerRoleId?: string): stri
 /**
  * Checks if user possesses a target role (handling IDs, slugs, and display names).
  */
-export function hasRole(roles: string[] | undefined, targetRole: string | undefined): boolean {
+export function hasRole(
+  roles: string[] | undefined,
+  targetRole: string | undefined,
+): boolean {
   if (!roles || roles.length === 0 || !targetRole) return false;
   const targetNorm = normalizeRole(targetRole);
   if (!targetNorm) return false;
 
   return roles.some((r) => {
     const userRoleNorm = normalizeRole(r);
-    return userRoleNorm === targetNorm || userRoleNorm.includes(targetNorm) || targetNorm.includes(userRoleNorm);
+    return (
+      userRoleNorm === targetNorm ||
+      userRoleNorm.includes(targetNorm) ||
+      targetNorm.includes(userRoleNorm)
+    );
   });
 }
 
@@ -151,12 +161,22 @@ export function usePermissions() {
     };
   }, [isSuperUser]);
 
+  const canCustomizeCase = useMemo(() => {
+    return (caseStatus?: string): boolean => {
+      if (caseStatus && caseStatus !== 'Open' && caseStatus !== 'active') {
+        return false;
+      }
+      return isSuperUser || can('case:customize');
+    };
+  }, [isSuperUser, can]);
+
   return {
     user,
     roles,
     permissions,
     isSuperUser,
-    hasSuperUserRole: (testRoles?: string[]) => hasSuperUserRole(testRoles || roles),
+    hasSuperUserRole: (testRoles?: string[]) =>
+      hasSuperUserRole(testRoles || roles),
     hasRole: (targetRole: string) => hasRole(roles, targetRole),
     can,
     canExecuteWorkItem,
@@ -164,5 +184,6 @@ export function usePermissions() {
     canManageTemplates,
     canCreatePrivateNote,
     canReopenCase,
+    canCustomizeCase,
   };
 }

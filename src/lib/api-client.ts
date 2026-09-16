@@ -42,6 +42,12 @@ import type {
   BffActivityCategory,
   BffCaseActivityItem,
   BffCaseActivitiesResponse,
+  BffWorkspaceStep,
+  BffWorkspaceWorkItem,
+  AddAdHocStepPayload,
+  ReorderStepsPayload,
+  ReorderStepsResponse,
+  AddAdHocWorkItemPayload,
 } from '../types/api';
 
 export class ApiError extends Error {
@@ -382,6 +388,9 @@ interface RawBffWorkspaceResponse {
     displayOrder: number;
     dependencyJoinType?: DependencyJoinType;
     dependencies?: string[];
+    isOptional?: boolean;
+    isStandalone?: boolean;
+    isAdHoc?: boolean;
     isBlocked?: boolean;
     blockerReason?: string;
     targetDate?: string;
@@ -413,6 +422,7 @@ interface RawBffWorkspaceResponse {
       };
       isKeyDate?: boolean;
       evidenceRequired?: boolean;
+      isAdHoc?: boolean;
       allowedActions?: WorkItemActionType[];
       targetDate?: string;
       completedAt?: string;
@@ -490,6 +500,9 @@ export async function fetchCaseWorkspace(
       displayOrder: step.displayOrder,
       dependencyJoinType: step.dependencyJoinType || 'ALL',
       dependencies: step.dependencies || [],
+      isOptional: step.isOptional,
+      isStandalone: step.isStandalone,
+      isAdHoc: Boolean(step.isAdHoc),
       isBlocked: step.isBlocked ?? false,
       blockerReason: step.blockerReason,
       targetDate: step.targetDate,
@@ -514,6 +527,7 @@ export async function fetchCaseWorkspace(
         assignee: wi.assignee,
         isKeyDate: wi.isKeyDate,
         evidenceRequired: wi.evidenceRequired,
+        isAdHoc: Boolean(wi.isAdHoc),
         allowedActions: wi.allowedActions || [],
         targetDate: wi.targetDate,
         completedAt: wi.completedAt,
@@ -769,3 +783,60 @@ export async function createAnnouncementReply(
     payload,
   );
 }
+
+/**
+ * Ad-hoc Case Customization API Methods (Epic 1)
+ */
+export async function addAdHocStep(
+  caseId: string,
+  payload: AddAdHocStepPayload,
+): Promise<BffWorkspaceStep> {
+  return apiPost<BffWorkspaceStep>(`/cases/${caseId}/steps`, payload);
+}
+
+export async function reorderSteps(
+  caseId: string,
+  payload: ReorderStepsPayload,
+): Promise<ReorderStepsResponse> {
+  return apiPatch<ReorderStepsResponse>(
+    `/cases/${caseId}/steps/reorder`,
+    payload,
+  );
+}
+
+export async function deleteAdHocStep(
+  caseId: string,
+  stepId: string,
+): Promise<void> {
+  return apiDelete<void>(`/cases/${caseId}/steps/${stepId}`);
+}
+
+export async function addAdHocWorkItem(
+  caseId: string,
+  stepId: string,
+  payload: AddAdHocWorkItemPayload,
+): Promise<BffWorkspaceWorkItem> {
+  return apiPost<BffWorkspaceWorkItem>(
+    `/cases/${caseId}/steps/${stepId}/work-items`,
+    payload,
+  );
+}
+
+export async function deleteAdHocWorkItem(
+  caseId: string,
+  stepId: string,
+  workItemId: string,
+): Promise<void> {
+  return apiDelete<void>(
+    `/cases/${caseId}/steps/${stepId}/work-items/${workItemId}`,
+  );
+}
+
+export const workspaceApi = {
+  addAdHocStep,
+  reorderSteps: (caseId: string, stepOrder: string[]) =>
+    reorderSteps(caseId, { stepOrder }),
+  deleteAdHocStep,
+  addAdHocWorkItem,
+  deleteAdHocWorkItem,
+};

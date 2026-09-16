@@ -64,48 +64,50 @@ describe('usePermissions & Role Utilities', () => {
     });
 
     it('falls back gracefully for custom roles', () => {
-      expect(formatRoleDisplayName('Custom Inspector')).toBe('Custom Inspector');
+      expect(formatRoleDisplayName('Custom Inspector')).toBe(
+        'Custom Inspector',
+      );
       expect(formatRoleDisplayName(undefined)).toBe('Assigned Role');
     });
   });
+
+  type AuthValue = ReturnType<typeof AuthContextModule.useAuth>;
+
+  const createMockAuth = (
+    userOverrides: Partial<UserPersona> = {},
+    contextOverrides: Partial<AuthValue> = {},
+  ): AuthValue => {
+    const user: UserPersona = {
+      id: 'usr-default',
+      name: 'Default User',
+      email: 'default@example.com',
+      companyId: 1,
+      roles: [],
+      permissions: [],
+      description: 'Default',
+      avatarText: 'DU',
+      badgeVariant: 'default',
+      ...userOverrides,
+    };
+
+    return {
+      user,
+      token: 'mock-token',
+      roles: user.roles,
+      permissions: user.permissions,
+      isSuperUser: false,
+      availablePersonas: [user],
+      switchPersona: vi.fn(),
+      setToken: vi.fn(),
+      logout: vi.fn(),
+      ...contextOverrides,
+    };
+  };
 
   describe('usePermissions -> canExecuteWorkItem', () => {
     beforeEach(() => {
       vi.restoreAllMocks();
     });
-
-    type AuthValue = ReturnType<typeof AuthContextModule.useAuth>;
-
-    const createMockAuth = (
-      userOverrides: Partial<UserPersona> = {},
-      contextOverrides: Partial<AuthValue> = {},
-    ): AuthValue => {
-      const user: UserPersona = {
-        id: 'usr-default',
-        name: 'Default User',
-        email: 'default@example.com',
-        companyId: 1,
-        roles: [],
-        permissions: [],
-        description: 'Default',
-        avatarText: 'DU',
-        badgeVariant: 'default',
-        ...userOverrides,
-      };
-
-      return {
-        user,
-        token: 'mock-token',
-        roles: user.roles,
-        permissions: user.permissions,
-        isSuperUser: false,
-        availablePersonas: [user],
-        switchPersona: vi.fn(),
-        setToken: vi.fn(),
-        logout: vi.fn(),
-        ...contextOverrides,
-      };
-    };
 
     const baseWorkItem: BffWorkspaceWorkItem = {
       id: 'wi-1',
@@ -192,9 +194,9 @@ describe('usePermissions & Role Utilities', () => {
         },
         allowedActions: [],
       };
-      expect(result.current.canExecuteWorkItem(workItemMatchId).canExecute).toBe(
-        true,
-      );
+      expect(
+        result.current.canExecuteWorkItem(workItemMatchId).canExecute,
+      ).toBe(true);
 
       // Matching by email
       const workItemMatchEmail: BffWorkspaceWorkItem = {
@@ -238,7 +240,8 @@ describe('usePermissions & Role Utilities', () => {
         result.current.canExecuteWorkItem(solicitorWorkItem).canExecute,
       ).toBe(true);
       expect(
-        result.current.canExecuteWorkItem(solicitorWorkItem).targetRoleDisplayName,
+        result.current.canExecuteWorkItem(solicitorWorkItem)
+          .targetRoleDisplayName,
       ).toBe("Buyer's Conveyancer / Solicitor");
     });
 
@@ -261,6 +264,70 @@ describe('usePermissions & Role Utilities', () => {
       const check = result.current.canExecuteWorkItem(baseWorkItem);
       expect(check.canExecute).toBe(false);
       expect(check.targetRoleDisplayName).toBe('yumuşak ge');
+    });
+  });
+
+  describe('usePermissions -> canCustomizeCase', () => {
+    it('allows superUser to customize case when status is Open', () => {
+      vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue(
+        createMockAuth(
+          {
+            id: 'usr-admin',
+            roles: ['admin'],
+          },
+          {
+            isSuperUser: true,
+          },
+        ),
+      );
+
+      const { result } = renderHook(() => usePermissions());
+      expect(result.current.canCustomizeCase('Open')).toBe(true);
+    });
+
+    it('allows user with case:customize permission when status is Open', () => {
+      vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue(
+        createMockAuth({
+          id: 'usr-agent',
+          roles: ['Estate Agent'],
+          permissions: ['case:customize'],
+        }),
+      );
+
+      const { result } = renderHook(() => usePermissions());
+      expect(result.current.canCustomizeCase('Open')).toBe(true);
+    });
+
+    it('denies customization when case status is Completed or Cancelled', () => {
+      vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue(
+        createMockAuth(
+          {
+            id: 'usr-admin',
+            roles: ['admin'],
+            permissions: ['case:customize'],
+          },
+          {
+            isSuperUser: true,
+          },
+        ),
+      );
+
+      const { result } = renderHook(() => usePermissions());
+      expect(result.current.canCustomizeCase('Completed')).toBe(false);
+      expect(result.current.canCustomizeCase('Cancelled')).toBe(false);
+    });
+
+    it('denies customization when user lacks case:customize and is not superUser', () => {
+      vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue(
+        createMockAuth({
+          id: 'usr-client',
+          roles: ['client'],
+          permissions: ['case:read'],
+        }),
+      );
+
+      const { result } = renderHook(() => usePermissions());
+      expect(result.current.canCustomizeCase('Open')).toBe(false);
     });
   });
 });

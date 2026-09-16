@@ -399,9 +399,9 @@ describe('Case Workspace Components', () => {
         /You can work on and complete it at any time without waiting for or delaying other steps/i,
       ),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /Complete Step/i }),
-    ).toHaveClass('bg-amber-400');
+    expect(screen.getByRole('button', { name: /Complete Step/i })).toHaveClass(
+      'bg-[#E1007A]',
+    );
   });
 
   it('calculates progression percentage on mandatory steps when optional steps exist', () => {
@@ -593,6 +593,239 @@ describe('Case Workspace Components', () => {
     expect(screen.getByText('~21 Days')).toBeInTheDocument();
     expect(screen.getByText('Active Pace')).toBeInTheDocument();
   });
+
+  describe('Ad-hoc Case Customization (Epic 1)', () => {
+    const mockAdHocStep: BffWorkspaceStep = {
+      id: 'step-adhoc-1',
+      stepDefinitionId: 'step-adhoc-1',
+      name: 'Specialist Japanese Knotweed Survey',
+      status: 'Available',
+      displayOrder: 3,
+      dependencyJoinType: 'ALL',
+      dependencies: [],
+      isOptional: true,
+      isStandalone: true,
+      isAdHoc: true,
+      allowedActions: ['COMPLETE_STEP'],
+      workItems: [
+        {
+          id: 'wi-adhoc-1',
+          stepId: 'step-adhoc-1',
+          name: 'Inspect rear garden perimeter',
+          status: 'Pending',
+          requirement: 'optional',
+          isAdHoc: true,
+          allowedActions: ['COMPLETE'],
+        },
+      ],
+    };
+
+    it('renders Custom badge on ad-hoc step header', () => {
+      render(
+        <StepExecutionCard
+          step={mockAdHocStep}
+          onStepAction={vi.fn()}
+          onWorkItemAction={vi.fn()}
+          loadingStepId={null}
+          loadingWorkItemId={null}
+        />,
+      );
+
+      expect(
+        screen.getByText('Specialist Japanese Knotweed Survey'),
+      ).toBeInTheDocument();
+      expect(screen.getAllByText('Custom').length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('renders Move Up and Move Down buttons when canCustomize is true', () => {
+      const handleMoveUp = vi.fn();
+      const handleMoveDown = vi.fn();
+
+      render(
+        <StepExecutionCard
+          step={mockAdHocStep}
+          canCustomize={true}
+          onMoveStepUp={handleMoveUp}
+          onMoveStepDown={handleMoveDown}
+          isFirstStep={false}
+          isLastStep={false}
+          onStepAction={vi.fn()}
+          onWorkItemAction={vi.fn()}
+          loadingStepId={null}
+          loadingWorkItemId={null}
+        />,
+      );
+
+      const moveUpBtn = screen.getByRole('button', { name: /Move step up/i });
+      const moveDownBtn = screen.getByRole('button', {
+        name: /Move step down/i,
+      });
+
+      expect(moveUpBtn).toBeInTheDocument();
+      expect(moveDownBtn).toBeInTheDocument();
+
+      fireEvent.click(moveUpBtn);
+      expect(handleMoveUp).toHaveBeenCalledWith('step-adhoc-1');
+
+      fireEvent.click(moveDownBtn);
+      expect(handleMoveDown).toHaveBeenCalledWith('step-adhoc-1');
+    });
+
+    it('renders Delete button for ad-hoc step and triggers onDeleteStep', () => {
+      const handleDeleteStep = vi.fn();
+
+      render(
+        <StepExecutionCard
+          step={mockAdHocStep}
+          canCustomize={true}
+          onDeleteStep={handleDeleteStep}
+          onStepAction={vi.fn()}
+          onWorkItemAction={vi.fn()}
+          loadingStepId={null}
+          loadingWorkItemId={null}
+        />,
+      );
+
+      const deleteBtn = screen.getByRole('button', {
+        name: /Delete custom step/i,
+      });
+      expect(deleteBtn).toBeInTheDocument();
+      expect(deleteBtn).not.toBeDisabled();
+
+      fireEvent.click(deleteBtn);
+      expect(handleDeleteStep).toHaveBeenCalledWith('step-adhoc-1');
+    });
+
+    it('disables Delete button when ad-hoc step is InProgress or Completed', () => {
+      const inProgressStep: BffWorkspaceStep = {
+        ...mockAdHocStep,
+        status: 'InProgress',
+      };
+
+      render(
+        <StepExecutionCard
+          step={inProgressStep}
+          canCustomize={true}
+          onDeleteStep={vi.fn()}
+          onStepAction={vi.fn()}
+          onWorkItemAction={vi.fn()}
+          loadingStepId={null}
+          loadingWorkItemId={null}
+        />,
+      );
+
+      const deleteBtn = screen.getByRole('button', {
+        name: /Cannot delete an active or completed step/i,
+      });
+      expect(deleteBtn).toBeDisabled();
+    });
+
+    it('does not render Delete button for standard template steps', () => {
+      const standardStep: BffWorkspaceStep = {
+        ...mockAdHocStep,
+        isAdHoc: false,
+      };
+
+      render(
+        <StepExecutionCard
+          step={standardStep}
+          canCustomize={true}
+          onDeleteStep={vi.fn()}
+          onStepAction={vi.fn()}
+          onWorkItemAction={vi.fn()}
+          loadingStepId={null}
+          loadingWorkItemId={null}
+        />,
+      );
+
+      expect(
+        screen.queryByRole('button', { name: /Delete custom step/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('renders Add Task button inside step when canCustomize is true', () => {
+      const handleOpenAddTask = vi.fn();
+
+      render(
+        <StepExecutionCard
+          step={mockAdHocStep}
+          canCustomize={true}
+          onOpenAddWorkItem={handleOpenAddTask}
+          onStepAction={vi.fn()}
+          onWorkItemAction={vi.fn()}
+          loadingStepId={null}
+          loadingWorkItemId={null}
+        />,
+      );
+
+      const addTaskBtn = screen.getByRole('button', { name: /Add Task/i });
+      expect(addTaskBtn).toBeInTheDocument();
+
+      fireEvent.click(addTaskBtn);
+      expect(handleOpenAddTask).toHaveBeenCalledWith('step-adhoc-1');
+    });
+
+    it('renders Custom badge and Delete button on ad-hoc WorkItemExecutionRow', () => {
+      const mockAdHocWorkItem: BffWorkspaceWorkItem = {
+        id: 'wi-custom-99',
+        name: 'Check tree preservation order',
+        status: 'Pending',
+        requirement: 'optional',
+        isAdHoc: true,
+        allowedActions: ['COMPLETE'],
+      };
+
+      const handleDeleteWorkItem = vi.fn();
+
+      render(
+        <WorkItemExecutionRow
+          workItem={mockAdHocWorkItem}
+          canCustomize={true}
+          onDelete={handleDeleteWorkItem}
+          onAction={vi.fn()}
+          isLoading={false}
+        />,
+      );
+
+      expect(
+        screen.getByText('Check tree preservation order'),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Custom')).toBeInTheDocument();
+
+      const deleteBtn = screen.getByRole('button', {
+        name: /Delete custom task/i,
+      });
+      expect(deleteBtn).toBeInTheDocument();
+      expect(deleteBtn).not.toBeDisabled();
+
+      fireEvent.click(deleteBtn);
+      expect(handleDeleteWorkItem).toHaveBeenCalledWith('wi-custom-99');
+    });
+
+    it('disables Delete button on completed ad-hoc WorkItemExecutionRow', () => {
+      const completedAdHocWorkItem: BffWorkspaceWorkItem = {
+        id: 'wi-custom-100',
+        name: 'Completed environmental review',
+        status: 'Completed',
+        requirement: 'optional',
+        isAdHoc: true,
+        allowedActions: [],
+      };
+
+      render(
+        <WorkItemExecutionRow
+          workItem={completedAdHocWorkItem}
+          canCustomize={true}
+          onDelete={vi.fn()}
+          onAction={vi.fn()}
+          isLoading={false}
+        />,
+      );
+
+      const deleteBtn = screen.getByRole('button', {
+        name: /Completed tasks cannot be deleted/i,
+      });
+      expect(deleteBtn).toBeDisabled();
+    });
+  });
 });
-
-

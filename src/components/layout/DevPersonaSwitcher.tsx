@@ -4,7 +4,6 @@ import {
   ShieldCheck,
   Check,
   ChevronDown,
-  Sparkles,
   Briefcase,
   Lock,
 } from 'lucide-react';
@@ -44,7 +43,6 @@ export const DevPersonaSwitcher: React.FC = () => {
     if (persona.roles.some((r) => r.toLowerCase().includes('progressor'))) {
       return (
         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-pink-700 bg-pink-50 border border-pink-200/80 px-2 py-0.5 rounded-full">
-          <Sparkles className="w-2.5 h-2.5 text-[#E1007A]" />
           Lead Progressor
         </span>
       );

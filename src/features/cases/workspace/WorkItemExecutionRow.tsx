@@ -9,6 +9,7 @@ import {
   Lock,
   UploadCloud,
   Download,
+  Trash2,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -25,7 +26,9 @@ interface WorkItemExecutionRowProps {
   workItem: BffWorkspaceWorkItem;
   documents?: BffCaseDocument[];
   isReadOnly?: boolean;
+  canCustomize?: boolean;
   onAction: (workItemId: string, action: WorkItemActionType) => Promise<void>;
+  onDelete?: (workItemId: string) => void;
   onUpdateTargetDate?: (targetDate: string | null) => Promise<void>;
   onUploadDocument?: (file: File, workItemId: string) => Promise<void>;
   onDownloadDocument?: (documentId: string, fileName?: string) => Promise<void>;
@@ -37,7 +40,9 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
   workItem,
   documents = [],
   isReadOnly = false,
+  canCustomize = false,
   onAction,
+  onDelete,
   onUpdateTargetDate,
   onUploadDocument,
   onDownloadDocument,
@@ -73,7 +78,11 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
     }
   };
 
-  const handleDownload = async (e: React.MouseEvent, docId: string, fileName?: string) => {
+  const handleDownload = async (
+    e: React.MouseEvent,
+    docId: string,
+    fileName?: string,
+  ) => {
     e.stopPropagation();
     if (!onDownloadDocument) return;
     setIsDownloading(true);
@@ -152,6 +161,12 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
             {workItem.requirement === 'optional' && (
               <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded-md">
                 Optional
+              </span>
+            )}
+
+            {workItem.isAdHoc && (
+              <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded-md">
+                Custom
               </span>
             )}
 
@@ -437,6 +452,31 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
             Waived
           </Badge>
         )}
+
+        {workItem.isAdHoc &&
+          canCustomize &&
+          onDelete &&
+          (isCompleted ? (
+            <button
+              type="button"
+              disabled
+              className="p-1 text-slate-300 rounded-lg cursor-not-allowed"
+              title="Completed tasks cannot be deleted."
+              aria-label="Completed tasks cannot be deleted."
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onDelete(workItem.id)}
+              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+              title="Delete custom task"
+              aria-label="Delete custom task"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          ))}
       </div>
     </div>
   );
