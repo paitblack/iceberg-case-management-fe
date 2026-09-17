@@ -576,6 +576,22 @@ export interface BffActivityActor {
   role?: string;
 }
 
+export type BffActivitySeverity =
+  'CRITICAL' | 'MILESTONE' | 'STANDARD' | 'INFO';
+
+export interface BffActivityDiffItem {
+  field: string;
+  from: unknown;
+  to: unknown;
+}
+
+export interface BffActivityContext {
+  stepName?: string;
+  workItemName?: string;
+  fileName?: string;
+  participantName?: string;
+}
+
 export interface BffCaseActivityItem {
   id: string;
   caseId: string;
@@ -583,8 +599,12 @@ export interface BffCaseActivityItem {
   action: string;
   title: string;
   description: string;
+  severity?: BffActivitySeverity;
+  diff?: BffActivityDiffItem[];
+  context?: BffActivityContext;
   actor?: BffActivityActor;
   metadata?: Record<string, unknown>;
+  correlationId?: string;
   createdAt: string;
 }
 

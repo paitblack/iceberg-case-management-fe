@@ -10,12 +10,38 @@ import {
   User,
   Tag,
 } from 'lucide-react';
-import type { BffCaseActivityItem, BffActivityCategory } from '../../../types/api';
+import type {
+  BffCaseActivityItem,
+  BffActivityCategory,
+  BffActivitySeverity,
+} from '../../../types/api';
 
 interface ActivityItemCardProps {
   item: BffCaseActivityItem;
   isLast?: boolean;
 }
+
+const SEVERITY_CONFIG: Record<
+  BffActivitySeverity,
+  { label: string; badgeClass: string }
+> = {
+  CRITICAL: {
+    label: 'Critical',
+    badgeClass: 'bg-rose-50 text-rose-700 border-rose-200/80',
+  },
+  MILESTONE: {
+    label: 'Step',
+    badgeClass: 'bg-blue-50 text-blue-700 border-blue-200/80',
+  },
+  STANDARD: {
+    label: 'Standard',
+    badgeClass: 'bg-slate-50 text-slate-600 border-slate-200/80',
+  },
+  INFO: {
+    label: 'Info',
+    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200/80',
+  },
+};
 
 const CATEGORY_CONFIG: Record<
   BffActivityCategory,
@@ -28,35 +54,35 @@ const CATEGORY_CONFIG: Record<
   }
 > = {
   CASE_LIFECYCLE: {
-    label: 'Case Lifecycle',
+    label: 'Lifecycle',
     icon: <Shield className="w-4 h-4" />,
     badgeClass: 'bg-pink-50 text-[#E1007A] border-pink-200/60',
     iconBg: 'bg-pink-50 text-[#E1007A] border-pink-200/80',
     accentColor: '#E1007A',
   },
   STEP: {
-    label: 'Milestone',
+    label: 'Step',
     icon: <Layers className="w-4 h-4" />,
     badgeClass: 'bg-blue-50 text-blue-700 border-blue-200/60',
     iconBg: 'bg-blue-50 text-blue-700 border-blue-200/80',
     accentColor: '#2563EB',
   },
   WORK_ITEM: {
-    label: 'Task Execution',
+    label: 'Task',
     icon: <CheckSquare className="w-4 h-4" />,
     badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200/60',
     iconBg: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
     accentColor: '#059669',
   },
   PARTICIPANT: {
-    label: 'Stakeholders',
+    label: 'Participant',
     icon: <Users className="w-4 h-4" />,
     badgeClass: 'bg-purple-50 text-purple-700 border-purple-200/60',
     iconBg: 'bg-purple-50 text-purple-700 border-purple-200/80',
     accentColor: '#7C3AED',
   },
   DOCUMENT: {
-    label: 'Documents & Evidence',
+    label: 'Document',
     icon: <FileText className="w-4 h-4" />,
     badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200/60',
     iconBg: 'bg-indigo-50 text-indigo-700 border-indigo-200/80',
@@ -198,10 +224,13 @@ export const ActivityItemCard: React.FC<ActivityItemCardProps> = ({
   item,
   isLast = false,
 }) => {
-  const config = CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG.CASE_LIFECYCLE;
+  const config =
+    CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG.CASE_LIFECYCLE;
 
   const metadataEntries = Object.entries(item.metadata || {})
-    .filter(([key]) => !EXCLUDED_KEYS.has(key) && !TECHNICAL_ID_KEY_REGEX.test(key))
+    .filter(
+      ([key]) => !EXCLUDED_KEYS.has(key) && !TECHNICAL_ID_KEY_REGEX.test(key),
+    )
     .map(([key, val]) => {
       const formattedVal = formatMetadataValue(key, val);
       return {
@@ -210,7 +239,10 @@ export const ActivityItemCard: React.FC<ActivityItemCardProps> = ({
         value: formattedVal,
       };
     })
-    .filter((entry): entry is { key: string; label: string; value: string } => entry.value !== null);
+    .filter(
+      (entry): entry is { key: string; label: string; value: string } =>
+        entry.value !== null,
+    );
 
   return (
     <div className="relative flex items-start gap-3.5 group">
@@ -228,7 +260,31 @@ export const ActivityItemCard: React.FC<ActivityItemCardProps> = ({
 
       {/* Activity Card Body */}
       <div className="flex-1 min-w-0 iceberg-card p-4 border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all space-y-2.5 mb-3.5 bg-white">
-        {/* Header: Title + Category Pill + Timestamp */}
+        {/* Context Breadcrumb (Step / Task / Document Context) */}
+        {item.context &&
+          (item.context.stepName ||
+            item.context.workItemName ||
+            item.context.fileName) && (
+            <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-semibold bg-slate-50 border border-slate-200/70 px-2 py-0.5 rounded-lg w-fit">
+              {item.context.stepName && (
+                <span>Step: {item.context.stepName}</span>
+              )}
+              {item.context.workItemName && (
+                <>
+                  <span className="text-slate-300">›</span>
+                  <span>Task: {item.context.workItemName}</span>
+                </>
+              )}
+              {item.context.fileName && (
+                <>
+                  <span className="text-slate-300">›</span>
+                  <span>File: {item.context.fileName}</span>
+                </>
+              )}
+            </div>
+          )}
+
+        {/* Header: Title + Category Pill + Severity Badge + Timestamp */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
           <div className="flex items-center gap-2 flex-wrap">
             <h4 className="text-xs md:text-sm font-extrabold text-slate-900 tracking-tight">
@@ -240,6 +296,14 @@ export const ActivityItemCard: React.FC<ActivityItemCardProps> = ({
             >
               {config.label}
             </span>
+
+            {item.severity && item.severity === 'CRITICAL' && (
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shadow-2xs ${SEVERITY_CONFIG.CRITICAL.badgeClass}`}
+              >
+                {SEVERITY_CONFIG.CRITICAL.label}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-1 text-[11px] text-slate-400 font-medium shrink-0">
@@ -253,6 +317,32 @@ export const ActivityItemCard: React.FC<ActivityItemCardProps> = ({
           {item.description}
         </p>
 
+        {/* Structured State Diff (e.g. status transition, target date update) */}
+        {item.diff && item.diff.length > 0 && (
+          <div className="p-2.5 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-1 text-xs">
+            <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+              State Changes
+            </div>
+            {item.diff.map((d, idx) => (
+              <div
+                key={idx}
+                className="flex items-center gap-1.5 flex-wrap text-slate-700 text-xs"
+              >
+                <span className="font-semibold text-slate-500">
+                  {formatMetadataKey(d.field)}:
+                </span>
+                <span className="line-through text-slate-400 font-mono text-[11px]">
+                  {String(d.from ?? 'none')}
+                </span>
+                <span className="text-slate-400 font-bold">→</span>
+                <span className="font-bold text-slate-900 font-mono text-[11px]">
+                  {String(d.to ?? 'none')}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Metadata Details Chips */}
         {metadataEntries.length > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap pt-1">
@@ -262,9 +352,7 @@ export const ActivityItemCard: React.FC<ActivityItemCardProps> = ({
                 className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 bg-slate-50 border border-slate-200/80 px-2 py-0.5 rounded-lg shadow-2xs"
               >
                 <Tag className="w-2.5 h-2.5 text-slate-400" />
-                <span className="font-bold text-slate-500">
-                  {label}:
-                </span>
+                <span className="font-bold text-slate-500">{label}:</span>
                 <span className="text-slate-800 font-semibold truncate max-w-[280px]">
                   {value}
                 </span>
@@ -278,14 +366,16 @@ export const ActivityItemCard: React.FC<ActivityItemCardProps> = ({
           <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px]">
             <div className="flex items-center gap-1.5 text-slate-500">
               <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200/80 text-slate-600 flex items-center justify-center text-[10px] font-bold">
-                {item.actor.name && !UUID_REGEX.test(item.actor.name)
-                  ? item.actor.name.charAt(0).toUpperCase()
-                  : <User className="w-3 h-3" />}
+                {item.actor.name && !UUID_REGEX.test(item.actor.name) ? (
+                  item.actor.name.charAt(0).toUpperCase()
+                ) : (
+                  <User className="w-3 h-3" />
+                )}
               </div>
               <span className="font-bold text-slate-800">
                 {UUID_REGEX.test(item.actor.name || '')
                   ? 'System User'
-                  : (item.actor.name || 'System')}
+                  : item.actor.name || 'System'}
               </span>
               {item.actor.role && !UUID_REGEX.test(item.actor.role) && (
                 <span className="text-[10px] text-slate-400 font-medium">

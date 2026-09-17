@@ -73,9 +73,7 @@ describe('ActivityTimelineTab', () => {
       screen.getByText(/Loading activity timeline events.../i),
     ).toBeInTheDocument();
 
-    expect(
-      await screen.findByText('Work Item Completed'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Work Item Completed')).toBeInTheDocument();
     expect(screen.getByText('Case Put On Hold')).toBeInTheDocument();
     expect(
       screen.getByText('Work item "Verify Passport" was completed.'),
@@ -226,15 +224,68 @@ describe('ActivityTimelineTab', () => {
     // Technical IDs, UUIDs, and DB keys must NOT be displayed
     expect(screen.queryByText(/Parent Id/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/47442209-09c8/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Mentioned Participant Id/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Mentioned Participant Id/i),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/3dff7beb-b7f0/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Visible To Participant Ids/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Visible To Participant Ids/i),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/Is Private/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Content:/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Mentioned Participant Name:/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Mentioned Participant Name:/i),
+    ).not.toBeInTheDocument();
 
     // Raw CRUD database action badges (e.g. CREATE, HOLD) should not be rendered
     expect(screen.queryByText('CREATE')).not.toBeInTheDocument();
     expect(screen.queryByText('AT_SUMMARY')).not.toBeInTheDocument();
+  });
+
+  it('filters activities using smart presets (e.g. Critical)', async () => {
+    vi.spyOn(apiClient, 'fetchCaseActivities').mockResolvedValue(mockResponse);
+
+    render(<ActivityTimelineTab caseId="case-100" />);
+
+    expect(await screen.findByText('Work Item Completed')).toBeInTheDocument();
+    expect(screen.getByText('Case Put On Hold')).toBeInTheDocument();
+
+    // Click Critical smart preset
+    const criticalPresetBtn = screen.getByRole('button', { name: /Critical/i });
+    fireEvent.click(criticalPresetBtn);
+
+    // Only "Case Put On Hold" (action HOLD) should be visible
+    expect(screen.getByText('Case Put On Hold')).toBeInTheDocument();
+    expect(screen.queryByText('Work Item Completed')).not.toBeInTheDocument();
+
+    // Click All preset to restore
+    const allPresetBtn = screen.getByRole('button', { name: /^All$/i });
+    fireEvent.click(allPresetBtn);
+
+    expect(screen.getByText('Work Item Completed')).toBeInTheDocument();
+    expect(screen.getByText('Case Put On Hold')).toBeInTheDocument();
+  });
+
+  it('filters activities using live text search and clears filters', async () => {
+    vi.spyOn(apiClient, 'fetchCaseActivities').mockResolvedValue(mockResponse);
+
+    render(<ActivityTimelineTab caseId="case-100" />);
+
+    expect(await screen.findByText('Work Item Completed')).toBeInTheDocument();
+    expect(screen.getByText('Case Put On Hold')).toBeInTheDocument();
+
+    // Type in search box
+    const searchInput = screen.getByPlaceholderText(/search activities/i);
+    fireEvent.change(searchInput, { target: { value: 'Passport' } });
+
+    expect(screen.getByText('Work Item Completed')).toBeInTheDocument();
+    expect(screen.queryByText('Case Put On Hold')).not.toBeInTheDocument();
+
+    // Click Clear filters button
+    const clearBtn = screen.getByRole('button', { name: /Clear filters/i });
+    fireEvent.click(clearBtn);
+
+    expect(screen.getByText('Work Item Completed')).toBeInTheDocument();
+    expect(screen.getByText('Case Put On Hold')).toBeInTheDocument();
   });
 });
