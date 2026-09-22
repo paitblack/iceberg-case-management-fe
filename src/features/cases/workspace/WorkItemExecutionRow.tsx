@@ -10,6 +10,7 @@ import {
   UploadCloud,
   Download,
   Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -266,6 +267,47 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
+                    )}
+                </span>
+              ) : isCompleted ? (
+                /* Completed task where evidence was removed or detached */
+                <span className="inline-flex items-center gap-1.5 flex-wrap">
+                  <span
+                    className="inline-flex items-center gap-1 text-[10px] text-amber-800 bg-amber-50 border border-amber-300 rounded-md px-1.5 py-0.5 font-medium"
+                    title="Supporting evidence was removed after milestone completion"
+                  >
+                    <AlertTriangle className="w-3 h-3 text-amber-600" />
+                    <span>Evidence Missing</span>
+                  </span>
+
+                  {/* Re-attach Evidence for Completed task */}
+                  {!isReadOnly &&
+                    (onOpenEvidenceModal || onUploadDocument) &&
+                    canExecute && (
+                      <>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          className="hidden"
+                          onChange={handleFileSelect}
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onOpenEvidenceModal) {
+                              onOpenEvidenceModal(workItem);
+                            } else {
+                              fileInputRef.current?.click();
+                            }
+                          }}
+                          disabled={isUploadingDoc}
+                          className="text-[10px] text-amber-800 font-semibold underline hover:text-amber-950 cursor-pointer ml-0.5"
+                          title="Attach replacement evidence document"
+                        >
+                          {isUploadingDoc ? 'Uploading...' : 'Re-attach'}
+                        </button>
+                      </>
                     )}
                 </span>
               ) : (

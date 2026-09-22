@@ -141,4 +141,36 @@ describe('WorkItemExecutionRow - Evidence Flow', () => {
 
     expect(handleDelete).toHaveBeenCalledWith('doc-999', 'bank_statement.pdf');
   });
+
+  it('renders "Evidence Missing" badge and allows re-attaching when completed task has missing evidence', () => {
+    const completedWorkItem: BffWorkspaceWorkItem = {
+      ...baseWorkItem,
+      status: 'Completed',
+      allowedActions: [],
+    };
+
+    const handleOpenEvidenceModal = vi.fn();
+
+    render(
+      <WorkItemExecutionRow
+        workItem={completedWorkItem}
+        documents={[]}
+        isLoading={false}
+        onAction={vi.fn()}
+        onOpenEvidenceModal={handleOpenEvidenceModal}
+      />,
+    );
+
+    expect(screen.getByText('Evidence Missing')).toBeInTheDocument();
+    expect(screen.queryByText('Evidence Required')).not.toBeInTheDocument();
+    expect(screen.getByText('✓ Done')).toBeInTheDocument();
+
+    const reattachBtn = screen.getByRole('button', { name: /^Re-attach$/i });
+    expect(reattachBtn).toBeInTheDocument();
+
+    fireEvent.click(reattachBtn);
+    expect(handleOpenEvidenceModal).toHaveBeenCalledTimes(1);
+    expect(handleOpenEvidenceModal).toHaveBeenCalledWith(completedWorkItem);
+  });
 });
+

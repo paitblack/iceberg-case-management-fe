@@ -315,7 +315,9 @@ export const CaseWorkspacePage: React.FC = () => {
       await uploadCaseDocument(caseId, file, evidenceTarget.workItem.id);
       showToast(
         'success',
-        `Evidence "${file.name}" uploaded successfully. Task is now ready to be completed.`,
+        evidenceTarget.workItem.status === 'Completed'
+          ? `Replacement evidence "${file.name}" attached successfully.`
+          : `Evidence "${file.name}" uploaded successfully. Task is now ready to be completed.`,
       );
       setEvidenceTarget(null);
       await loadWorkspace();
