@@ -724,3 +724,61 @@ export interface AddAdHocWorkItemPayload {
   ownerRoleId?: string;
   targetDate?: string;
 }
+
+export type CommunicationIntent =
+  | 'DOCUMENT_REQUEST'
+  | 'MILESTONE_CHASE'
+  | 'PROGRESS_UPDATE';
+
+export type CommunicationStatus = 'SENT_SIMULATED' | 'DELIVERED' | 'FAILED';
+
+export interface BffCaseCommunication {
+  id: string;
+  caseId: string;
+  stepId?: string;
+  workItemId?: string;
+  recipientEmail: string;
+  recipientName: string;
+  recipientRole?: string;
+  senderName: string;
+  senderRole: string;
+  senderEmail?: string;
+  senderPhone?: string;
+  subject: string;
+  bodyText: string;
+  bodyHtml?: string;
+  status: CommunicationStatus;
+  intent: CommunicationIntent;
+  createdAt: string;
+}
+
+export interface GenerateCommunicationDraftPayload {
+  recipientEmail: string;
+  recipientName: string;
+  recipientRole?: string;
+  stepName?: string;
+  workItemName?: string;
+  evidenceRequired?: boolean;
+  intent: CommunicationIntent;
+  tone?: 'professional' | 'urgent' | 'friendly';
+  senderName?: string;
+  senderRole?: string;
+}
+
+export interface SendCommunicationPayload {
+  stepId?: string;
+  workItemId?: string;
+  recipientEmail: string;
+  recipientName: string;
+  recipientRole?: string;
+  senderName?: string;
+  senderRole?: string;
+  senderEmail?: string;
+  senderPhone?: string;
+  subject: string;
+  bodyText: string;
+  bodyHtml?: string;
+  intent: CommunicationIntent;
+  status?: CommunicationStatus;
+}
+

@@ -172,5 +172,26 @@ describe('WorkItemExecutionRow - Evidence Flow', () => {
     expect(handleOpenEvidenceModal).toHaveBeenCalledTimes(1);
     expect(handleOpenEvidenceModal).toHaveBeenCalledWith(completedWorkItem);
   });
+
+  it('renders "Chase" button and invokes onChase when clicked', () => {
+    const handleChase = vi.fn();
+
+    render(
+      <WorkItemExecutionRow
+        workItem={baseWorkItem}
+        documents={[]}
+        isLoading={false}
+        onAction={vi.fn()}
+        onChase={handleChase}
+      />,
+    );
+
+    const chaseBtn = screen.getByRole('button', { name: /^Chase$/i });
+    expect(chaseBtn).toBeInTheDocument();
+
+    fireEvent.click(chaseBtn);
+    expect(handleChase).toHaveBeenCalledTimes(1);
+    expect(handleChase).toHaveBeenCalledWith(baseWorkItem);
+  });
 });
 
