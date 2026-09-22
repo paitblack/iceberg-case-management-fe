@@ -17,6 +17,7 @@ import type {
   BffWorkspaceSnapshot,
   BffWorkspaceStep,
   BffWorkspaceWorkItem,
+  BffCaseDocument,
 } from '../../types/api';
 
 const mockSnapshot: BffWorkspaceSnapshot = {
@@ -988,6 +989,108 @@ describe('Case Workspace Components', () => {
       });
       expect(completeTaskBtn).toBeInTheDocument();
       expect(completeTaskBtn).not.toBeDisabled();
+    });
+
+    it('allows deleting attached evidence document, which dynamically transforms Complete Task button back to Upload Evidence', async () => {
+      const stepWithEvidence: BffWorkspaceStep = {
+        id: 'step-ev-2',
+        stepDefinitionId: 'step-def-ev-2',
+        name: 'Anti-Money Laundering Review',
+        status: 'InProgress',
+        displayOrder: 1,
+        dependencyJoinType: 'ALL',
+        dependencies: [],
+        allowedActions: [],
+        workItems: [
+          {
+            id: 'wi-evidence-2',
+            workItemDefinitionId: 'def-evidence-2',
+            title: 'Verify Client Proof of Wealth',
+            name: 'Verify Client Proof of Wealth',
+            requirement: 'required',
+            status: 'Pending',
+            evidenceRequired: true,
+            allowedActions: ['COMPLETE'],
+          },
+        ],
+      };
+
+      const attachedDoc: BffCaseDocument = {
+        id: 'doc-wealth-1',
+        workItemId: 'wi-evidence-2',
+        fileName: 'wealth_statement.pdf',
+        fileSizeBytes: 2048,
+        fileType: 'application/pdf',
+        category: 'Evidence',
+        uploadedAt: '2026-09-22T10:00:00Z',
+        uploadedByName: 'Marcus Cole',
+      };
+
+      const snapshotWithDoc: BffWorkspaceSnapshot = {
+        ...mockSnapshot,
+        steps: [stepWithEvidence],
+        documents: [attachedDoc],
+      };
+
+      const snapshotAfterDelete: BffWorkspaceSnapshot = {
+        ...mockSnapshot,
+        steps: [stepWithEvidence],
+        documents: [],
+      };
+
+      vi.spyOn(apiClient, 'fetchCaseWorkspace')
+        .mockResolvedValueOnce(snapshotWithDoc)
+        .mockResolvedValueOnce(snapshotAfterDelete);
+      const deleteDocSpy = vi
+        .spyOn(apiClient, 'deleteCaseDocument')
+        .mockResolvedValue(undefined);
+
+      render(
+        <MemoryRouter initialEntries={['/cases/case-test-101']}>
+          <Routes>
+            <Route path="/cases/:caseId" element={<CaseWorkspacePage />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+
+      // Verify Complete Task button and attached document chip are present
+      expect(
+        await screen.findByText(/wealth_statement.pdf/i),
+      ).toBeInTheDocument();
+      const completeTaskBtn = await screen.findByRole('button', {
+        name: /^Complete Task$/i,
+      });
+      expect(completeTaskBtn).toBeInTheDocument();
+
+      // Click remove evidence button
+      const removeBtn = screen.getByRole('button', {
+        name: 'Remove evidence document',
+      });
+      fireEvent.click(removeBtn);
+
+      // Confirm modal opens
+      expect(
+        screen.getByText(/Are you sure you want to remove "wealth_statement.pdf"/i),
+      ).toBeInTheDocument();
+
+      const confirmBtn = screen.getByRole('button', {
+        name: 'Remove Evidence',
+      });
+      fireEvent.click(confirmBtn);
+
+      await waitFor(() => {
+        expect(deleteDocSpy).toHaveBeenCalledWith(
+          'case-test-101',
+          'doc-wealth-1',
+        );
+      });
+
+      // Verify button reverts back to Upload Evidence
+      const uploadEvidenceBtn = await screen.findByRole('button', {
+        name: /^Upload Evidence$/i,
+      });
+      expect(uploadEvidenceBtn).toBeInTheDocument();
+      expect(screen.getByText('Evidence Required')).toBeInTheDocument();
     });
   });
 });

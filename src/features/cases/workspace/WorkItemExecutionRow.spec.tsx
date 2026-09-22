@@ -100,4 +100,77 @@ describe('WorkItemExecutionRow - Evidence Flow', () => {
     fireEvent.click(completeBtn);
     expect(handleAction).toHaveBeenCalledWith('wi-102', 'COMPLETE');
   });
+
+  it('allows removing attached evidence document via confirmation modal', async () => {
+    const attachedDoc: BffCaseDocument = {
+      id: 'doc-999',
+      workItemId: 'wi-101',
+      fileName: 'bank_statement.pdf',
+      fileSizeBytes: 1024,
+      fileType: 'application/pdf',
+      category: 'Evidence',
+      uploadedAt: '2026-09-22T10:00:00Z',
+      uploadedByName: 'Agent Smith',
+    };
+
+    const handleDelete = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <WorkItemExecutionRow
+        workItem={baseWorkItem}
+        documents={[attachedDoc]}
+        isLoading={false}
+        onAction={vi.fn()}
+        onDeleteDocument={handleDelete}
+      />,
+    );
+
+    const removeBtn = screen.getByRole('button', {
+      name: 'Remove evidence document',
+    });
+    expect(removeBtn).toBeInTheDocument();
+
+    fireEvent.click(removeBtn);
+
+    expect(
+      screen.getByText(/Are you sure you want to remove "bank_statement.pdf"/i),
+    ).toBeInTheDocument();
+
+    const confirmBtn = screen.getByRole('button', { name: 'Remove Evidence' });
+    fireEvent.click(confirmBtn);
+
+    expect(handleDelete).toHaveBeenCalledWith('doc-999', 'bank_statement.pdf');
+  });
+
+  it('renders "Evidence Missing" badge and allows re-attaching when completed task has missing evidence', () => {
+    const completedWorkItem: BffWorkspaceWorkItem = {
+      ...baseWorkItem,
+      status: 'Completed',
+      allowedActions: [],
+    };
+
+    const handleOpenEvidenceModal = vi.fn();
+
+    render(
+      <WorkItemExecutionRow
+        workItem={completedWorkItem}
+        documents={[]}
+        isLoading={false}
+        onAction={vi.fn()}
+        onOpenEvidenceModal={handleOpenEvidenceModal}
+      />,
+    );
+
+    expect(screen.getByText('Evidence Missing')).toBeInTheDocument();
+    expect(screen.queryByText('Evidence Required')).not.toBeInTheDocument();
+    expect(screen.getByText('✓ Done')).toBeInTheDocument();
+
+    const reattachBtn = screen.getByRole('button', { name: /^Re-attach$/i });
+    expect(reattachBtn).toBeInTheDocument();
+
+    fireEvent.click(reattachBtn);
+    expect(handleOpenEvidenceModal).toHaveBeenCalledTimes(1);
+    expect(handleOpenEvidenceModal).toHaveBeenCalledWith(completedWorkItem);
+  });
 });
+

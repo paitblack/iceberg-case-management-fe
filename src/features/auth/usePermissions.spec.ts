@@ -330,4 +330,75 @@ describe('usePermissions & Role Utilities', () => {
       expect(result.current.canCustomizeCase('Open')).toBe(false);
     });
   });
+
+  describe('usePermissions -> canDeleteDocument', () => {
+    it('allows superUser to delete any document including completed task evidence', () => {
+      vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue(
+        createMockAuth(
+          {
+            id: 'usr-admin',
+            roles: ['admin'],
+          },
+          {
+            isSuperUser: true,
+          },
+        ),
+      );
+
+      const { result } = renderHook(() => usePermissions());
+      expect(result.current.canDeleteDocument(undefined, false).canDelete).toBe(
+        true,
+      );
+      expect(result.current.canDeleteDocument(undefined, true).canDelete).toBe(
+        true,
+      );
+    });
+
+    it('allows user with document:delete permission to delete general or pending task documents', () => {
+      vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue(
+        createMockAuth({
+          id: 'usr-agent',
+          roles: ['Estate Agent'],
+          permissions: ['document:delete'],
+        }),
+      );
+
+      const { result } = renderHook(() => usePermissions());
+      expect(result.current.canDeleteDocument(undefined, false).canDelete).toBe(
+        true,
+      );
+    });
+
+    it('forbids non-superUser from deleting evidence attached to a completed task', () => {
+      vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue(
+        createMockAuth({
+          id: 'usr-agent',
+          roles: ['Estate Agent'],
+          permissions: ['document:delete'],
+        }),
+      );
+
+      const { result } = renderHook(() => usePermissions());
+      const check = result.current.canDeleteDocument(undefined, true);
+      expect(check.canDelete).toBe(false);
+      expect(check.reason).toContain('Evidence for a completed milestone task');
+    });
+
+    it('denies deletion when user lacks document:delete permission and is not superUser', () => {
+      vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue(
+        createMockAuth({
+          id: 'usr-client',
+          roles: ['client'],
+          permissions: ['case:read'],
+        }),
+      );
+
+      const { result } = renderHook(() => usePermissions());
+      const check = result.current.canDeleteDocument(undefined, false);
+      expect(check.canDelete).toBe(false);
+      expect(check.reason).toContain(
+        'You do not have permission to delete documents',
+      );
+    });
+  });
 });

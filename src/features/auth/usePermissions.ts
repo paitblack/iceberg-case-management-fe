@@ -89,10 +89,28 @@ export function hasRole(
   });
 }
 
+/**
+ * Checks if user roles include administrator privileges.
+ */
+export function hasAdminRole(roles?: string[]): boolean {
+  if (!roles || roles.length === 0) return false;
+  return roles.some((role) => {
+    const normalized = role.trim().toLowerCase();
+    return (
+      normalized === 'admin' ||
+      normalized === 'role-admin' ||
+      normalized === 'superuser' ||
+      normalized.includes('admin') ||
+      normalized.includes('superuser')
+    );
+  });
+}
+
 export function usePermissions() {
   const { user, roles, permissions } = useAuth();
 
   const isSuperUser = useMemo(() => hasSuperUserRole(roles), [roles]);
+  const isAdmin = useMemo(() => hasAdminRole(roles), [roles]);
 
   const can = useMemo(() => {
     return (permission: string): boolean => {
@@ -170,17 +188,47 @@ export function usePermissions() {
     };
   }, [isSuperUser, can]);
 
+  const canDeleteDocument = useMemo(() => {
+    return (
+      doc?: BffCaseDocument,
+      isCompletedWorkItem?: boolean,
+    ): { canDelete: boolean; reason?: string } => {
+      void doc;
+      if (isCompletedWorkItem) {
+        if (isAdmin) {
+          return { canDelete: true };
+        }
+        return {
+          canDelete: false,
+          reason:
+            'Evidence for a completed milestone task. Use "Replace" in Progression tab or contact an Administrator to delete.',
+        };
+      }
+
+      if (isSuperUser || can('document:delete')) {
+        return { canDelete: true };
+      }
+
+      return {
+        canDelete: false,
+        reason: 'You do not have permission to delete documents.',
+      };
+    };
+  }, [isAdmin, isSuperUser, can]);
+
   return {
     user,
     roles,
     permissions,
     isSuperUser,
+    isAdmin,
     hasSuperUserRole: (testRoles?: string[]) =>
       hasSuperUserRole(testRoles || roles),
     hasRole: (targetRole: string) => hasRole(roles, targetRole),
     can,
     canExecuteWorkItem,
     canDownloadDocument,
+    canDeleteDocument,
     canManageTemplates,
     canCreatePrivateNote,
     canReopenCase,

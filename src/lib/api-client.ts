@@ -726,6 +726,13 @@ export async function uploadCaseDocument(
   await confirmDocumentUpload(caseId, uploadInfo.documentId);
 }
 
+export async function deleteCaseDocument(
+  caseId: string,
+  documentId: string,
+): Promise<void> {
+  return apiDelete<void>(`/cases/${caseId}/documents/${documentId}`);
+}
+
 export async function assignCaseParticipant(
   caseId: string,
   payload: AssignParticipantPayload,

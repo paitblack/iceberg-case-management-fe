@@ -12,8 +12,11 @@ import {
   FileSpreadsheet,
   X,
   ArrowUpDown,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { usePermissions } from '../../auth/usePermissions';
 import type { BffCaseDocument, BffWorkspaceStep } from '../../../types/api';
 
 interface DocumentsTabProps {
@@ -21,6 +24,7 @@ interface DocumentsTabProps {
   steps?: BffWorkspaceStep[];
   onUploadDocument?: (file: File, workItemId?: string) => Promise<void>;
   onDownloadDocument?: (documentId: string, fileName?: string) => Promise<void>;
+  onDeleteDocument?: (documentId: string, fileName?: string) => Promise<void>;
   isUploading?: boolean;
 }
 
@@ -91,13 +95,23 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
   steps = [],
   onUploadDocument,
   onDownloadDocument,
+  onDeleteDocument,
   isUploading = false,
 }) => {
+  const { canDeleteDocument } = usePermissions();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] =
     useState<DocumentCategoryFilter>('ALL');
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
+  const [documentToDelete, setDocumentToDelete] = useState<{
+    id: string;
+    fileName: string;
+    isEvidence: boolean;
+    taskName?: string;
+    isCompletedTask?: boolean;
+  } | null>(null);
+  const [isDeletingDoc, setIsDeletingDoc] = useState(false);
   const generalFileInputRef = useRef<HTMLInputElement>(null);
 
   const docList = documents || [];
@@ -106,7 +120,12 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
   const workItemLookup = useMemo(() => {
     const map = new Map<
       string,
-      { stepName: string; stepDisplayOrder: number; taskName: string }
+      {
+        stepName: string;
+        stepDisplayOrder: number;
+        taskName: string;
+        isCompleted: boolean;
+      }
     >();
 
     for (const step of steps || []) {
@@ -115,6 +134,7 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
           stepName: step.name,
           stepDisplayOrder: step.displayOrder,
           taskName: wi.name || wi.title || 'Task',
+          isCompleted: wi.status === 'Completed',
         });
       }
     }
@@ -498,39 +518,78 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
                       {formattedDate}
                     </td>
 
-                    {/* Download Action */}
+                    {/* Actions */}
                     <td className="py-3.5 px-4 text-right">
-                      {doc.canDownload === false ? (
-                        <span
-                          className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md"
-                          title="Access Restricted: You do not have permission to download this document."
-                        >
-                          <Lock className="w-3 h-3 text-amber-600" />
-                          Restricted
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleDownloadClick(doc.id, doc.fileName)
-                          }
-                          disabled={downloadingDocId === doc.id}
-                          className="inline-flex items-center gap-1.5 text-xs font-bold text-[#E1007A] hover:text-[#C70068] hover:bg-pink-50 px-2.5 py-1.5 rounded-lg border border-pink-200/80 transition-all cursor-pointer disabled:opacity-50"
-                          title={`Download ${doc.fileName}`}
-                        >
-                          {downloadingDocId === doc.id ? (
-                            <>
-                              <span className="w-3 h-3 border-2 border-[#E1007A] border-t-transparent rounded-full animate-spin inline-block" />
-                              <span>Preparing...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Download className="w-3.5 h-3.5" />
-                              <span>Download</span>
-                            </>
-                          )}
-                        </button>
-                      )}
+                      <div className="flex items-center justify-end gap-2">
+                        {doc.canDownload === false ? (
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md"
+                            title="Access Restricted: You do not have permission to download this document."
+                          >
+                            <Lock className="w-3 h-3 text-amber-600" />
+                            Restricted
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDownloadClick(doc.id, doc.fileName)
+                            }
+                            disabled={downloadingDocId === doc.id}
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-[#E1007A] hover:text-[#C70068] hover:bg-pink-50 px-2.5 py-1.5 rounded-lg border border-pink-200/80 transition-all cursor-pointer disabled:opacity-50"
+                            title={`Download ${doc.fileName}`}
+                          >
+                            {downloadingDocId === doc.id ? (
+                              <>
+                                <span className="w-3 h-3 border-2 border-[#E1007A] border-t-transparent rounded-full animate-spin inline-block" />
+                                <span>Preparing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Download className="w-3.5 h-3.5" />
+                                <span>Download</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+
+                        {onDeleteDocument &&
+                          (() => {
+                            const deleteCheck = canDeleteDocument(
+                              doc,
+                              linkedInfo?.isCompleted,
+                            );
+                            return deleteCheck.canDelete ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setDocumentToDelete({
+                                    id: doc.id,
+                                    fileName: doc.fileName,
+                                    isEvidence: Boolean(doc.workItemId),
+                                    taskName: linkedInfo?.taskName,
+                                    isCompletedTask: linkedInfo?.isCompleted,
+                                  })
+                                }
+                                className="inline-flex items-center justify-center p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors cursor-pointer"
+                                title={`Delete ${doc.fileName}`}
+                                aria-label={`Delete ${doc.fileName}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled
+                                className="inline-flex items-center justify-center p-1.5 rounded-lg border border-slate-200 text-slate-300 bg-slate-50 cursor-not-allowed"
+                                title={deleteCheck.reason}
+                                aria-label={deleteCheck.reason || 'Delete disabled'}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            );
+                          })()}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -538,6 +597,51 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* Document Delete Confirmation Dialog */}
+      {documentToDelete && (
+        <ConfirmDeleteModal
+          isOpen={true}
+          onClose={() => {
+            if (!isDeletingDoc) setDocumentToDelete(null);
+          }}
+          onConfirm={async () => {
+            if (onDeleteDocument && documentToDelete) {
+              setIsDeletingDoc(true);
+              try {
+                await onDeleteDocument(
+                  documentToDelete.id,
+                  documentToDelete.fileName,
+                );
+                setDocumentToDelete(null);
+              } finally {
+                setIsDeletingDoc(false);
+              }
+            }
+          }}
+          isDeleting={isDeletingDoc}
+          title={
+            documentToDelete.isCompletedTask
+              ? 'Delete Completed Milestone Evidence'
+              : documentToDelete.isEvidence
+                ? 'Delete Task Evidence Document'
+                : 'Delete Case Document'
+          }
+          description={
+            documentToDelete.isCompletedTask
+              ? `Caution: "${documentToDelete.fileName}" is verified supporting evidence for completed milestone task "${documentToDelete.taskName}". Deleting this file will be permanently recorded in the case audit trail.`
+              : documentToDelete.isEvidence
+                ? `"${documentToDelete.fileName}" is attached as required evidence for task "${documentToDelete.taskName}". Deleting it will detach the evidence and prevent task completion until a new file is uploaded.`
+                : `Are you sure you want to permanently delete "${documentToDelete.fileName}"?`
+          }
+          warningText={
+            documentToDelete.isCompletedTask
+              ? 'Administrative Action: This file will be permanently purged from Cloudflare R2 storage. Downstream completed workflow milestones will remain completed.'
+              : 'This action cannot be undone. The file will be permanently removed from storage.'
+          }
+          confirmButtonText="Delete Document"
+        />
       )}
     </div>
   );

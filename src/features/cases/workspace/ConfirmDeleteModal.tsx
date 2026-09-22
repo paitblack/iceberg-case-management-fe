@@ -11,6 +11,7 @@ interface ConfirmDeleteModalProps {
   description: string;
   confirmButtonText?: string;
   isDeleting?: boolean;
+  warningText?: string;
 }
 
 export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
@@ -21,6 +22,7 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
   description,
   confirmButtonText = 'Delete',
   isDeleting = false,
+  warningText = 'This action cannot be undone. Custom workflow components will be permanently removed from this case.',
 }) => {
   return (
     <Modal
@@ -58,8 +60,7 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
       <div className="py-2 space-y-3">
         <p className="text-sm text-slate-600 leading-relaxed">{description}</p>
         <div className="p-3 bg-rose-50/80 border border-rose-200/80 rounded-xl text-xs text-rose-800 font-medium leading-relaxed">
-          This action cannot be undone. Custom workflow components will be
-          permanently removed from this case.
+          {warningText}
         </div>
       </div>
     </Modal>
