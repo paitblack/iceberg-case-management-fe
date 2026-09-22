@@ -32,6 +32,7 @@ interface WorkItemExecutionRowProps {
   onUpdateTargetDate?: (targetDate: string | null) => Promise<void>;
   onUploadDocument?: (file: File, workItemId: string) => Promise<void>;
   onDownloadDocument?: (documentId: string, fileName?: string) => Promise<void>;
+  onOpenEvidenceModal?: (workItem: BffWorkspaceWorkItem) => void;
   isLoading: boolean;
   isUploadingDoc?: boolean;
 }
@@ -46,6 +47,7 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
   onUpdateTargetDate,
   onUploadDocument,
   onDownloadDocument,
+  onOpenEvidenceModal,
   isLoading,
   isUploadingDoc = false,
 }) => {
@@ -247,10 +249,11 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
                     <span>Evidence Required</span>
                   </span>
 
-                  {/* Inline Upload Evidence Action Button */}
+                  {/* Inline Upload Evidence fallback if modal not provided */}
                   {!isReadOnly &&
                     !isCompleted &&
                     !isWaived &&
+                    !onOpenEvidenceModal &&
                     onUploadDocument &&
                     canExecute && (
                       <>
@@ -420,26 +423,44 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
           </Button>
         )}
 
-        {canComplete && (
-          <Button
-            variant="primary"
-            size="xs"
-            isLoading={isLoading}
-            disabled={!canExecute || (workItem.evidenceRequired && !linkedDoc)}
-            onClick={() => onAction(workItem.id, 'COMPLETE')}
-            leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
-            className="font-bold text-[11px]"
-            title={
-              !canExecute
-                ? reason
-                : workItem.evidenceRequired && !linkedDoc
-                  ? 'Evidence document must be uploaded before completing this task'
-                  : 'Mark task as completed'
-            }
-          >
-            Complete Task
-          </Button>
-        )}
+        {canComplete &&
+          (workItem.evidenceRequired && !linkedDoc ? (
+            <Button
+              variant="primary"
+              size="xs"
+              isLoading={isLoading}
+              disabled={!canExecute}
+              onClick={() => {
+                if (onOpenEvidenceModal) {
+                  onOpenEvidenceModal(workItem);
+                } else if (fileInputRef.current) {
+                  fileInputRef.current.click();
+                }
+              }}
+              leftIcon={<UploadCloud className="w-3.5 h-3.5" />}
+              className="font-bold text-[11px] shadow-xs"
+              title={
+                !canExecute
+                  ? reason
+                  : 'Upload required evidence document to enable task completion'
+              }
+            >
+              Upload Evidence
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              size="xs"
+              isLoading={isLoading}
+              disabled={!canExecute}
+              onClick={() => onAction(workItem.id, 'COMPLETE')}
+              leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+              className="font-bold text-[11px]"
+              title={!canExecute ? reason : 'Mark task as completed'}
+            >
+              Complete Task
+            </Button>
+          ))}
 
         {!isReadOnly && isCompleted && (
           <Badge variant="success" size="xs">
