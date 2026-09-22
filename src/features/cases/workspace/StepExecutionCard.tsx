@@ -22,6 +22,7 @@ import { InlineTargetDateEditor } from './InlineTargetDateEditor';
 import { isStepOrphan } from './SalesProgressionTracker';
 import type {
   BffWorkspaceStep,
+  BffWorkspaceWorkItem,
   BffCaseDocument,
   BffParticipant,
   StepActionType,
@@ -53,6 +54,10 @@ interface StepExecutionCardProps {
   ) => Promise<void>;
   onUploadDocument?: (file: File, workItemId: string) => Promise<void>;
   onDownloadDocument?: (documentId: string, fileName?: string) => Promise<void>;
+  onOpenEvidenceModal?: (
+    stepId: string,
+    workItem: BffWorkspaceWorkItem,
+  ) => void;
   onDeleteStep?: (stepId: string) => void;
   onMoveStepUp?: (stepId: string) => void;
   onMoveStepDown?: (stepId: string) => void;
@@ -79,6 +84,7 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
   onUpdateWorkItemTargetDate,
   onUploadDocument,
   onDownloadDocument,
+  onOpenEvidenceModal,
   onDeleteStep,
   onMoveStepUp,
   onMoveStepDown,
@@ -235,10 +241,10 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
 
             {/* Row 2: Secondary Context, Tasks progress, SLA deadline, & Description */}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-
               {step.workItems.length > 0 && (
                 <span className="text-[11px] font-medium text-slate-600">
-                  {completedWorkItemsCount} of {step.workItems.length} tasks completed
+                  {completedWorkItemsCount} of {step.workItems.length} tasks
+                  completed
                 </span>
               )}
 
@@ -386,8 +392,12 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
             <div className="flex items-center gap-2 pt-2.5 px-1 text-xs text-slate-500">
               <Info className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
               <span>
-                <span className="font-bold text-slate-900">Independent Milestone:</span>{' '}
-                This step is not linked to the sequential progression flow. You can work on and complete it at any time without waiting for or delaying other steps.
+                <span className="font-bold text-slate-900">
+                  Independent Milestone:
+                </span>{' '}
+                This step is not linked to the sequential progression flow. You
+                can work on and complete it at any time without waiting for or
+                delaying other steps.
               </span>
             </div>
           )}
@@ -396,7 +406,8 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
             <div className="p-3.5 mt-3 rounded-xl bg-slate-100/80 border border-slate-200/80 flex items-center gap-2.5 text-xs text-slate-600 font-medium">
               <Lock className="w-4 h-4 text-slate-400 shrink-0" />
               <span>
-                This step is not active yet. Complete all prerequisite predecessor milestones to unlock task execution.
+                This step is not active yet. Complete all prerequisite
+                predecessor milestones to unlock task execution.
               </span>
             </div>
           )}
@@ -454,6 +465,11 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                   }
                   onUploadDocument={onUploadDocument}
                   onDownloadDocument={onDownloadDocument}
+                  onOpenEvidenceModal={
+                    onOpenEvidenceModal
+                      ? (wiTarget) => onOpenEvidenceModal(step.id, wiTarget)
+                      : undefined
+                  }
                 />
               ))}
             </div>

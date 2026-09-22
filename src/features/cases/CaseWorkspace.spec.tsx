@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import {
+  render,
+  screen,
+  fireEvent,
+  within,
+  waitFor,
+} from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { WorkspaceHeader } from './workspace/WorkspaceHeader';
 import { BlockersBanner } from './workspace/BlockersBanner';
@@ -826,6 +832,162 @@ describe('Case Workspace Components', () => {
         name: /Completed tasks cannot be deleted/i,
       });
       expect(deleteBtn).toBeDisabled();
+    });
+
+    it('propagates onOpenEvidenceModal when clicking Upload Evidence in StepExecutionCard', () => {
+      const mockWorkItemWithEvidence: BffWorkspaceWorkItem = {
+        id: 'wi-evidence-1',
+        stepId: 'step-test-1',
+        title: 'ID Verification',
+        requirement: 'required',
+        status: 'Pending',
+        evidenceRequired: true,
+        allowedActions: ['COMPLETE'],
+      };
+
+      const stepWithEvidence: BffWorkspaceStep = {
+        id: 'step-test-1',
+        stepDefinitionId: 'step-def-1',
+        name: 'Anti-Money Laundering & Identity Checks',
+        status: 'InProgress',
+        displayOrder: 1,
+        dependencyJoinType: 'ALL',
+        dependencies: [],
+        workItems: [mockWorkItemWithEvidence],
+        allowedActions: [],
+      };
+
+      const handleOpenModal = vi.fn();
+
+      render(
+        <StepExecutionCard
+          step={stepWithEvidence}
+          onStepAction={vi.fn()}
+          onWorkItemAction={vi.fn()}
+          onOpenEvidenceModal={handleOpenModal}
+          loadingStepId={null}
+          loadingWorkItemId={null}
+        />,
+      );
+
+      const uploadBtn = screen.getByRole('button', {
+        name: /^Upload Evidence$/i,
+      });
+      expect(uploadBtn).toBeInTheDocument();
+
+      fireEvent.click(uploadBtn);
+      expect(handleOpenModal).toHaveBeenCalledTimes(1);
+      expect(handleOpenModal).toHaveBeenCalledWith(
+        'step-test-1',
+        mockWorkItemWithEvidence,
+      );
+    });
+
+    it('renders UploadEvidenceModal, uploads document, and enables Complete Task button in CaseWorkspacePage', async () => {
+      const evidenceWorkItem: BffWorkspaceWorkItem = {
+        id: 'wi-evidence-1',
+        stepId: 'step-1',
+        title: 'Upload Contract Evidence',
+        requirement: 'required',
+        status: 'Pending',
+        evidenceRequired: true,
+        allowedActions: ['COMPLETE'],
+      };
+
+      const snapshotBeforeUpload: BffWorkspaceSnapshot = {
+        ...mockSnapshot,
+        steps: [
+          {
+            id: 'step-1',
+            stepDefinitionId: 'step-def-1',
+            name: 'Legal Enquiries',
+            status: 'InProgress',
+            displayOrder: 1,
+            dependencyJoinType: 'ALL',
+            dependencies: [],
+            workItems: [evidenceWorkItem],
+            allowedActions: [],
+          },
+        ],
+        documents: [],
+      };
+
+      const snapshotAfterUpload: BffWorkspaceSnapshot = {
+        ...snapshotBeforeUpload,
+        documents: [
+          {
+            id: 'doc-1',
+            workItemId: 'wi-evidence-1',
+            fileName: 'signed_contract.pdf',
+            fileSizeBytes: 1024,
+            fileType: 'application/pdf',
+            category: 'Evidence',
+            uploadedAt: '2026-09-22T10:00:00Z',
+            uploadedByName: 'Agent Smith',
+          },
+        ],
+      };
+
+      vi.spyOn(apiClient, 'fetchCaseWorkspace')
+        .mockResolvedValueOnce(snapshotBeforeUpload)
+        .mockResolvedValueOnce(snapshotAfterUpload);
+      const uploadDocSpy = vi
+        .spyOn(apiClient, 'uploadCaseDocument')
+        .mockResolvedValue(undefined);
+      const executeActionSpy = vi
+        .spyOn(apiClient, 'executeWorkItemAction')
+        .mockResolvedValue({ success: true, resourceVersion: 1 });
+
+      render(
+        <MemoryRouter initialEntries={['/cases/case-test-101']}>
+          <Routes>
+            <Route path="/cases/:caseId" element={<CaseWorkspacePage />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+
+      const uploadEvidenceBtn = await screen.findByRole('button', {
+        name: /^Upload Evidence$/i,
+      });
+      expect(uploadEvidenceBtn).toBeInTheDocument();
+
+      fireEvent.click(uploadEvidenceBtn);
+
+      const modal = await screen.findByRole('dialog');
+      expect(
+        within(modal).getByRole('heading', {
+          name: /Evidence Verification Required/i,
+        }),
+      ).toBeInTheDocument();
+
+      const file = new File(['mock pdf content'], 'signed_contract.pdf', {
+        type: 'application/pdf',
+      });
+      const fileInput = within(modal).getByTestId('evidence-file-input');
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      const submitBtn = within(modal).getByRole('button', {
+        name: /^Upload Evidence$/i,
+      });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(uploadDocSpy).toHaveBeenCalledWith(
+          'case-test-101',
+          file,
+          'wi-evidence-1',
+        );
+      });
+
+      // Verify work item is NOT automatically completed
+      expect(executeActionSpy).not.toHaveBeenCalled();
+
+      // Verify button transforms to Complete Task once document is attached
+      const completeTaskBtn = await screen.findByRole('button', {
+        name: /^Complete Task$/i,
+      });
+      expect(completeTaskBtn).toBeInTheDocument();
+      expect(completeTaskBtn).not.toBeDisabled();
     });
   });
 });

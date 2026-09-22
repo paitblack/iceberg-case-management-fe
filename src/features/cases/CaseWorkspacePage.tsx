@@ -27,6 +27,7 @@ import { ChangeStatusModal } from './components/ChangeStatusModal';
 import { AddAdHocStepModal } from './workspace/AddAdHocStepModal';
 import { AddAdHocWorkItemModal } from './workspace/AddAdHocWorkItemModal';
 import { ConfirmDeleteModal } from './workspace/ConfirmDeleteModal';
+import { UploadEvidenceModal } from './workspace/UploadEvidenceModal';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Spinner';
 import { usePermissions } from '../auth/usePermissions';
@@ -53,6 +54,7 @@ import {
 } from '../../lib/api-client';
 import type {
   BffWorkspaceSnapshot,
+  BffWorkspaceWorkItem,
   StepActionType,
   WorkItemActionType,
   AssignParticipantPayload,
@@ -117,6 +119,18 @@ export const CaseWorkspacePage: React.FC = () => {
     name: string;
   } | null>(null);
   const [isDeletingItem, setIsDeletingItem] = useState<boolean>(false);
+
+  // Evidence upload & verification modal state
+  const [evidenceTarget, setEvidenceTarget] = useState<{
+    stepId: string;
+    stepName: string;
+    workItem: BffWorkspaceWorkItem;
+  } | null>(null);
+  const [isSubmittingEvidence, setIsSubmittingEvidence] =
+    useState<boolean>(false);
+  const [evidenceErrorMessage, setEvidenceErrorMessage] = useState<
+    string | null
+  >(null);
 
   const handleSelectStep = (stepId: string) => {
     setActiveTab('progression');
@@ -276,6 +290,45 @@ export const CaseWorkspacePage: React.FC = () => {
     } finally {
       setIsUploadingDoc(false);
       setUploadingWorkItemId(null);
+    }
+  };
+
+  const handleOpenEvidenceModal = (
+    stepId: string,
+    workItem: BffWorkspaceWorkItem,
+  ) => {
+    const step = snapshot?.steps?.find((s) => s.id === stepId);
+    setEvidenceErrorMessage(null);
+    setEvidenceTarget({
+      stepId,
+      stepName: step?.name || '',
+      workItem,
+    });
+  };
+
+  const handleUploadEvidence = async (file: File) => {
+    if (!caseId || !evidenceTarget) return;
+    setIsSubmittingEvidence(true);
+    setEvidenceErrorMessage(null);
+    try {
+      await uploadCaseDocument(caseId, file, evidenceTarget.workItem.id);
+      showToast(
+        'success',
+        `Evidence "${file.name}" uploaded successfully. Task is now ready to be completed.`,
+      );
+      setEvidenceTarget(null);
+      await loadWorkspace();
+    } catch (err: unknown) {
+      const msg =
+        err instanceof ApiError
+          ? err.problem.detail || err.message
+          : err instanceof Error
+            ? err.message
+            : 'Failed to upload evidence and complete task.';
+      setEvidenceErrorMessage(msg);
+      showToast('error', msg);
+    } finally {
+      setIsSubmittingEvidence(false);
     }
   };
 
@@ -957,6 +1010,7 @@ export const CaseWorkspacePage: React.FC = () => {
                     onUpdateWorkItemTargetDate={handleUpdateWorkItemTargetDate}
                     onUploadDocument={handleUploadDocument}
                     onDownloadDocument={handleDownloadDocument}
+                    onOpenEvidenceModal={handleOpenEvidenceModal}
                     loadingStepId={loadingStepId}
                     loadingWorkItemId={loadingWorkItemId}
                     uploadingWorkItemId={uploadingWorkItemId}
@@ -1094,6 +1148,29 @@ export const CaseWorkspacePage: React.FC = () => {
         }
         isDeleting={isDeletingItem}
       />
+
+      {/* Upload Evidence Modal */}
+      {evidenceTarget && (
+        <UploadEvidenceModal
+          isOpen={evidenceTarget !== null}
+          onClose={() => {
+            if (!isSubmittingEvidence) {
+              setEvidenceTarget(null);
+              setEvidenceErrorMessage(null);
+            }
+          }}
+          onSubmit={handleUploadEvidence}
+          workItemName={
+            evidenceTarget.workItem.name ||
+            evidenceTarget.workItem.title ||
+            'Task'
+          }
+          stepName={evidenceTarget.stepName}
+          targetRoleDisplayName={evidenceTarget.workItem.role}
+          isSubmitting={isSubmittingEvidence}
+          errorMessage={evidenceErrorMessage}
+        />
+      )}
     </div>
   );
 };
