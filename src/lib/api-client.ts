@@ -48,6 +48,9 @@ import type {
   ReorderStepsPayload,
   ReorderStepsResponse,
   AddAdHocWorkItemPayload,
+  BffCaseCommunication,
+  GenerateCommunicationDraftPayload,
+  SendCommunicationPayload,
 } from '../types/api';
 
 export class ApiError extends Error {
@@ -839,6 +842,34 @@ export async function deleteAdHocWorkItem(
   );
 }
 
+export async function generateCommunicationDraft(
+  caseId: string,
+  payload: GenerateCommunicationDraftPayload,
+): Promise<{ subject: string; bodyText: string; bodyHtml: string }> {
+  return apiPost<{ subject: string; bodyText: string; bodyHtml: string }>(
+    `/cases/${caseId}/communications/draft`,
+    payload,
+  );
+}
+
+export async function sendCaseCommunication(
+  caseId: string,
+  payload: SendCommunicationPayload,
+): Promise<BffCaseCommunication> {
+  return apiPost<BffCaseCommunication>(
+    `/cases/${caseId}/communications`,
+    payload,
+  );
+}
+
+export async function listCaseCommunications(
+  caseId: string,
+): Promise<BffCaseCommunication[]> {
+  return apiGet<BffCaseCommunication[]>(
+    `/cases/${caseId}/communications`,
+  );
+}
+
 export const workspaceApi = {
   addAdHocStep,
   reorderSteps: (caseId: string, stepOrder: string[]) =>
@@ -846,4 +877,7 @@ export const workspaceApi = {
   deleteAdHocStep,
   addAdHocWorkItem,
   deleteAdHocWorkItem,
+  generateCommunicationDraft,
+  sendCaseCommunication,
+  listCaseCommunications,
 };

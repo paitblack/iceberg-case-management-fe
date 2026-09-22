@@ -11,6 +11,7 @@ import {
   Download,
   Trash2,
   AlertTriangle,
+  Mail,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -36,6 +37,7 @@ interface WorkItemExecutionRowProps {
   onDownloadDocument?: (documentId: string, fileName?: string) => Promise<void>;
   onDeleteDocument?: (documentId: string, fileName?: string) => Promise<void>;
   onOpenEvidenceModal?: (workItem: BffWorkspaceWorkItem) => void;
+  onChase?: (workItem: BffWorkspaceWorkItem) => void;
   isLoading: boolean;
   isUploadingDoc?: boolean;
 }
@@ -52,6 +54,7 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
   onDownloadDocument,
   onDeleteDocument,
   onOpenEvidenceModal,
+  onChase,
   isLoading,
   isUploadingDoc = false,
 }) => {
@@ -72,6 +75,11 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
   const canWaive = !isReadOnly && workItem.allowedActions?.includes('WAIVE');
 
   const linkedDoc = documents.find((d) => d.workItemId === workItem.id);
+  const canChase =
+    Boolean(onChase) &&
+    !isReadOnly &&
+    (!isCompleted || (workItem.evidenceRequired && !linkedDoc)) &&
+    !isWaived;
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0] && onUploadDocument) {
@@ -478,6 +486,19 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
             <Lock className="w-3 h-3 text-slate-400 shrink-0" />
             <span>Locked</span>
           </div>
+        )}
+
+        {canChase && (
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() => onChase?.(workItem)}
+            className="text-[11px] font-semibold text-[#E1007A] hover:text-[#c4006a] hover:bg-pink-50"
+            leftIcon={<Mail className="w-3.5 h-3.5" />}
+            title="Open AI Communications Hub to draft a chasing email for this task"
+          >
+            Chase
+          </Button>
         )}
 
         {canWaive && (

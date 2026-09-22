@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   ShieldAlert,
   Plus,
+  Mail,
 } from 'lucide-react';
 import { WorkspaceHeader } from './workspace/WorkspaceHeader';
 import { AiCaseSummaryCard } from './workspace/AiCaseSummaryCard';
@@ -19,6 +20,10 @@ import { BlockersBanner } from './workspace/BlockersBanner';
 import { StepExecutionCard } from './workspace/StepExecutionCard';
 import { DocumentsTab } from './workspace/DocumentsTab';
 import { AnnouncementsTab } from './workspace/AnnouncementsTab';
+import {
+  CommunicationsTab,
+  type InitialCommunicationContext,
+} from './workspace/CommunicationsTab';
 import { ActivityTimelineTab } from './workspace/ActivityTimelineTab';
 import { RecentActivitiesFeed } from './workspace/RecentActivitiesFeed';
 import { CaseStakeholdersWidget } from './workspace/CaseStakeholdersWidget';
@@ -51,6 +56,9 @@ import {
   deleteAdHocStep,
   addAdHocWorkItem,
   deleteAdHocWorkItem,
+  listCaseCommunications,
+  sendCaseCommunication,
+  generateCommunicationDraft,
   ApiError,
 } from '../../lib/api-client';
 import type {
@@ -65,10 +73,18 @@ import type {
   CaseStatusAction,
   AddAdHocStepPayload,
   AddAdHocWorkItemPayload,
+  BffCaseCommunication,
+  SendCommunicationPayload,
+  GenerateCommunicationDraftPayload,
 } from '../../types/api';
 
 type WorkspaceTab =
-  'progression' | 'documents' | 'participants' | 'announcements' | 'activities';
+  | 'progression'
+  | 'documents'
+  | 'participants'
+  | 'announcements'
+  | 'communications'
+  | 'activities';
 
 export const CaseWorkspacePage: React.FC = () => {
   const { caseId = '' } = useParams<{ caseId?: string }>();
@@ -100,6 +116,16 @@ export const CaseWorkspacePage: React.FC = () => {
     useState<CaseStatusAction | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
   const [targetedStepId, setTargetedStepId] = useState<string | null>(null);
+
+  // Communications Hub State
+  const [communicationsList, setCommunicationsList] = useState<
+    BffCaseCommunication[]
+  >([]);
+  const [initialCommContext, setInitialCommContext] =
+    useState<InitialCommunicationContext | null>(null);
+  const [isSendingCommunication, setIsSendingCommunication] =
+    useState<boolean>(false);
+  const [isGeneratingDraft, setIsGeneratingDraft] = useState<boolean>(false);
 
   // Ad-hoc customization RBAC & modal state
   const { canCustomizeCase } = usePermissions();
@@ -180,10 +206,14 @@ export const CaseWorkspacePage: React.FC = () => {
     }
 
     try {
-      const data = await fetchCaseWorkspace(caseId);
+      const [data, comms] = await Promise.all([
+        fetchCaseWorkspace(caseId),
+        listCaseCommunications(caseId).catch(() => []),
+      ]);
       if (data) {
         setSnapshot(data);
       }
+      setCommunicationsList(comms);
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 403) {
         setIsForbidden(true);
@@ -581,6 +611,92 @@ export const CaseWorkspacePage: React.FC = () => {
     }
   };
 
+  const handleChaseWorkItem = (
+    step: import('../../types/api').BffWorkspaceStep,
+    workItem: BffWorkspaceWorkItem,
+  ) => {
+    const candidateRecipient = (snapshot?.participants || []).find((p) => {
+      if (
+        workItem.ownerRoleId &&
+        (p.roleId === workItem.ownerRoleId || p.roleName === workItem.ownerRoleId)
+      ) {
+        return true;
+      }
+      if (
+        workItem.role &&
+        (p.roleName === workItem.role || p.roleId === workItem.role)
+      ) {
+        return true;
+      }
+      if (workItem.assignee?.id && p.id === workItem.assignee.id) return true;
+      return false;
+    });
+
+    setInitialCommContext({
+      stepId: step.id,
+      stepName: step.name,
+      workItemId: workItem.id,
+      workItemName: workItem.name || workItem.title,
+      evidenceRequired: workItem.evidenceRequired,
+      targetRole: workItem.role || workItem.ownerRoleId,
+      recipientId: candidateRecipient?.id,
+      intent: workItem.evidenceRequired
+        ? 'DOCUMENT_REQUEST'
+        : 'MILESTONE_CHASE',
+    });
+    setActiveTab('communications');
+  };
+
+  const handleSendCommunication = async (
+    payload: SendCommunicationPayload,
+  ) => {
+    if (!caseId) return;
+    setIsSendingCommunication(true);
+    try {
+      await sendCaseCommunication(caseId, payload);
+      showToast(
+        'success',
+        'Email dispatched (simulated) and recorded in outbox.',
+      );
+      const updated = await listCaseCommunications(caseId);
+      setCommunicationsList(updated);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        showToast(
+          'error',
+          err.problem.detail || err.problem.title || err.message,
+        );
+      } else {
+        showToast('error', 'Failed to dispatch communication.');
+      }
+      throw err;
+    } finally {
+      setIsSendingCommunication(false);
+    }
+  };
+
+  const handleGenerateCommunicationDraft = async (
+    payload: GenerateCommunicationDraftPayload,
+  ) => {
+    if (!caseId) throw new Error('Case ID is required');
+    setIsGeneratingDraft(true);
+    try {
+      return await generateCommunicationDraft(caseId, payload);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        showToast(
+          'error',
+          err.problem.detail || err.problem.title || err.message,
+        );
+      } else {
+        showToast('error', 'Failed to generate draft with AI.');
+      }
+      throw err;
+    } finally {
+      setIsGeneratingDraft(false);
+    }
+  };
+
   // Ad-hoc Customization Handlers (Epic 1)
   const handleAddAdHocStep = async (payload: AddAdHocStepPayload) => {
     if (!caseId) return;
@@ -960,6 +1076,19 @@ export const CaseWorkspacePage: React.FC = () => {
 
             <button
               type="button"
+              onClick={() => setActiveTab('communications')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                activeTab === 'communications'
+                  ? 'border-[#E1007A] text-[#E1007A]'
+                  : 'border-transparent text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <Mail className="w-4 h-4" />
+              <span>Communications Hub ({communicationsList.length})</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setActiveTab('activities')}
               className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
                 activeTab === 'activities'
@@ -1042,6 +1171,7 @@ export const CaseWorkspacePage: React.FC = () => {
                     uploadingWorkItemId={uploadingWorkItemId}
                     isAddingNote={isSubmittingNote}
                     isTargeted={targetedStepId === step.id}
+                    onChaseWorkItem={handleChaseWorkItem}
                   />
                 ))
               )}
@@ -1067,6 +1197,20 @@ export const CaseWorkspacePage: React.FC = () => {
               onPostReply={handlePostReply}
               isPostingAnnouncement={isPostingAnnouncement}
               isPostingReply={isPostingReply}
+            />
+          )}
+
+          {activeTab === 'communications' && (
+            <CommunicationsTab
+              caseId={caseId}
+              caseTitle={snapshot.title || 'Case Progression'}
+              participants={participantsList}
+              communications={communicationsList}
+              initialContext={initialCommContext}
+              onSendCommunication={handleSendCommunication}
+              onGenerateDraft={handleGenerateCommunicationDraft}
+              isSending={isSendingCommunication}
+              isGeneratingDraft={isGeneratingDraft}
             />
           )}
 

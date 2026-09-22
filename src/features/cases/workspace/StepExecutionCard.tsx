@@ -59,6 +59,10 @@ interface StepExecutionCardProps {
     stepId: string,
     workItem: BffWorkspaceWorkItem,
   ) => void;
+  onChaseWorkItem?: (
+    step: BffWorkspaceStep,
+    workItem: BffWorkspaceWorkItem,
+  ) => void;
   onDeleteStep?: (stepId: string) => void;
   onMoveStepUp?: (stepId: string) => void;
   onMoveStepDown?: (stepId: string) => void;
@@ -87,6 +91,7 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
   onDownloadDocument,
   onDeleteDocument,
   onOpenEvidenceModal,
+  onChaseWorkItem,
   onDeleteStep,
   onMoveStepUp,
   onMoveStepDown,
@@ -471,6 +476,11 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                   onOpenEvidenceModal={
                     onOpenEvidenceModal
                       ? (wiTarget) => onOpenEvidenceModal(step.id, wiTarget)
+                      : undefined
+                  }
+                  onChase={
+                    onChaseWorkItem
+                      ? (wiTarget) => onChaseWorkItem(step, wiTarget)
                       : undefined
                   }
                 />
