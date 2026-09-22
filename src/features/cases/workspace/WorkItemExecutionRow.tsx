@@ -15,6 +15,7 @@ import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { SlaBadge } from '../../../components/ui/SlaBadge';
 import { InlineTargetDateEditor } from './InlineTargetDateEditor';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { usePermissions } from '../../auth/usePermissions';
 import type {
   BffWorkspaceWorkItem,
@@ -32,6 +33,7 @@ interface WorkItemExecutionRowProps {
   onUpdateTargetDate?: (targetDate: string | null) => Promise<void>;
   onUploadDocument?: (file: File, workItemId: string) => Promise<void>;
   onDownloadDocument?: (documentId: string, fileName?: string) => Promise<void>;
+  onDeleteDocument?: (documentId: string, fileName?: string) => Promise<void>;
   onOpenEvidenceModal?: (workItem: BffWorkspaceWorkItem) => void;
   isLoading: boolean;
   isUploadingDoc?: boolean;
@@ -47,10 +49,13 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
   onUpdateTargetDate,
   onUploadDocument,
   onDownloadDocument,
+  onDeleteDocument,
   onOpenEvidenceModal,
   isLoading,
   isUploadingDoc = false,
 }) => {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeletingDoc, setIsDeletingDoc] = useState(false);
   const { canExecuteWorkItem } = usePermissions();
   const { canExecute, reason, targetRoleDisplayName } =
     canExecuteWorkItem(workItem);
@@ -213,9 +218,8 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
 
                   {/* Replace Evidence Button */}
                   {!isReadOnly &&
-                    !isCompleted &&
                     !isWaived &&
-                    onUploadDocument &&
+                    (onOpenEvidenceModal || onUploadDocument) &&
                     canExecute && (
                       <>
                         <input
@@ -228,7 +232,11 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            fileInputRef.current?.click();
+                            if (onOpenEvidenceModal) {
+                              onOpenEvidenceModal(workItem);
+                            } else {
+                              fileInputRef.current?.click();
+                            }
                           }}
                           disabled={isUploadingDoc}
                           className="text-[10px] text-emerald-700 font-semibold underline hover:text-emerald-900 cursor-pointer ml-0.5"
@@ -237,6 +245,27 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
                           {isUploadingDoc ? 'Uploading...' : 'Replace'}
                         </button>
                       </>
+                    )}
+
+                  {/* Remove Evidence Button (Pending / In-Flight tasks) */}
+                  {!isReadOnly &&
+                    !isCompleted &&
+                    !isWaived &&
+                    onDeleteDocument &&
+                    canExecute && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowDeleteConfirm(true);
+                        }}
+                        disabled={isDeletingDoc}
+                        className="p-1 rounded text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+                        title="Remove attached evidence document"
+                        aria-label="Remove evidence document"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                     )}
                 </span>
               ) : (
@@ -499,6 +528,32 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
             </button>
           ))}
       </div>
+
+      {/* Remove Evidence Confirmation Modal */}
+      {showDeleteConfirm && linkedDoc && (
+        <ConfirmDeleteModal
+          isOpen={true}
+          onClose={() => {
+            if (!isDeletingDoc) setShowDeleteConfirm(false);
+          }}
+          onConfirm={async () => {
+            if (onDeleteDocument && linkedDoc) {
+              setIsDeletingDoc(true);
+              try {
+                await onDeleteDocument(linkedDoc.id, linkedDoc.fileName);
+                setShowDeleteConfirm(false);
+              } finally {
+                setIsDeletingDoc(false);
+              }
+            }
+          }}
+          isDeleting={isDeletingDoc}
+          title="Remove Evidence Document"
+          description={`Are you sure you want to remove "${linkedDoc.fileName}" from "${workItem.name || workItem.title || 'this task'}"? This task requires evidence and cannot be completed until a new document is attached.`}
+          warningText="This action will permanently delete the document from storage and reset the task completion requirement."
+          confirmButtonText="Remove Evidence"
+        />
+      )}
     </div>
   );
 };

@@ -54,6 +54,7 @@ interface StepExecutionCardProps {
   ) => Promise<void>;
   onUploadDocument?: (file: File, workItemId: string) => Promise<void>;
   onDownloadDocument?: (documentId: string, fileName?: string) => Promise<void>;
+  onDeleteDocument?: (documentId: string, fileName?: string) => Promise<void>;
   onOpenEvidenceModal?: (
     stepId: string,
     workItem: BffWorkspaceWorkItem,
@@ -84,6 +85,7 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
   onUpdateWorkItemTargetDate,
   onUploadDocument,
   onDownloadDocument,
+  onDeleteDocument,
   onOpenEvidenceModal,
   onDeleteStep,
   onMoveStepUp,
@@ -465,6 +467,7 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                   }
                   onUploadDocument={onUploadDocument}
                   onDownloadDocument={onDownloadDocument}
+                  onDeleteDocument={onDeleteDocument}
                   onOpenEvidenceModal={
                     onOpenEvidenceModal
                       ? (wiTarget) => onOpenEvidenceModal(step.id, wiTarget)

@@ -90,6 +90,7 @@ export const PREDEFINED_PERSONAS: UserPersona[] = [
       DOMAIN_PERMISSIONS.ANNOUNCEMENT_CREATE,
       DOMAIN_PERMISSIONS.DOCUMENT_UPLOAD,
       DOMAIN_PERMISSIONS.DOCUMENT_DOWNLOAD,
+      DOMAIN_PERMISSIONS.DOCUMENT_DELETE,
     ],
     description:
       'Branch Estate Agent handling property listings, client onboarding, and progression tasks.',
@@ -115,6 +116,7 @@ export const PREDEFINED_PERSONAS: UserPersona[] = [
       DOMAIN_PERMISSIONS.ANNOUNCEMENT_CREATE,
       DOMAIN_PERMISSIONS.DOCUMENT_UPLOAD,
       DOMAIN_PERMISSIONS.DOCUMENT_DOWNLOAD,
+      DOMAIN_PERMISSIONS.DOCUMENT_DELETE,
     ],
     description:
       'Branch Negotiator & Sales Assistant at West London office managing daily progression tasks.',

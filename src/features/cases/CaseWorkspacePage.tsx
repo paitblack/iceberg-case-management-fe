@@ -36,6 +36,7 @@ import {
   executeStepAction,
   executeWorkItemAction,
   uploadCaseDocument,
+  deleteCaseDocument,
   getDocumentDownloadUrl,
   assignCaseParticipant,
   removeCaseParticipant,
@@ -371,7 +372,29 @@ export const CaseWorkspacePage: React.FC = () => {
       if (err instanceof ApiError) {
         showToast('error', err.problem.detail || err.message);
       } else {
-        showToast('error', 'Failed to generate document download link.');
+        showToast('error', 'Failed to retrieve document download link.');
+      }
+      throw err;
+    }
+  };
+
+  const handleDeleteDocument = async (
+    documentId: string,
+    fileName?: string,
+  ) => {
+    if (!caseId) return;
+    try {
+      await deleteCaseDocument(caseId, documentId);
+      showToast(
+        'success',
+        `Document "${fileName || 'File'}" was deleted successfully.`,
+      );
+      await loadWorkspace();
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        showToast('error', err.problem.detail || err.message);
+      } else {
+        showToast('error', 'Failed to delete document.');
       }
       throw err;
     }
@@ -1010,6 +1033,7 @@ export const CaseWorkspacePage: React.FC = () => {
                     onUpdateWorkItemTargetDate={handleUpdateWorkItemTargetDate}
                     onUploadDocument={handleUploadDocument}
                     onDownloadDocument={handleDownloadDocument}
+                    onDeleteDocument={handleDeleteDocument}
                     onOpenEvidenceModal={handleOpenEvidenceModal}
                     loadingStepId={loadingStepId}
                     loadingWorkItemId={loadingWorkItemId}
@@ -1028,6 +1052,7 @@ export const CaseWorkspacePage: React.FC = () => {
               steps={stepsList}
               onUploadDocument={handleUploadDocument}
               onDownloadDocument={handleDownloadDocument}
+              onDeleteDocument={handleDeleteDocument}
               isUploading={isUploadingDoc}
             />
           )}

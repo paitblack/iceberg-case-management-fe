@@ -100,4 +100,45 @@ describe('WorkItemExecutionRow - Evidence Flow', () => {
     fireEvent.click(completeBtn);
     expect(handleAction).toHaveBeenCalledWith('wi-102', 'COMPLETE');
   });
+
+  it('allows removing attached evidence document via confirmation modal', async () => {
+    const attachedDoc: BffCaseDocument = {
+      id: 'doc-999',
+      workItemId: 'wi-101',
+      fileName: 'bank_statement.pdf',
+      fileSizeBytes: 1024,
+      fileType: 'application/pdf',
+      category: 'Evidence',
+      uploadedAt: '2026-09-22T10:00:00Z',
+      uploadedByName: 'Agent Smith',
+    };
+
+    const handleDelete = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <WorkItemExecutionRow
+        workItem={baseWorkItem}
+        documents={[attachedDoc]}
+        isLoading={false}
+        onAction={vi.fn()}
+        onDeleteDocument={handleDelete}
+      />,
+    );
+
+    const removeBtn = screen.getByRole('button', {
+      name: 'Remove evidence document',
+    });
+    expect(removeBtn).toBeInTheDocument();
+
+    fireEvent.click(removeBtn);
+
+    expect(
+      screen.getByText(/Are you sure you want to remove "bank_statement.pdf"/i),
+    ).toBeInTheDocument();
+
+    const confirmBtn = screen.getByRole('button', { name: 'Remove Evidence' });
+    fireEvent.click(confirmBtn);
+
+    expect(handleDelete).toHaveBeenCalledWith('doc-999', 'bank_statement.pdf');
+  });
 });
