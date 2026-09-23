@@ -33,6 +33,7 @@ import { AddAdHocStepModal } from './workspace/AddAdHocStepModal';
 import { AddAdHocWorkItemModal } from './workspace/AddAdHocWorkItemModal';
 import { ConfirmDeleteModal } from './workspace/ConfirmDeleteModal';
 import { UploadEvidenceModal } from './workspace/UploadEvidenceModal';
+import { WorkItemOutreachModal } from './workspace/WorkItemOutreachModal';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Spinner';
 import { usePermissions } from '../auth/usePermissions';
@@ -63,7 +64,9 @@ import {
 } from '../../lib/api-client';
 import type {
   BffWorkspaceSnapshot,
+  BffWorkspaceStep,
   BffWorkspaceWorkItem,
+  CommunicationIntent,
   StepActionType,
   WorkItemActionType,
   AssignParticipantPayload,
@@ -126,6 +129,11 @@ export const CaseWorkspacePage: React.FC = () => {
   const [isSendingCommunication, setIsSendingCommunication] =
     useState<boolean>(false);
   const [isGeneratingDraft, setIsGeneratingDraft] = useState<boolean>(false);
+  const [workItemOutreachContext, setWorkItemOutreachContext] = useState<{
+    step: BffWorkspaceStep;
+    workItem: BffWorkspaceWorkItem;
+    intent: CommunicationIntent;
+  } | null>(null);
 
   // Ad-hoc customization RBAC & modal state
   const { canCustomizeCase } = usePermissions();
@@ -290,6 +298,20 @@ export const CaseWorkspacePage: React.FC = () => {
         'success',
         `Work item '${action}' executed successfully on backend.`,
       );
+
+      // If work item was completed, prompt optional stakeholder outreach modal
+      if (action === 'COMPLETE') {
+        const step = snapshot?.steps?.find((s) => s.id === stepId);
+        const workItem = step?.workItems?.find((w) => w.id === workItemId);
+        if (step && workItem) {
+          setWorkItemOutreachContext({
+            step,
+            workItem,
+            intent: 'PROGRESS_UPDATE',
+          });
+        }
+      }
+
       await loadWorkspace();
     } catch (err) {
       if (err instanceof ApiError) {
@@ -612,9 +634,21 @@ export const CaseWorkspacePage: React.FC = () => {
   };
 
   const handleChaseWorkItem = (
-    step: import('../../types/api').BffWorkspaceStep,
+    step: BffWorkspaceStep,
     workItem: BffWorkspaceWorkItem,
   ) => {
+    setWorkItemOutreachContext({
+      step,
+      workItem,
+      intent: workItem.evidenceRequired
+        ? 'DOCUMENT_REQUEST'
+        : 'MILESTONE_CHASE',
+    });
+  };
+
+  const handleOpenOutreachInHub = () => {
+    if (!workItemOutreachContext) return;
+    const { step, workItem, intent } = workItemOutreachContext;
     const candidateRecipient = (snapshot?.participants || []).find((p) => {
       if (
         workItem.ownerRoleId &&
@@ -640,10 +674,9 @@ export const CaseWorkspacePage: React.FC = () => {
       evidenceRequired: workItem.evidenceRequired,
       targetRole: workItem.role || workItem.ownerRoleId,
       recipientId: candidateRecipient?.id,
-      intent: workItem.evidenceRequired
-        ? 'DOCUMENT_REQUEST'
-        : 'MILESTONE_CHASE',
+      intent,
     });
+    setWorkItemOutreachContext(null);
     setActiveTab('communications');
   };
 
@@ -660,6 +693,7 @@ export const CaseWorkspacePage: React.FC = () => {
       );
       const updated = await listCaseCommunications(caseId);
       setCommunicationsList(updated);
+      setWorkItemOutreachContext(null);
     } catch (err) {
       if (err instanceof ApiError) {
         showToast(
@@ -1340,6 +1374,25 @@ export const CaseWorkspacePage: React.FC = () => {
           targetRoleDisplayName={evidenceTarget.workItem.role}
           isSubmitting={isSubmittingEvidence}
           errorMessage={evidenceErrorMessage}
+        />
+      )}
+
+      {/* Work Item Stakeholder Outreach Modal */}
+      {workItemOutreachContext && (
+        <WorkItemOutreachModal
+          isOpen={workItemOutreachContext !== null}
+          onClose={() => setWorkItemOutreachContext(null)}
+          caseId={caseId}
+          workItem={workItemOutreachContext.workItem}
+          stepName={workItemOutreachContext.step.name}
+          caseTitle={snapshot?.title}
+          caseTypeName={snapshot?.caseTypeName}
+          participants={participantsList}
+          intent={workItemOutreachContext.intent}
+          onSendCommunication={handleSendCommunication}
+          onGenerateDraft={handleGenerateCommunicationDraft}
+          onOpenInHub={handleOpenOutreachInHub}
+          isSending={isSendingCommunication}
         />
       )}
     </div>

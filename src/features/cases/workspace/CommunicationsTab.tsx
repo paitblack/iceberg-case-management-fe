@@ -10,6 +10,7 @@ import {
   ChevronUp,
   Layers,
   ShieldCheck,
+  Users,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
@@ -74,41 +75,56 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
       if (initialContext.intent) {
         setIntent(initialContext.intent);
       }
+      if (initialContext.workItemName) {
+        const prefix =
+          initialContext.intent === 'DOCUMENT_REQUEST'
+            ? 'Action Required: Evidence for '
+            : 'Update on ';
+        setSubject(`${prefix}${initialContext.workItemName} – ${caseTitle}`);
+        setBodyText(
+          `Dear Stakeholders,\n\nI hope this email finds you well. I am writing regarding the ongoing sales progression for ${caseTitle}.\n\nPlease be advised that the task "${initialContext.workItemName}"${initialContext.stepName ? ` under milestone "${initialContext.stepName}"` : ''} has been completed.\n\nPlease let us know if any further information is needed to proceed.\n\nKind regards,\n${user?.name || 'Sarah Jenkins'}\nSales Progressor`,
+        );
+      }
       // Attempt to auto-select matching recipient by role or id
       if (initialContext.recipientId) {
-        setSelectedRecipientId(initialContext.recipientId);
+        setSelectedRecipientIds([initialContext.recipientId]);
       } else if (initialContext.targetRole && participants.length > 0) {
-        const match = participants.find(
+        const matches = participants.filter(
           (p) =>
             p.roleId.toLowerCase() === initialContext.targetRole?.toLowerCase() ||
             p.roleName?.toLowerCase() ===
-              initialContext.targetRole?.toLowerCase(),
+            initialContext.targetRole?.toLowerCase(),
         );
-        if (match) {
-          setSelectedRecipientId(match.id);
+        if (matches.length > 0) {
+          setSelectedRecipientIds(matches.map((m) => m.id));
         }
       }
     }
-  }, [initialContext, participants]);
+  }, [initialContext, participants, caseTitle, user]);
 
-  // Recipient Selection
-  const [selectedRecipientId, setSelectedRecipientId] = useState<string>(() => {
-    if (initialContext?.recipientId) return initialContext.recipientId;
-    return participants[0]?.id || '';
+  // Multi-Recipient Selection
+  const [selectedRecipientIds, setSelectedRecipientIds] = useState<string[]>(() => {
+    if (initialContext?.recipientId) return [initialContext.recipientId];
+    if (participants.length > 0) return [participants[0].id];
+    return [];
   });
 
-  const selectedRecipient = useMemo(() => {
-    return (
-      participants.find((p) => p.id === selectedRecipientId) ||
-      participants[0] ||
-      null
+  const selectedParticipants = useMemo(() => {
+    return participants.filter((p) => selectedRecipientIds.includes(p.id));
+  }, [participants, selectedRecipientIds]);
+
+  const primaryRecipient = selectedParticipants[0] || participants[0] || null;
+
+  const toggleRecipient = (id: string) => {
+    setSelectedRecipientIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
-  }, [participants, selectedRecipientId]);
+  };
 
   // Composer Form State
   const [intent, setIntent] = useState<CommunicationIntent>(
     initialContext?.intent ||
-      (initialContext?.evidenceRequired ? 'DOCUMENT_REQUEST' : 'PROGRESS_UPDATE'),
+    (initialContext?.evidenceRequired ? 'DOCUMENT_REQUEST' : 'PROGRESS_UPDATE'),
   );
   const [tone, setTone] = useState<'professional' | 'urgent' | 'friendly'>(
     'professional',
@@ -123,7 +139,7 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
 
   const [subject, setSubject] = useState<string>(defaultSubject);
   const [bodyText, setBodyText] = useState<string>(() => {
-    const recipName = selectedRecipient?.name || 'Stakeholder';
+    const recipName = primaryRecipient?.name || 'Stakeholder';
     return `Dear ${recipName},\n\nI hope this email finds you well. I am writing regarding the ongoing sales progression for ${caseTitle}.\n\nPlease let us know if any further information is needed to proceed.\n\nKind regards,\n${user?.name || 'Sarah Jenkins'}\nSales Progressor`;
   });
 
@@ -132,6 +148,7 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
   // Search & Filter in Sent History
   const [historySearch, setHistorySearch] = useState<string>('');
   const [expandedCommId, setExpandedCommId] = useState<string | null>(null);
+  const [expandedRecipientsId, setExpandedRecipientsId] = useState<string | null>(null);
 
   // Progressor sender info derived from current session / persona
   const senderName = user?.name || 'Sarah Jenkins';
@@ -141,19 +158,22 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
 
   // Handle AI Draft Generation
   const handleGenerateAiDraft = async () => {
-    if (!selectedRecipient) {
-      setComposerError('Please select a recipient before generating a draft.');
+    if (selectedParticipants.length === 0) {
+      setComposerError('Please select at least one recipient before generating a draft.');
       return;
     }
     setComposerError(null);
     try {
+      const target = primaryRecipient || selectedParticipants[0];
       const draft = await onGenerateDraft({
-        recipientEmail: selectedRecipient.email || 'stakeholder@example.com',
-        recipientName: selectedRecipient.name,
-        recipientRole: getParticipantRole(selectedRecipient),
+        recipientEmail: target?.email || 'stakeholder@example.com',
+        recipientName: target?.name || 'Stakeholder',
+        recipientRole: target ? getParticipantRole(target) : undefined,
+        caseTitle,
         stepName: context?.stepName,
         workItemName: context?.workItemName,
         evidenceRequired: context?.evidenceRequired,
+        selectedRoles: selectedParticipants.map(getParticipantRole),
         intent,
         tone,
         senderName,
@@ -178,8 +198,8 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
   // Handle Dispatch / Send
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedRecipient) {
-      setComposerError('Please select a valid recipient.');
+    if (selectedParticipants.length === 0) {
+      setComposerError('Please select at least one recipient.');
       return;
     }
     if (!subject.trim()) {
@@ -193,12 +213,18 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
 
     setComposerError(null);
     try {
+      const primary = primaryRecipient || selectedParticipants[0];
       await onSendCommunication({
         stepId: context?.stepId,
         workItemId: context?.workItemId,
-        recipientEmail: selectedRecipient.email || 'stakeholder@example.com',
-        recipientName: selectedRecipient.name,
-        recipientRole: getParticipantRole(selectedRecipient),
+        recipientEmail: primary?.email || 'stakeholder@example.com',
+        recipientName: primary?.name || 'Stakeholder',
+        recipientRole: primary ? getParticipantRole(primary) : undefined,
+        recipients: selectedParticipants.map((p) => ({
+          email: p.email || 'stakeholder@example.com',
+          name: p.name,
+          role: getParticipantRole(p),
+        })),
         senderName,
         senderRole,
         senderEmail,
@@ -215,19 +241,96 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
     }
   };
 
+  // Grouped History: collapses multi-recipient communications into a single entry with extendable stakeholders
+  const groupedHistory = useMemo(() => {
+    const list = communications || [];
+    const sorted = [...list].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+
+    interface GroupedCommunicationItem {
+      id: string;
+      recipientName: string;
+      recipientEmail: string;
+      recipientRole?: string;
+      status: string;
+      createdAt: string;
+    }
+
+    interface GroupedCommunication {
+      primaryId: string;
+      subject: string;
+      bodyText: string;
+      createdAt: string;
+      stepId?: string;
+      workItemId?: string;
+      recipients: GroupedCommunicationItem[];
+    }
+
+    const groups: GroupedCommunication[] = [];
+
+    for (const comm of sorted) {
+      // Find matching group with same subject, bodyText, and created within 15 seconds
+      const existing = groups.find((g) => {
+        if (g.subject !== comm.subject || g.bodyText !== comm.bodyText) return false;
+        const timeDiff = Math.abs(
+          new Date(g.createdAt).getTime() - new Date(comm.createdAt).getTime(),
+        );
+        return timeDiff < 15000;
+      });
+
+      if (existing) {
+        if (!existing.recipients.some((r) => r.id === comm.id || r.recipientEmail === comm.recipientEmail)) {
+          existing.recipients.push({
+            id: comm.id,
+            recipientName: comm.recipientName,
+            recipientEmail: comm.recipientEmail,
+            recipientRole: comm.recipientRole,
+            status: comm.status,
+            createdAt: comm.createdAt,
+          });
+        }
+      } else {
+        groups.push({
+          primaryId: comm.id,
+          subject: comm.subject,
+          bodyText: comm.bodyText,
+          createdAt: comm.createdAt,
+          stepId: comm.stepId,
+          workItemId: comm.workItemId,
+          recipients: [
+            {
+              id: comm.id,
+              recipientName: comm.recipientName,
+              recipientEmail: comm.recipientEmail,
+              recipientRole: comm.recipientRole,
+              status: comm.status,
+              createdAt: comm.createdAt,
+            },
+          ],
+        });
+      }
+    }
+
+    return groups;
+  }, [communications]);
+
   // Filtered History
   const filteredHistory = useMemo(() => {
-    return communications.filter((c) => {
-      const query = historySearch.toLowerCase().trim();
-      if (!query) return true;
-      return (
-        c.subject.toLowerCase().includes(query) ||
-        c.recipientName.toLowerCase().includes(query) ||
-        c.recipientEmail.toLowerCase().includes(query) ||
-        c.bodyText.toLowerCase().includes(query)
+    const query = historySearch.toLowerCase().trim();
+    if (!query) return groupedHistory;
+    return groupedHistory.filter((g) => {
+      const matchSubject = g.subject.toLowerCase().includes(query);
+      const matchBody = g.bodyText.toLowerCase().includes(query);
+      const matchRecipients = g.recipients.some(
+        (r) =>
+          r.recipientName.toLowerCase().includes(query) ||
+          r.recipientEmail.toLowerCase().includes(query) ||
+          (r.recipientRole && r.recipientRole.toLowerCase().includes(query)),
       );
+      return matchSubject || matchBody || matchRecipients;
     });
-  }, [communications, historySearch]);
+  }, [groupedHistory, historySearch]);
 
   return (
     <div className="space-y-6">
@@ -282,27 +385,73 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
           <form onSubmit={handleSend} className="space-y-4">
             {/* Control Bar: Recipient Picker + Intent + Tone */}
             <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-3.5">
-              {/* Recipient Selection */}
-              <div>
-                <label
-                  htmlFor="comm-recipient-select"
-                  className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1"
-                >
-                  Recipient (Stakeholder)
-                </label>
-                <div className="relative">
-                  <select
-                    id="comm-recipient-select"
-                    value={selectedRecipient?.id || ''}
-                    onChange={(e) => setSelectedRecipientId(e.target.value)}
-                    className="w-full pl-3 pr-9 py-2 text-xs font-semibold text-slate-800 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#E1007A]/20 focus:border-[#E1007A] transition-all cursor-pointer"
-                  >
-                    {participants.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({getParticipantRole(p)}) — {p.email || 'No email'}
-                      </option>
-                    ))}
-                  </select>
+              {/* Stakeholders Multi-Selection & Quick Role Filters */}
+              <div className="space-y-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <Users className="w-4 h-4 text-slate-500" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                      Recipients ({selectedParticipants.length}/{participants.length})
+                    </span>
+                  </div>
+
+                  {/* Selection Shortcuts: All or Clear */}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedRecipientIds(participants.map((p) => p.id))
+                      }
+                      className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                    >
+                      All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRecipientIds([])}
+                      className="px-2 py-0.5 rounded text-[10px] font-bold text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                {/* Checkbox List */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                  {participants.map((p) => {
+                    const isChecked = selectedRecipientIds.includes(p.id);
+                    const roleName = getParticipantRole(p);
+                    return (
+                      <label
+                        key={p.id}
+                        className={`flex items-start gap-2.5 p-2 rounded-lg border text-xs cursor-pointer transition-all ${isChecked
+                            ? 'bg-pink-50/40 border-[#E1007A]/40 shadow-2xs'
+                            : 'bg-white border-slate-200 hover:bg-slate-50'
+                          }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleRecipient(p.id)}
+                          aria-label={p.name}
+                          className="mt-0.5 rounded text-[#E1007A] focus:ring-[#E1007A]/20 cursor-pointer"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-semibold text-slate-900 truncate">
+                              {p.name}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1 py-0.2 rounded">
+                              {roleName}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 font-mono truncate">
+                            {p.email || 'No email provided'}
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -327,11 +476,10 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
                           key={chip.id}
                           type="button"
                           onClick={() => setIntent(chip.id)}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-                            isSelected
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${isSelected
                               ? 'bg-slate-900 text-white shadow-xs'
                               : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                          }`}
+                            }`}
                         >
                           {chip.label}
                         </button>
@@ -359,11 +507,10 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
                           key={chip.id}
                           type="button"
                           onClick={() => setTone(chip.id)}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-                            isSelected
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${isSelected
                               ? 'bg-[#E1007A] text-white shadow-xs'
                               : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                          }`}
+                            }`}
                         >
                           {chip.label}
                         </button>
@@ -431,11 +578,16 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
                     To:
                   </span>
                   <span className="font-bold text-slate-900">
-                    {selectedRecipient?.name} &lt;{selectedRecipient?.email}&gt;
+                    {primaryRecipient ? primaryRecipient.name : 'Select recipients'}
+                    {selectedParticipants.length > 1 && (
+                      <span className="font-normal text-slate-500 ml-1.5 text-xs">
+                        (+ {selectedParticipants.length - 1} other stakeholders)
+                      </span>
+                    )}
                   </span>
-                  {getParticipantRole(selectedRecipient) && (
+                  {primaryRecipient && getParticipantRole(primaryRecipient) && (
                     <span className="text-[10px] font-semibold text-slate-500 bg-white border border-slate-200 rounded px-1.5 py-0.5">
-                      {getParticipantRole(selectedRecipient)}
+                      {getParticipantRole(primaryRecipient)}
                     </span>
                   )}
                 </div>
@@ -524,10 +676,12 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
                 variant="primary"
                 size="sm"
                 isLoading={isSending}
+                disabled={selectedParticipants.length === 0}
                 leftIcon={<Send className="w-3.5 h-3.5" />}
                 className="font-bold text-xs shadow-xs"
               >
-                Send Email
+                Send to {selectedParticipants.length} Stakeholder
+                {selectedParticipants.length === 1 ? '' : 's'} (Simulated)
               </Button>
             </div>
           </form>
@@ -577,9 +731,13 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
               </div>
             ) : (
               <div className="space-y-2.5 max-h-[600px] overflow-y-auto pr-1">
-                {filteredHistory.map((comm) => {
-                  const isExpanded = expandedCommId === comm.id;
-                  const dateFormatted = new Date(comm.createdAt).toLocaleString(
+                {filteredHistory.map((group) => {
+                  const isBodyExpanded = expandedCommId === group.primaryId;
+                  const isRecipientsExpanded =
+                    expandedRecipientsId === group.primaryId;
+                  const hasMultipleRecipients = group.recipients.length > 1;
+                  const primaryRecipient = group.recipients[0];
+                  const dateFormatted = new Date(group.createdAt).toLocaleString(
                     'en-GB',
                     {
                       day: '2-digit',
@@ -591,23 +749,43 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
 
                   return (
                     <div
-                      key={comm.id}
+                      key={group.primaryId}
                       className="p-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-300 transition-all text-xs space-y-2"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="space-y-0.5 flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-bold text-slate-900 truncate">
-                              {comm.recipientName}
+                              {primaryRecipient.recipientName}
                             </span>
-                            {comm.recipientRole && (
+                            {primaryRecipient.recipientRole && (
                               <span className="text-[10px] font-semibold text-slate-500 bg-white border border-slate-200 px-1.5 py-0.2 rounded">
-                                {comm.recipientRole}
+                                {primaryRecipient.recipientRole}
                               </span>
+                            )}
+                            {hasMultipleRecipients && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedRecipientsId(
+                                    isRecipientsExpanded ? null : group.primaryId,
+                                  )
+                                }
+                                aria-label="Toggle stakeholders list"
+                                className="inline-flex items-center gap-1 text-[10px] font-bold text-[#E1007A] bg-pink-50 hover:bg-pink-100 border border-pink-200 px-2 py-0.5 rounded-full cursor-pointer transition-colors"
+                              >
+                                <Users className="w-3 h-3" />
+                                <span>+{group.recipients.length - 1} stakeholders</span>
+                                {isRecipientsExpanded ? (
+                                  <ChevronUp className="w-3 h-3" />
+                                ) : (
+                                  <ChevronDown className="w-3 h-3" />
+                                )}
+                              </button>
                             )}
                           </div>
                           <div className="text-[11px] font-semibold text-slate-800 truncate">
-                            {comm.subject}
+                            {group.subject}
                           </div>
                         </div>
 
@@ -616,17 +794,51 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
                         </Badge>
                       </div>
 
+                      {/* Extendable Accordion for Multiple Stakeholders */}
+                      {hasMultipleRecipients && isRecipientsExpanded && (
+                        <div className="p-2.5 bg-white rounded-lg border border-pink-100 shadow-2xs space-y-1.5 animate-in fade-in duration-150">
+                          <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase tracking-wider pb-1 border-b border-slate-100">
+                            <span>All Stakeholders ({group.recipients.length})</span>
+                            <span className="text-[9px] text-emerald-600 font-semibold">
+                              Simulated Dispatch
+                            </span>
+                          </div>
+                          <div className="divide-y divide-slate-100 max-h-36 overflow-y-auto">
+                            {group.recipients.map((r) => (
+                              <div
+                                key={r.id}
+                                className="py-1 flex items-center justify-between gap-2 text-[11px]"
+                              >
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="font-semibold text-slate-800 truncate">
+                                    {r.recipientName}
+                                  </span>
+                                  {r.recipientRole && (
+                                    <span className="text-[9px] font-medium text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded">
+                                      {r.recipientRole}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[10px] text-slate-400 font-mono truncate">
+                                  {r.recipientEmail}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-200/60">
                         <span>{dateFormatted}</span>
                         <button
                           type="button"
                           onClick={() =>
-                            setExpandedCommId(isExpanded ? null : comm.id)
+                            setExpandedCommId(isBodyExpanded ? null : group.primaryId)
                           }
                           className="font-bold text-slate-600 hover:text-slate-900 inline-flex items-center gap-1 cursor-pointer"
                         >
-                          <span>{isExpanded ? 'Hide' : 'View Email'}</span>
-                          {isExpanded ? (
+                          <span>{isBodyExpanded ? 'Hide' : 'View Email'}</span>
+                          {isBodyExpanded ? (
                             <ChevronUp className="w-3 h-3" />
                           ) : (
                             <ChevronDown className="w-3 h-3" />
@@ -635,9 +847,9 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
                       </div>
 
                       {/* Expanded Email Body Preview */}
-                      {isExpanded && (
+                      {isBodyExpanded && (
                         <div className="mt-2 p-3 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 whitespace-pre-line leading-relaxed font-mono text-[11px]">
-                          {comm.bodyText}
+                          {group.bodyText}
                         </div>
                       )}
                     </div>
