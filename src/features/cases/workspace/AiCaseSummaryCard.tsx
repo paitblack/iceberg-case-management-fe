@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Sparkles,
   Bot,
@@ -11,13 +11,17 @@ import {
   Copy,
   Check,
   FileText,
+  RefreshCw,
 } from 'lucide-react';
 import type { CaseLifecycleStatus } from '../../../types/api';
+import { generateCaseSummary } from '../../../lib/api-client';
 
 interface AiCaseSummaryCardProps {
   status: CaseLifecycleStatus | 'Open' | 'OnHold' | 'Completed' | 'Cancelled';
   aiSummary?: string | null;
   isLoading?: boolean;
+  caseId?: string;
+  onRefresh?: () => Promise<void> | void;
 }
 
 interface ParsedSection {
@@ -113,20 +117,53 @@ export const AiCaseSummaryCard: React.FC<AiCaseSummaryCardProps> = ({
   status,
   aiSummary,
   isLoading = false,
+  caseId,
+  onRefresh,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [localSummary, setLocalSummary] = useState<string | null>(null);
+  const hasAutoTriggered = useRef<boolean>(false);
 
-  // Render only for Completed or Cancelled cases
+  const activeSummary = localSummary || aiSummary;
   const isClosed = status === 'Completed' || status === 'Cancelled';
-  if (!isClosed) {
-    return null;
-  }
+
+  const handleGenerate = async () => {
+    if (!caseId || isGenerating) return;
+    setIsGenerating(true);
+    try {
+      const res = await generateCaseSummary(caseId);
+      if (res.aiSummary) {
+        setLocalSummary(res.aiSummary);
+      }
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch {
+      // Gracefully handled by deterministic fallback on backend
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  useEffect(() => {
+    if (
+      isClosed &&
+      !activeSummary &&
+      caseId &&
+      !hasAutoTriggered.current &&
+      !isLoading
+    ) {
+      hasAutoTriggered.current = true;
+      void handleGenerate();
+    }
+  }, [isClosed, activeSummary, caseId, isLoading]);
 
   const handleCopy = async () => {
-    if (!aiSummary) return;
+    if (!activeSummary) return;
     try {
-      await navigator.clipboard.writeText(aiSummary);
+      await navigator.clipboard.writeText(activeSummary);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -134,7 +171,12 @@ export const AiCaseSummaryCard: React.FC<AiCaseSummaryCardProps> = ({
     }
   };
 
-  const sections = aiSummary ? parseMarkdownSummary(aiSummary) : [];
+  // Render only for Completed or Cancelled cases
+  if (!isClosed) {
+    return null;
+  }
+
+  const sections = activeSummary ? parseMarkdownSummary(activeSummary) : [];
 
   return (
     <section
@@ -165,7 +207,22 @@ export const AiCaseSummaryCard: React.FC<AiCaseSummaryCardProps> = ({
 
         {/* Action Controls */}
         <div className="flex items-center gap-2 self-end sm:self-auto">
-          {aiSummary && (
+          {caseId && (
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={isGenerating}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+              title="Regenerate AI Case Summary"
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5 text-indigo-600 ${isGenerating ? 'animate-spin' : ''}`}
+              />
+              <span>{isGenerating ? 'Generating...' : 'Refresh Summary'}</span>
+            </button>
+          )}
+
+          {activeSummary && (
             <button
               type="button"
               onClick={handleCopy}
@@ -205,18 +262,30 @@ export const AiCaseSummaryCard: React.FC<AiCaseSummaryCardProps> = ({
       {/* Body Content */}
       {!isCollapsed && (
         <div className="space-y-4 pt-1">
-          {isLoading || !aiSummary ? (
+          {isLoading || isGenerating || !activeSummary ? (
             /* Pending / Asynchronous Generation State */
             <div className="space-y-3">
               <div className="p-4 rounded-xl bg-indigo-50/70 border border-indigo-100 flex items-start gap-3 text-xs">
                 <Clock className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5 animate-pulse" />
-                <div className="space-y-0.5">
+                <div className="space-y-1">
                   <p className="font-semibold text-indigo-900">
-                    AI summary is being generated for this case...
+                    {isGenerating
+                      ? 'Generating case resolution summary...'
+                      : 'AI summary is being generated for this case...'}
                   </p>
                   <p className="text-indigo-700 text-[11px] leading-relaxed">
-                    The background worker analyzes key milestones, notes, and activity history to produce a natural language summary. This will update automatically upon completion.
+                    Analyzing key milestones, notes, and activity history to produce a natural language summary.
                   </p>
+                  {!isGenerating && caseId && (
+                    <button
+                      type="button"
+                      onClick={handleGenerate}
+                      className="mt-1 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold text-indigo-700 bg-white border border-indigo-200 hover:bg-indigo-50 transition-colors cursor-pointer"
+                    >
+                      <Sparkles className="w-3 h-3 text-indigo-600" />
+                      Generate Now
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -276,7 +345,7 @@ export const AiCaseSummaryCard: React.FC<AiCaseSummaryCardProps> = ({
           ) : (
             /* Fallback Graceful Render */
             <div className="p-4 rounded-xl bg-white border border-slate-200 text-xs text-slate-600 leading-relaxed">
-              {renderFormattedText(aiSummary)}
+              {renderFormattedText(activeSummary || '')}
             </div>
           )}
         </div>

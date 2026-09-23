@@ -870,6 +870,15 @@ export async function listCaseCommunications(
   );
 }
 
+export async function generateCaseSummary(
+  caseId: string,
+): Promise<{ success: boolean; aiSummary: string | null }> {
+  return apiPost<{ success: boolean; aiSummary: string | null }>(
+    `/cases/${caseId}/summary`,
+    {},
+  );
+}
+
 export const workspaceApi = {
   addAdHocStep,
   reorderSteps: (caseId: string, stepOrder: string[]) =>
@@ -880,4 +889,5 @@ export const workspaceApi = {
   generateCommunicationDraft,
   sendCaseCommunication,
   listCaseCommunications,
+  generateCaseSummary,
 };

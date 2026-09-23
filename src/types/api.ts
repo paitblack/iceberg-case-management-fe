@@ -758,7 +758,11 @@ export interface GenerateCommunicationDraftPayload {
   recipientRole?: string;
   stepName?: string;
   workItemName?: string;
+  workItemDescription?: string;
   evidenceRequired?: boolean;
+  caseTitle?: string;
+  caseTypeName?: string;
+  selectedRoles?: string[];
   intent: CommunicationIntent;
   tone?: 'professional' | 'urgent' | 'friendly';
   senderName?: string;
@@ -768,9 +772,14 @@ export interface GenerateCommunicationDraftPayload {
 export interface SendCommunicationPayload {
   stepId?: string;
   workItemId?: string;
-  recipientEmail: string;
-  recipientName: string;
+  recipientEmail?: string;
+  recipientName?: string;
   recipientRole?: string;
+  recipients?: Array<{
+    email: string;
+    name: string;
+    role?: string;
+  }>;
   senderName?: string;
   senderRole?: string;
   senderEmail?: string;

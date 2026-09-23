@@ -128,7 +128,7 @@ describe('CommunicationsTab - AI Outreach & Branded Email Template', () => {
     });
 
     const sendBtn = screen.getByRole('button', {
-      name: /Send Email/i,
+      name: /Send to \d+ Stakeholder/i,
     });
     fireEvent.click(sendBtn);
 
@@ -145,4 +145,68 @@ describe('CommunicationsTab - AI Outreach & Branded Email Template', () => {
       }),
     );
   });
+
+  it('renders extendable accordion for multi-stakeholder dispatches in outbox history', () => {
+    const multiRecipientComms: BffCaseCommunication[] = [
+      {
+        id: 'comm-group-1',
+        caseId: 'case-1',
+        recipientEmail: 'david.vance@vancelaw.co.uk',
+        recipientName: 'David Vance',
+        recipientRole: "Buyer's Conveyancer",
+        senderName: 'Sarah Jenkins',
+        senderRole: 'Sales Progressor',
+        subject: 'Task Complete: Local Authority Search Received',
+        bodyText: 'Search has been received and verified.',
+        status: 'SENT_SIMULATED',
+        intent: 'PROGRESS_UPDATE',
+        createdAt: '2026-09-23T11:00:00Z',
+      },
+      {
+        id: 'comm-group-2',
+        caseId: 'case-1',
+        recipientEmail: 'emily.smith@example.com',
+        recipientName: 'Emily Smith',
+        recipientRole: 'Buyer',
+        senderName: 'Sarah Jenkins',
+        senderRole: 'Sales Progressor',
+        subject: 'Task Complete: Local Authority Search Received',
+        bodyText: 'Search has been received and verified.',
+        status: 'SENT_SIMULATED',
+        intent: 'PROGRESS_UPDATE',
+        createdAt: '2026-09-23T11:00:01Z',
+      },
+    ];
+
+    render(
+      <CommunicationsTab
+        caseId="case-1"
+        caseTitle="14 Primrose Hill, London"
+        participants={mockParticipants}
+        communications={multiRecipientComms}
+        onSendCommunication={vi.fn()}
+        onGenerateDraft={vi.fn()}
+      />,
+    );
+
+    // Primary recipient rendered
+    expect(screen.getAllByText(/David Vance/i).length).toBeGreaterThan(0);
+    // Expand toggle button rendered with "+1 stakeholders"
+    const toggleButton = screen.getByRole('button', {
+      name: /Toggle stakeholders list/i,
+    });
+    expect(toggleButton).toHaveTextContent('+1 stakeholders');
+
+    // Click to expand stakeholders
+    fireEvent.click(toggleButton);
+
+    // Secondary recipient Emily Smith now visible in the accordion list
+    expect(screen.getByText(/All Stakeholders \(2\)/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Emily Smith/i).length).toBeGreaterThan(0);
+
+    // Click again to collapse
+    fireEvent.click(toggleButton);
+    expect(screen.queryByText(/All Stakeholders \(2\)/i)).not.toBeInTheDocument();
+  });
 });
+
