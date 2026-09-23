@@ -177,4 +177,28 @@ The transaction completed successfully on 28 Aug 2026. David Vance (Buyer Solici
     });
     expect(onRefreshMock).toHaveBeenCalled();
   });
+
+  it('does not violate React rules of hooks when transitioning status between Open and Completed', () => {
+    const { rerender } = render(
+      <AiCaseSummaryCard status="Open" aiSummary={null} />,
+    );
+    expect(
+      screen.queryByText('Case Resolution Summary'),
+    ).not.toBeInTheDocument();
+
+    // Transition to Completed (previously caused "Rendered fewer hooks than expected" error)
+    rerender(
+      <AiCaseSummaryCard
+        status="Completed"
+        aiSummary="### Case Purpose\nCompleted content"
+      />,
+    );
+    expect(screen.getByText('Case Resolution Summary')).toBeInTheDocument();
+
+    // Reopen to Open
+    rerender(<AiCaseSummaryCard status="Open" aiSummary={null} />);
+    expect(
+      screen.queryByText('Case Resolution Summary'),
+    ).not.toBeInTheDocument();
+  });
 });

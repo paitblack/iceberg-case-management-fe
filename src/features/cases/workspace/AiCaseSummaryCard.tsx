@@ -127,12 +127,7 @@ export const AiCaseSummaryCard: React.FC<AiCaseSummaryCardProps> = ({
   const hasAutoTriggered = useRef<boolean>(false);
 
   const activeSummary = localSummary || aiSummary;
-
-  // Render only for Completed or Cancelled cases
   const isClosed = status === 'Completed' || status === 'Cancelled';
-  if (!isClosed) {
-    return null;
-  }
 
   const handleGenerate = async () => {
     if (!caseId || isGenerating) return;
@@ -175,6 +170,11 @@ export const AiCaseSummaryCard: React.FC<AiCaseSummaryCardProps> = ({
       // Ignore clipboard error
     }
   };
+
+  // Render only for Completed or Cancelled cases
+  if (!isClosed) {
+    return null;
+  }
 
   const sections = activeSummary ? parseMarkdownSummary(activeSummary) : [];
 
