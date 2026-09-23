@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AiCaseSummaryCard } from './AiCaseSummaryCard';
+import * as apiClient from '../../../lib/api-client';
+
+vi.mock('../../../lib/api-client', () => ({
+  generateCaseSummary: vi.fn(),
+}));
 
 describe('AiCaseSummaryCard', () => {
   const sampleMarkdown = `### Case Purpose
@@ -122,5 +127,54 @@ The transaction completed successfully on 28 Aug 2026. David Vance (Buyer Solici
 
     expect(screen.getByText('Case Resolution Summary')).toBeInTheDocument();
     expect(screen.getByText(plainText)).toBeInTheDocument();
+  });
+
+  it('automatically triggers generateCaseSummary when completed case has no aiSummary', async () => {
+    vi.mocked(apiClient.generateCaseSummary).mockResolvedValueOnce({
+      success: true,
+      aiSummary: '### Case Purpose\nAuto-generated summary content.',
+    });
+
+    render(
+      <AiCaseSummaryCard
+        status="Completed"
+        aiSummary={null}
+        caseId="case-auto-1"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(apiClient.generateCaseSummary).toHaveBeenCalledWith('case-auto-1');
+    });
+    expect(
+      await screen.findByText('Auto-generated summary content.'),
+    ).toBeInTheDocument();
+  });
+
+  it('manually triggers generateCaseSummary when Refresh Summary button is clicked', async () => {
+    vi.mocked(apiClient.generateCaseSummary).mockResolvedValueOnce({
+      success: true,
+      aiSummary: '### Case Purpose\nRefreshed summary content.',
+    });
+    const onRefreshMock = vi.fn();
+
+    render(
+      <AiCaseSummaryCard
+        status="Completed"
+        aiSummary="Initial summary"
+        caseId="case-refresh-1"
+        onRefresh={onRefreshMock}
+      />,
+    );
+
+    const refreshBtn = screen.getByRole('button', { name: /Refresh Summary/i });
+    fireEvent.click(refreshBtn);
+
+    await waitFor(() => {
+      expect(apiClient.generateCaseSummary).toHaveBeenCalledWith(
+        'case-refresh-1',
+      );
+    });
+    expect(onRefreshMock).toHaveBeenCalled();
   });
 });

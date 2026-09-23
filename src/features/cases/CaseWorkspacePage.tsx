@@ -1044,6 +1044,8 @@ export const CaseWorkspacePage: React.FC = () => {
           <AiCaseSummaryCard
             status={snapshot.status}
             aiSummary={snapshot.aiSummary}
+            caseId={caseId}
+            onRefresh={loadWorkspace}
           />
 
           {/* Main Workspace Header Card */}
