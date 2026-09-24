@@ -18,6 +18,7 @@ import { AiCaseSummaryCard } from './workspace/AiCaseSummaryCard';
 import { SalesProgressionTracker } from './workspace/SalesProgressionTracker';
 import { BlockersBanner } from './workspace/BlockersBanner';
 import { StepExecutionCard } from './workspace/StepExecutionCard';
+import { StepPathwayConnector } from './workspace/StepPathwayConnector';
 import { DocumentsTab } from './workspace/DocumentsTab';
 import { AnnouncementsTab } from './workspace/AnnouncementsTab';
 import {
@@ -1143,9 +1144,20 @@ export const CaseWorkspacePage: React.FC = () => {
               {/* Progression Section Header & Custom Step Button */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
                 <div>
-                  <h3 className="text-sm font-extrabold text-slate-900">
-                    Progression Milestones & Action Steps
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-extrabold text-slate-900">
+                      Progression Milestones & Action Steps
+                    </h3>
+                    {stepsList.length > 0 && (
+                      <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/80">
+                        {
+                          stepsList.filter((s) => s.status === 'Completed')
+                            .length
+                        }{' '}
+                        of {stepsList.length} Milestones Cleared
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-slate-500 mt-0.5">
                     Linear progression pathway and ad-hoc case customizations.
                   </p>
@@ -1177,38 +1189,47 @@ export const CaseWorkspacePage: React.FC = () => {
                 </div>
               ) : (
                 stepsList.map((step, idx) => (
-                  <StepExecutionCard
-                    key={step.id}
-                    step={step}
-                    allSteps={stepsList}
-                    documents={documentsList}
-                    participants={participantsList}
-                    canCustomize={canCustomize}
-                    isFirstStep={idx === 0}
-                    isLastStep={idx === stepsList.length - 1}
-                    onMoveStepUp={(stepId) => handleReorderStep(stepId, 'up')}
-                    onMoveStepDown={(stepId) =>
-                      handleReorderStep(stepId, 'down')
-                    }
-                    onDeleteStep={handlePromptDeleteStep}
-                    onOpenAddWorkItem={handleOpenAddWorkItem}
-                    onDeleteWorkItem={handlePromptDeleteWorkItem}
-                    onStepAction={handleStepAction}
-                    onWorkItemAction={handleWorkItemAction}
-                    onAddNote={handleAddNote}
-                    onUpdateStepTargetDate={handleUpdateStepTargetDate}
-                    onUpdateWorkItemTargetDate={handleUpdateWorkItemTargetDate}
-                    onUploadDocument={handleUploadDocument}
-                    onDownloadDocument={handleDownloadDocument}
-                    onDeleteDocument={handleDeleteDocument}
-                    onOpenEvidenceModal={handleOpenEvidenceModal}
-                    loadingStepId={loadingStepId}
-                    loadingWorkItemId={loadingWorkItemId}
-                    uploadingWorkItemId={uploadingWorkItemId}
-                    isAddingNote={isSubmittingNote}
-                    isTargeted={targetedStepId === step.id}
-                    onChaseWorkItem={handleChaseWorkItem}
-                  />
+                  <React.Fragment key={step.id}>
+                    <StepExecutionCard
+                      step={step}
+                      allSteps={stepsList}
+                      documents={documentsList}
+                      participants={participantsList}
+                      canCustomize={canCustomize}
+                      isFirstStep={idx === 0}
+                      isLastStep={idx === stepsList.length - 1}
+                      onMoveStepUp={(stepId) => handleReorderStep(stepId, 'up')}
+                      onMoveStepDown={(stepId) =>
+                        handleReorderStep(stepId, 'down')
+                      }
+                      onDeleteStep={handlePromptDeleteStep}
+                      onOpenAddWorkItem={handleOpenAddWorkItem}
+                      onDeleteWorkItem={handlePromptDeleteWorkItem}
+                      onStepAction={handleStepAction}
+                      onWorkItemAction={handleWorkItemAction}
+                      onAddNote={handleAddNote}
+                      onUpdateStepTargetDate={handleUpdateStepTargetDate}
+                      onUpdateWorkItemTargetDate={handleUpdateWorkItemTargetDate}
+                      onUploadDocument={handleUploadDocument}
+                      onDownloadDocument={handleDownloadDocument}
+                      onDeleteDocument={handleDeleteDocument}
+                      onOpenEvidenceModal={handleOpenEvidenceModal}
+                      loadingStepId={loadingStepId}
+                      loadingWorkItemId={loadingWorkItemId}
+                      uploadingWorkItemId={uploadingWorkItemId}
+                      isAddingNote={isSubmittingNote}
+                      isTargeted={targetedStepId === step.id}
+                      onChaseWorkItem={handleChaseWorkItem}
+                    />
+                    {idx < stepsList.length - 1 && (
+                      <StepPathwayConnector
+                        currentStep={step}
+                        nextStep={stepsList[idx + 1]}
+                        stepIndex={idx}
+                        totalSteps={stepsList.length}
+                      />
+                    )}
+                  </React.Fragment>
                 ))
               )}
             </div>
