@@ -1039,7 +1039,7 @@ export const CaseWorkspacePage: React.FC = () => {
       {/* 2-Column Responsive Workspace Grid: Main workspace on left, Persistent Sidebar pinned on right */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
         {/* Left / Main Content Column (8 cols on lg, 9 cols on xl) */}
-        <div className="lg:col-span-8 xl:col-span-9 space-y-6 min-w-0 lg:h-full lg:overflow-y-auto lg:pr-2 pb-16">
+        <div className="lg:col-span-8 xl:col-span-9 space-y-4 min-w-0 lg:h-full lg:overflow-y-auto lg:pr-2 pb-16">
           {/* AI Case Resolution Summary Card */}
           <AiCaseSummaryCard
             status={snapshot.status}
