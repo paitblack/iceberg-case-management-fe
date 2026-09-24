@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Sparkles,
   Bot,
@@ -129,7 +129,7 @@ export const AiCaseSummaryCard: React.FC<AiCaseSummaryCardProps> = ({
   const activeSummary = localSummary || aiSummary;
   const isClosed = status === 'Completed' || status === 'Cancelled';
 
-  const handleGenerate = async () => {
+  const handleGenerate = useCallback(async () => {
     if (!caseId || isGenerating) return;
     setIsGenerating(true);
     try {
@@ -145,7 +145,7 @@ export const AiCaseSummaryCard: React.FC<AiCaseSummaryCardProps> = ({
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, [caseId, isGenerating, onRefresh]);
 
   useEffect(() => {
     if (
@@ -158,7 +158,7 @@ export const AiCaseSummaryCard: React.FC<AiCaseSummaryCardProps> = ({
       hasAutoTriggered.current = true;
       void handleGenerate();
     }
-  }, [isClosed, activeSummary, caseId, isLoading]);
+  }, [isClosed, activeSummary, caseId, isLoading, handleGenerate]);
 
   const handleCopy = async () => {
     if (!activeSummary) return;
@@ -181,12 +181,12 @@ export const AiCaseSummaryCard: React.FC<AiCaseSummaryCardProps> = ({
   return (
     <section
       aria-label="AI Case Resolution Summary"
-      className="rounded-2xl bg-gradient-to-br from-indigo-50/40 via-white to-slate-50/60 border border-indigo-100 shadow-xs p-5 md:p-6 transition-all space-y-4"
+      className="rounded-2xl bg-gradient-to-br from-indigo-50/40 via-white to-slate-50/60 border border-indigo-100 shadow-xs p-4 sm:p-5 transition-all space-y-3.5"
     >
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-indigo-100/70 border border-indigo-200/80 flex items-center justify-center text-indigo-600 shrink-0 shadow-2xs">
+          <div className="w-8 h-8 rounded-lg bg-indigo-100/70 border border-indigo-200/80 flex items-center justify-center text-indigo-600 shrink-0 shadow-2xs">
             <Sparkles className="w-4 h-4" />
           </div>
           <div>
@@ -294,7 +294,7 @@ export const AiCaseSummaryCard: React.FC<AiCaseSummaryCardProps> = ({
                 {[1, 2, 3].map((idx) => (
                   <div
                     key={idx}
-                    className="p-4 rounded-xl bg-white/80 border border-slate-200/80 space-y-2.5 animate-pulse"
+                    className="p-4 h-[320px] rounded-xl bg-white/80 border border-slate-200/80 space-y-2.5 animate-pulse"
                   >
                     <div className="h-3.5 bg-slate-200 rounded w-2/3" />
                     <div className="space-y-1.5">
@@ -307,44 +307,42 @@ export const AiCaseSummaryCard: React.FC<AiCaseSummaryCardProps> = ({
               </div>
             </div>
           ) : sections.length > 0 ? (
-            /* Structured 3-Section Cards Grid */
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
+            /* Structured 3-Section Cards Grid with scrollable columns */
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 items-stretch">
               {sections.map((section, sIdx) => (
                 <div
                   key={sIdx}
-                  className="rounded-xl bg-white/90 border border-slate-200/90 p-4 space-y-3 shadow-2xs flex flex-col justify-between"
+                  className="rounded-xl bg-white/95 border border-slate-200/90 p-4 shadow-2xs flex flex-col h-[320px]"
                 >
-                  <div className="space-y-2.5">
-                    {/* Section Header */}
-                    <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                      {getSectionIcon(section.title)}
-                      <h4 className="text-xs font-bold text-slate-800 tracking-wide">
-                        {section.title}
-                      </h4>
-                    </div>
+                  {/* Fixed Section Header */}
+                  <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5 shrink-0">
+                    {getSectionIcon(section.title)}
+                    <h4 className="text-xs font-bold text-slate-800 tracking-wide truncate">
+                      {section.title}
+                    </h4>
+                  </div>
 
-                    {/* Section Items */}
-                    <div className="space-y-2">
-                      {section.items.map((item, iIdx) =>
-                        item.type === 'bullet' ? (
-                          <div key={iIdx} className="flex items-start gap-2 text-xs text-slate-600 leading-relaxed">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0" />
-                            <div className="flex-1 min-w-0">{renderFormattedText(item.text)}</div>
-                          </div>
-                        ) : (
-                          <p key={iIdx} className="text-xs text-slate-600 leading-relaxed">
-                            {renderFormattedText(item.text)}
-                          </p>
-                        ),
-                      )}
-                    </div>
+                  {/* Scrollable Section Content */}
+                  <div className="flex-1 overflow-y-auto pr-1 pt-2 space-y-2.5 text-xs text-slate-600 leading-relaxed [scrollbar-width:thin]">
+                    {section.items.map((item, iIdx) =>
+                      item.type === 'bullet' ? (
+                        <div key={iIdx} className="flex items-start gap-2 text-xs text-slate-600 leading-relaxed">
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0" />
+                          <div className="flex-1 min-w-0">{renderFormattedText(item.text)}</div>
+                        </div>
+                      ) : (
+                        <p key={iIdx} className="text-xs text-slate-600 leading-relaxed">
+                          {renderFormattedText(item.text)}
+                        </p>
+                      ),
+                    )}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            /* Fallback Graceful Render */
-            <div className="p-4 rounded-xl bg-white border border-slate-200 text-xs text-slate-600 leading-relaxed">
+            /* Fallback Graceful Render with scrollable container */
+            <div className="p-4 h-[320px] overflow-y-auto pr-1 rounded-xl bg-white border border-slate-200 text-xs text-slate-600 leading-relaxed [scrollbar-width:thin]">
               {renderFormattedText(activeSummary || '')}
             </div>
           )}

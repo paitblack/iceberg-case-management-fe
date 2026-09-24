@@ -12,6 +12,7 @@ import {
   ArrowDown,
   Plus,
   GripVertical,
+  GitBranch,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -132,6 +133,15 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
   const canSkipStep = step.allowedActions?.includes('SKIP_STEP');
   const isThisStepLoading = loadingStepId === step.id;
 
+  const prerequisiteNames = React.useMemo(() => {
+    if (!step.dependencies || step.dependencies.length === 0 || !allSteps) {
+      return null;
+    }
+    const parents = allSteps.filter((s) => step.dependencies.includes(s.id));
+    if (parents.length === 0) return null;
+    return parents.map((p) => p.name).join(', ');
+  }, [step.dependencies, allSteps]);
+
   return (
     <div
       id={`step-card-${step.id}`}
@@ -139,14 +149,14 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
         isTargeted ? 'ring-4 ring-[#E1007A]/50 shadow-md' : ''
       } ${
         isCompleted
-          ? 'bg-white border-emerald-200/90'
+          ? 'bg-white border-emerald-200/90 border-l-[5px] border-l-emerald-500'
           : isInProgress
             ? step.isAdHoc || isOrphan
-              ? 'bg-white border-indigo-400/50 ring-2 ring-indigo-500/10 shadow-sm'
-              : 'bg-white border-[#E1007A]/40 ring-2 ring-[#E1007A]/10 shadow-sm'
+              ? 'bg-white border-indigo-400/50 ring-2 ring-indigo-500/10 shadow-sm border-l-[5px] border-l-indigo-600'
+              : 'bg-white border-[#E1007A]/40 ring-2 ring-[#E1007A]/10 shadow-sm border-l-[5px] border-l-[#E1007A]'
             : isSkipped
-              ? 'bg-slate-50 border-slate-200 opacity-60'
-              : 'bg-slate-50/70 border-slate-200'
+              ? 'bg-slate-50 border-slate-200 opacity-60 border-l-[5px] border-l-slate-200'
+              : 'bg-slate-50/70 border-slate-200 border-l-[5px] border-l-slate-300'
       }`}
     >
       {/* Step Header Banner */}
@@ -165,20 +175,26 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
             </div>
           )}
 
-          {/* Status Indicator Icon */}
-          <div className="shrink-0">
+          {/* Status Indicator Icon with live pulse ring on active */}
+          <div className="shrink-0 relative">
             {isCompleted ? (
               <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-xs">
                 <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
               </div>
             ) : isInProgress ? (
-              <div
-                className={`w-8 h-8 rounded-xl text-white flex items-center justify-center font-extrabold text-sm shadow-xs animate-pulse ${
-                  step.isAdHoc || isOrphan ? 'bg-indigo-600' : 'bg-[#E1007A]'
-                }`}
-              >
-                {step.displayOrder}
-              </div>
+              <>
+                <div
+                  className={`w-8 h-8 rounded-xl text-white flex items-center justify-center font-extrabold text-sm shadow-xs ${
+                    step.isAdHoc || isOrphan ? 'bg-indigo-600' : 'bg-[#E1007A]'
+                  }`}
+                >
+                  {step.displayOrder}
+                </div>
+                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#E1007A]"></span>
+                </span>
+              </>
             ) : isPending ? (
               <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center font-bold text-xs">
                 <Lock className="w-4 h-4 text-slate-400" />
@@ -191,8 +207,12 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
           </div>
 
           <div className="space-y-1.5 flex-1 min-w-0">
-            {/* Row 1: Title & Key Status Badges */}
+            {/* Row 1: Stage Ribbon, Title & Key Status Badges */}
             <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-black tracking-wider uppercase px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200/60 shrink-0">
+                Stage {step.displayOrder}
+              </span>
+
               <h3
                 className={`text-sm md:text-base font-extrabold truncate ${
                   isCompleted
@@ -220,6 +240,16 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                 {step.status}
               </Badge>
 
+              {prerequisiteNames && (
+                <span
+                  className="hidden md:inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200/80 max-w-[200px] truncate"
+                  title={`Prerequisite: ${prerequisiteNames}`}
+                >
+                  <GitBranch className="w-3 h-3 text-slate-400 shrink-0" />
+                  <span className="truncate">Follows: {prerequisiteNames}</span>
+                </span>
+              )}
+
               {step.isAdHoc && (
                 <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md">
                   Custom
@@ -246,13 +276,27 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
               )}
             </div>
 
-            {/* Row 2: Secondary Context, Tasks progress, SLA deadline, & Description */}
+            {/* Row 2: Secondary Context, Tasks progress bar, SLA deadline, & Description */}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
               {step.workItems.length > 0 && (
-                <span className="text-[11px] font-medium text-slate-600">
-                  {completedWorkItemsCount} of {step.workItems.length} tasks
-                  completed
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-medium text-slate-600">
+                    {completedWorkItemsCount} of {step.workItems.length} tasks
+                    completed
+                  </span>
+                  <div className="w-16 h-1.5 rounded-full bg-slate-100 overflow-hidden shrink-0">
+                    <div
+                      className={`h-full transition-all duration-500 rounded-full ${
+                        isCompleted ? 'bg-emerald-500' : 'bg-[#E1007A]'
+                      }`}
+                      style={{
+                        width: `${Math.round(
+                          (completedWorkItemsCount / step.workItems.length) * 100,
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
               )}
 
               {/* Step SLA Badge */}
