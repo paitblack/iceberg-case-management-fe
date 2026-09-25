@@ -199,7 +199,7 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
             <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <span>Progressor:</span>
             <strong className="text-slate-800 font-bold">
-              {snapshot.assignedProgressorName || 'Operations Progressor'}
+              {snapshot.assignedProgressorName || 'Sarah Jenkins'}
             </strong>
           </span>
           {snapshot.targetCompletionDate && (

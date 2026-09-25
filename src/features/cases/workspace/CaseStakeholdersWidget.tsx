@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Users,
   Mail,
@@ -143,8 +143,26 @@ export const CaseStakeholdersWidget: React.FC<CaseStakeholdersWidgetProps> = ({
       .join(' ');
   };
 
+  // Only display external stakeholders/solicitors (exclude internal agency sales progressors)
+  const displayParticipants = useMemo(() => {
+    return participants.filter((p) => {
+      const rawRoleName = getRoleDisplayName(p);
+      const party = getPartyConfig(p.roleId, rawRoleName);
+      return party.partyTag !== 'AGENCY';
+    });
+  }, [participants, roles]);
+
+  const availableRoles = useMemo(() => {
+    return roles.filter((r) => {
+      const party = getPartyConfig(r.id, r.name);
+      return party.partyTag !== 'AGENCY';
+    });
+  }, [roles]);
+
   const handleOpenAddModal = () => {
-    if (roles.length > 0) {
+    if (availableRoles.length > 0) {
+      setSelectedRoleId(availableRoles[0].id);
+    } else if (roles.length > 0) {
       setSelectedRoleId(roles[0].id);
     }
     setName('');
@@ -210,7 +228,7 @@ export const CaseStakeholdersWidget: React.FC<CaseStakeholdersWidgetProps> = ({
             <h4 className="text-xs font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
               <span>Stakeholders & Solicitors</span>
               <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded-full">
-                {participants.length}
+                {displayParticipants.length}
               </span>
             </h4>
           </div>
@@ -230,7 +248,7 @@ export const CaseStakeholdersWidget: React.FC<CaseStakeholdersWidgetProps> = ({
       </div>
 
       {/* Stakeholders List */}
-      {participants.length === 0 ? (
+      {displayParticipants.length === 0 ? (
         <div className="py-5 text-center space-y-1 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
           <p className="text-xs font-medium text-slate-600">
             No Stakeholders Assigned
@@ -241,7 +259,7 @@ export const CaseStakeholdersWidget: React.FC<CaseStakeholdersWidgetProps> = ({
         </div>
       ) : (
         <div className="space-y-2 flex-1 min-h-0 overflow-y-auto pr-0.5">
-          {participants.map((p) => {
+          {displayParticipants.map((p) => {
             const rawRoleName = getRoleDisplayName(p);
             const party = getPartyConfig(p.roleId, rawRoleName);
             const isAgent = party.partyTag === 'AGENCY';
@@ -364,7 +382,7 @@ export const CaseStakeholdersWidget: React.FC<CaseStakeholdersWidgetProps> = ({
                 onChange={(e) => setSelectedRoleId(e.target.value)}
                 className="w-full text-xs font-medium bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-[#E1007A]"
               >
-                {roles.map((r) => (
+                {(availableRoles.length > 0 ? availableRoles : roles).map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.name}
                   </option>

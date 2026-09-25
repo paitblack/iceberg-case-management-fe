@@ -90,6 +90,15 @@ const getRoleBadgeStyle = (roleId: string) => {
   };
 };
 
+const isInternalAgentRole = (roleId: string) => {
+  const id = roleId.toLowerCase();
+  return (
+    id === 'role-estate-agent' ||
+    id.includes('agent') ||
+    id.includes('progressor')
+  );
+};
+
 export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
   isOpen,
   onClose,
@@ -167,10 +176,13 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
     return STANDARD_TEMPLATE_ROLES;
   }, [selectedTemplate]);
 
+  // Only external stakeholders (excluding internal sales progressor)
   const requiredRoles = useMemo(
     () =>
       templateRoles.filter(
-        (r) => r.isRequired || (r.minOccurrences && r.minOccurrences > 0),
+        (r) =>
+          !isInternalAgentRole(r.id) &&
+          (r.isRequired || (r.minOccurrences && r.minOccurrences > 0)),
       ),
     [templateRoles],
   );
@@ -178,7 +190,10 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
   const optionalRoles = useMemo(
     () =>
       templateRoles.filter(
-        (r) => !r.isRequired && (!r.minOccurrences || r.minOccurrences === 0),
+        (r) =>
+          !isInternalAgentRole(r.id) &&
+          !r.isRequired &&
+          (!r.minOccurrences || r.minOccurrences === 0),
       ),
     [templateRoles],
   );
@@ -193,31 +208,6 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
   const allRequiredAssigned =
     requiredRoles.length > 0 &&
     assignedRequiredCount === requiredRoles.length;
-
-  // Pre-populate default operator (logged-in user) for internal estate agent/progressor role
-  useEffect(() => {
-    if (isOpen && templateRoles.length > 0) {
-      setStakeholders((prev) => {
-        const next = { ...prev };
-        const agentRole = templateRoles.find(
-          (r) =>
-            r.id === 'role-estate-agent' ||
-            r.id.toLowerCase().includes('agent') ||
-            r.id.toLowerCase().includes('progressor'),
-        );
-        if (agentRole && !next[agentRole.id]?.name) {
-          next[agentRole.id] = {
-            name: user?.name || 'Sarah Jenkins',
-            email: user?.email || 'sarah.jenkins@iceberg-agency.co.uk',
-            phone: '+44 20 7946 0912',
-            companyName: 'Iceberg Estate Agency',
-            contactId: user?.id,
-          };
-        }
-        return next;
-      });
-    }
-  }, [isOpen, templateRoles, user]);
 
   const handleSelectDirectoryContact = (
     roleId: string,
@@ -341,15 +331,6 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
     }
   };
 
-  const isInternalAgentRole = (roleId: string) => {
-    const id = roleId.toLowerCase();
-    return (
-      id === 'role-estate-agent' ||
-      id.includes('agent') ||
-      id.includes('progressor')
-    );
-  };
-
   return (
     <Modal
       isOpen={isOpen}
@@ -430,6 +411,26 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
                 <p className="text-[11px] text-slate-500 mt-0.5">
                   General identifiers and conveyancing property details.
                 </p>
+              </div>
+
+              {/* Assigned Progressor Badge */}
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-pink-50/60 border border-pink-200/80 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-pink-100 flex items-center justify-center font-bold text-[10px] text-[#E1007A]">
+                    SJ
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Assigned Progressor
+                    </span>
+                    <span className="font-bold text-slate-800">
+                      {user?.name || 'Sarah Jenkins'}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[10px] font-semibold text-[#E1007A] bg-white px-2 py-0.5 rounded-md border border-pink-200 shadow-2xs">
+                  Case Operator
+                </span>
               </div>
 
               <div className="space-y-1.5">

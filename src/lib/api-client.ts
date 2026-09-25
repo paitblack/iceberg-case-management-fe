@@ -556,7 +556,15 @@ export async function fetchCaseWorkspace(
           : (p.expectedCompletionDays ?? null),
       agreedPrice: c.agreedPrice,
       assignedProgressorName:
-        c.assignedProgressorName || 'Operations Progressor',
+        c.assignedProgressorName ||
+        rawData.participants?.find((p) => {
+          const r = (p.roleName || p.roleId || '').toLowerCase();
+          return r.includes('progressor') || r.includes('agent');
+        })?.name ||
+        (typeof window !== 'undefined'
+          ? localStorage.getItem('lifesycle_actor_name')
+          : null) ||
+        'Sarah Jenkins',
       branchName: c.branchName || 'Central Office Branch',
       targetCompletionDate: c.targetCompletionDate,
       hasReopenPermission:
