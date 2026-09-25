@@ -56,7 +56,7 @@ export const AddAdHocStepModal: React.FC<AddAdHocStepModalProps> = ({
   const [stepName, setStepName] = useState('');
   const [placement, setPlacement] = useState<'in_sequence' | 'standalone'>('in_sequence');
   const [insertAfterStepId, setInsertAfterStepId] = useState<string>('');
-  const [isOptional, setIsOptional] = useState(true);
+  const [isOptional, setIsOptional] = useState(false);
   const [targetDate, setTargetDate] = useState('');
   const [tasks, setTasks] = useState<InitialTaskItem[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -75,7 +75,7 @@ export const AddAdHocStepModal: React.FC<AddAdHocStepModalProps> = ({
 
   const handleReset = () => {
     setStepName('');
-    setIsOptional(true);
+    setIsOptional(false);
     setTargetDate('');
     setTasks([]);
     setValidationError(null);

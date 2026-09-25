@@ -391,9 +391,8 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
             </Button>
           )}
 
-          {/* Delete Ad-hoc Step Action */}
-          {step.isAdHoc &&
-            canCustomize &&
+          {/* Delete Step Action */}
+          {canCustomize &&
             onDeleteStep &&
             (step.status === 'InProgress' || step.status === 'Completed' ? (
               <button
@@ -414,8 +413,8 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                   onDeleteStep(step.id);
                 }}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                title="Delete custom step"
-                aria-label="Delete custom step"
+                title="Delete step"
+                aria-label="Delete step"
               >
                 <Trash2 className="w-4 h-4" />
               </button>

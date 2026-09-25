@@ -77,7 +77,7 @@ describe('AddAdHocStepModal', () => {
     await waitFor(() => {
       expect(handleSubmit).toHaveBeenCalledWith({
         name: 'Structural Timber Survey',
-        isOptional: true,
+        isOptional: false,
         placement: 'in_sequence',
         insertAfterStepId: undefined,
         targetDate: undefined,
@@ -118,7 +118,7 @@ describe('AddAdHocStepModal', () => {
     await waitFor(() => {
       expect(handleSubmit).toHaveBeenCalledWith({
         name: 'Independent Boundary Inspection',
-        isOptional: true,
+        isOptional: false,
         placement: 'standalone',
         insertAfterStepId: undefined,
         targetDate: undefined,

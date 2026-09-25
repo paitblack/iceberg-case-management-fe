@@ -872,7 +872,7 @@ export const CaseWorkspacePage: React.FC = () => {
 
   const handlePromptDeleteStep = (stepId: string) => {
     const step = snapshot?.steps?.find((s) => s.id === stepId);
-    if (!step || !step.isAdHoc) return;
+    if (!step) return;
     if (step.status === 'InProgress' || step.status === 'Completed') {
       showToast('error', 'Cannot delete an active or completed step.');
       return;
@@ -887,7 +887,7 @@ export const CaseWorkspacePage: React.FC = () => {
   const handlePromptDeleteWorkItem = (stepId: string, workItemId: string) => {
     const step = snapshot?.steps?.find((s) => s.id === stepId);
     const workItem = step?.workItems?.find((wi) => wi.id === workItemId);
-    if (!workItem || !workItem.isAdHoc) return;
+    if (!workItem) return;
     if (workItem.status === 'Completed') {
       showToast('error', 'Completed tasks cannot be deleted.');
       return;
@@ -896,7 +896,7 @@ export const CaseWorkspacePage: React.FC = () => {
       type: 'work_item',
       stepId,
       workItemId,
-      name: workItem.name || workItem.title || 'Custom task',
+      name: workItem.name || workItem.title || 'Task',
     });
   };
 
@@ -906,14 +906,14 @@ export const CaseWorkspacePage: React.FC = () => {
     try {
       if (deleteTarget.type === 'step') {
         await deleteAdHocStep(caseId, deleteTarget.stepId);
-        showToast('success', `Custom step "${deleteTarget.name}" deleted.`);
+        showToast('success', `Step "${deleteTarget.name}" deleted.`);
       } else if (deleteTarget.type === 'work_item' && deleteTarget.workItemId) {
         await deleteAdHocWorkItem(
           caseId,
           deleteTarget.stepId,
           deleteTarget.workItemId,
         );
-        showToast('success', `Custom task "${deleteTarget.name}" deleted.`);
+        showToast('success', `Task "${deleteTarget.name}" deleted.`);
       }
       setDeleteTarget(null);
       await loadWorkspace();
@@ -924,7 +924,7 @@ export const CaseWorkspacePage: React.FC = () => {
           err.problem.detail || err.problem.title || err.message,
         );
       } else {
-        showToast('error', 'Failed to delete custom item.');
+        showToast('error', 'Failed to delete item.');
       }
     } finally {
       setIsDeletingItem(false);
@@ -1390,20 +1390,20 @@ export const CaseWorkspacePage: React.FC = () => {
         isSubmitting={isSubmittingWorkItem}
       />
 
-      {/* Confirm Delete Ad-hoc Step or Work Item Modal */}
+      {/* Confirm Delete Step or Work Item Modal */}
       <ConfirmDeleteModal
         isOpen={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
         title={
           deleteTarget?.type === 'step'
-            ? 'Delete Custom Step'
-            : 'Delete Custom Task'
+            ? 'Delete Step'
+            : 'Delete Task'
         }
         description={
           deleteTarget?.type === 'step'
-            ? `Are you sure you want to delete custom step "${deleteTarget.name}"? Any associated tasks will also be deleted.`
-            : `Are you sure you want to delete custom task "${deleteTarget?.name}"?`
+            ? `Are you sure you want to delete step "${deleteTarget.name}"? Any associated tasks will also be deleted.`
+            : `Are you sure you want to delete task "${deleteTarget?.name}"?`
         }
         confirmButtonText={
           deleteTarget?.type === 'step' ? 'Delete Step' : 'Delete Task'

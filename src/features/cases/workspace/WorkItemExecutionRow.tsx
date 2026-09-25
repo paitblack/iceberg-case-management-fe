@@ -565,8 +565,7 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
           </Badge>
         )}
 
-        {workItem.isAdHoc &&
-          canCustomize &&
+        {canCustomize &&
           onDelete &&
           (isCompleted ? (
             <button
@@ -583,8 +582,8 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
               type="button"
               onClick={() => onDelete(workItem.id)}
               className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-              title="Delete custom task"
-              aria-label="Delete custom task"
+              title="Delete task"
+              aria-label="Delete task"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
