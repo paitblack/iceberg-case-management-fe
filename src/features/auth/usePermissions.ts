@@ -201,7 +201,7 @@ export function usePermissions() {
         return {
           canDelete: false,
           reason:
-            'Evidence for a completed milestone task. Use "Replace" in Progression tab or contact an Administrator to delete.',
+            'Evidence for a completed milestone task. Contact an Administrator to delete.',
         };
       }
 

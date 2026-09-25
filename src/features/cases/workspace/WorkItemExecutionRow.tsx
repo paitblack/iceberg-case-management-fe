@@ -225,37 +225,6 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
                     </button>
                   )}
 
-                  {/* Replace Evidence Button */}
-                  {!isReadOnly &&
-                    !isWaived &&
-                    (onOpenEvidenceModal || onUploadDocument) &&
-                    canExecute && (
-                      <>
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          className="hidden"
-                          onChange={handleFileSelect}
-                        />
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onOpenEvidenceModal) {
-                              onOpenEvidenceModal(workItem);
-                            } else {
-                              fileInputRef.current?.click();
-                            }
-                          }}
-                          disabled={isUploadingDoc}
-                          className="text-[10px] text-emerald-700 font-semibold underline hover:text-emerald-900 cursor-pointer ml-0.5"
-                          title="Upload a new document to replace this evidence"
-                        >
-                          {isUploadingDoc ? 'Uploading...' : 'Replace'}
-                        </button>
-                      </>
-                    )}
-
                   {/* Remove Evidence Button (Pending / In-Flight tasks) */}
                   {!isReadOnly &&
                     !isCompleted &&
@@ -311,7 +280,7 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
                           }}
                           disabled={isUploadingDoc}
                           className="text-[10px] text-amber-800 font-semibold underline hover:text-amber-950 cursor-pointer ml-0.5"
-                          title="Attach replacement evidence document"
+                          title="Attach evidence document"
                         >
                           {isUploadingDoc ? 'Uploading...' : 'Re-attach'}
                         </button>

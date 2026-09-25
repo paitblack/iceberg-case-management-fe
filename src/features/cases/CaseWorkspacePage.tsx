@@ -369,7 +369,7 @@ export const CaseWorkspacePage: React.FC = () => {
       showToast(
         'success',
         evidenceTarget.workItem.status === 'Completed'
-          ? `Replacement evidence "${file.name}" attached successfully.`
+          ? `Evidence "${file.name}" attached successfully.`
           : `Evidence "${file.name}" uploaded successfully. Task is now ready to be completed.`,
       );
       setEvidenceTarget(null);
