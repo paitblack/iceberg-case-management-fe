@@ -18,19 +18,27 @@ import { Button } from '../../../components/ui/Button';
 import { SlaBadge } from '../../../components/ui/SlaBadge';
 import { InlineTargetDateEditor } from './InlineTargetDateEditor';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { WaiveWorkItemModal } from './WaiveWorkItemModal';
 import { usePermissions } from '../../auth/usePermissions';
 import type {
   BffWorkspaceWorkItem,
   BffCaseDocument,
   WorkItemActionType,
+  NoteSnapshot,
 } from '../../../types/api';
 
 interface WorkItemExecutionRowProps {
   workItem: BffWorkspaceWorkItem;
   documents?: BffCaseDocument[];
+  notes?: NoteSnapshot[];
+  stepName?: string;
   isReadOnly?: boolean;
   canCustomize?: boolean;
-  onAction: (workItemId: string, action: WorkItemActionType) => Promise<void>;
+  onAction: (
+    workItemId: string,
+    action: WorkItemActionType,
+    reason?: string,
+  ) => Promise<void>;
   onDelete?: (workItemId: string) => void;
   onUpdateTargetDate?: (targetDate: string | null) => Promise<void>;
   onUploadDocument?: (file: File, workItemId: string) => Promise<void>;
@@ -45,6 +53,8 @@ interface WorkItemExecutionRowProps {
 export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
   workItem,
   documents = [],
+  notes = [],
+  stepName,
   isReadOnly = false,
   canCustomize = false,
   onAction,
@@ -60,9 +70,16 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
 }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingDoc, setIsDeletingDoc] = useState(false);
+  const [showWaiveModal, setShowWaiveModal] = useState(false);
+  const [isWaiving, setIsWaiving] = useState(false);
   const { canExecuteWorkItem } = usePermissions();
   const { canExecute, reason, targetRoleDisplayName } =
     canExecuteWorkItem(workItem);
+
+  const waiveNote =
+    notes?.find(
+      (n) => n.workItemId === workItem.id && n.content.includes('[Task Waived]'),
+    ) || notes?.find((n) => n.workItemId === workItem.id);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -439,9 +456,22 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
             )}
 
             {isWaived && (
-              <span className="flex items-center gap-1 text-slate-500 font-medium italic">
-                <Slash className="w-3 h-3" />
-                Waived / Not required
+              <span className="inline-flex items-center gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1 text-slate-500 font-medium italic">
+                  <Slash className="w-3 h-3 text-slate-400" />
+                  <span>Waived</span>
+                </span>
+                {waiveNote && (
+                  <span
+                    className="inline-flex items-center gap-1 text-[10px] text-amber-900 bg-amber-50 border border-amber-200/80 rounded px-1.5 py-0.5 font-normal not-italic"
+                    title={`Waived by ${waiveNote.authorName}: ${waiveNote.content.replace(/^\[Task Waived\]\s*/i, '')}`}
+                  >
+                    <span className="font-semibold text-amber-950">Reason:</span>
+                    <span className="max-w-[200px] truncate">
+                      {waiveNote.content.replace(/^\[Task Waived\]\s*/i, '')}
+                    </span>
+                  </span>
+                )}
               </span>
             )}
           </div>
@@ -474,11 +504,11 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
           <Button
             variant="ghost"
             size="xs"
-            isLoading={isLoading}
+            isLoading={isLoading || isWaiving}
             disabled={!canExecute}
-            onClick={() => onAction(workItem.id, 'WAIVE')}
+            onClick={() => setShowWaiveModal(true)}
             className="text-[11px] font-semibold text-slate-500 hover:text-slate-800"
-            title="Waive this task"
+            title="Waive this task with a required business justification"
           >
             Waive
           </Button>
@@ -584,6 +614,29 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
           description={`Are you sure you want to remove "${linkedDoc.fileName}" from "${workItem.name || workItem.title || 'this task'}"? This task requires evidence and cannot be completed until a new document is attached.`}
           warningText="This action will permanently delete the document from storage and reset the task completion requirement."
           confirmButtonText="Remove Evidence"
+        />
+      )}
+
+      {/* Waive Task Confirmation & Justification Modal */}
+      {showWaiveModal && (
+        <WaiveWorkItemModal
+          isOpen={showWaiveModal}
+          onClose={() => {
+            if (!isWaiving) setShowWaiveModal(false);
+          }}
+          onConfirm={async (waiveReason) => {
+            setIsWaiving(true);
+            try {
+              await onAction(workItem.id, 'WAIVE', waiveReason);
+              setShowWaiveModal(false);
+            } finally {
+              setIsWaiving(false);
+            }
+          }}
+          workItemName={workItem.name || workItem.title || 'Untitled Checkpoint'}
+          stepName={stepName}
+          targetRoleDisplayName={targetRoleDisplayName}
+          isSubmitting={isWaiving || isLoading}
         />
       )}
     </div>

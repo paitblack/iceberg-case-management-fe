@@ -42,6 +42,7 @@ interface StepExecutionCardProps {
     stepId: string,
     workItemId: string,
     action: WorkItemActionType,
+    reason?: string,
   ) => Promise<void>;
   onAddNote?: (payload: AddCaseNotePayload) => Promise<void>;
   onUpdateStepTargetDate?: (
@@ -496,6 +497,8 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                   key={wi.id}
                   workItem={wi}
                   documents={documents}
+                  notes={step.notes}
+                  stepName={step.name}
                   isReadOnly={isPending}
                   canCustomize={canCustomize}
                   onDelete={
@@ -505,8 +508,8 @@ export const StepExecutionCard: React.FC<StepExecutionCardProps> = ({
                   }
                   isLoading={loadingWorkItemId === wi.id}
                   isUploadingDoc={uploadingWorkItemId === wi.id}
-                  onAction={(workItemId, action) =>
-                    onWorkItemAction(step.id, workItemId, action)
+                  onAction={(workItemId, action, reason) =>
+                    onWorkItemAction(step.id, workItemId, action, reason)
                   }
                   onUpdateTargetDate={
                     onUpdateWorkItemTargetDate

@@ -193,5 +193,87 @@ describe('WorkItemExecutionRow - Evidence Flow', () => {
     expect(handleChase).toHaveBeenCalledTimes(1);
     expect(handleChase).toHaveBeenCalledWith(baseWorkItem);
   });
+
+  it('opens WaiveWorkItemModal when Waive button is clicked and executes onAction with reason on confirm', async () => {
+    const handleAction = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <WorkItemExecutionRow
+        workItem={baseWorkItem}
+        documents={[]}
+        isLoading={false}
+        onAction={handleAction}
+      />,
+    );
+
+    const waiveBtn = screen.getByRole('button', { name: /^Waive$/i });
+    expect(waiveBtn).toBeInTheDocument();
+
+    fireEvent.click(waiveBtn);
+
+    // Modal opens, onAction should NOT have been called yet
+    expect(handleAction).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('dialog', { name: /Waive Checkpoint Task/i }),
+    ).toBeInTheDocument();
+
+    // Type a reason in textarea
+    const reasonInput = screen.getByLabelText(
+      /Business Justification \/ Note/i,
+    );
+    fireEvent.change(reasonInput, {
+      target: { value: 'Client provided indemnity policy' },
+    });
+
+    const confirmBtn = screen.getByRole('button', {
+      name: /Confirm Waive Task/i,
+    });
+    fireEvent.click(confirmBtn);
+
+    expect(handleAction).toHaveBeenCalledWith(
+      'wi-101',
+      'WAIVE',
+      'Client provided indemnity policy',
+    );
+  });
+
+  it('renders Waived badge and displays waive reason when waive note is present', () => {
+    const waivedWorkItem: BffWorkspaceWorkItem = {
+      ...baseWorkItem,
+      status: 'Waived',
+      allowedActions: [],
+    };
+
+    const waiveNote = {
+      id: 'note-1',
+      caseId: 'case-1',
+      stepId: 'step-1',
+      workItemId: 'wi-101',
+      authorId: 'agent-1',
+      authorName: 'Sarah Jenkins',
+      authorRole: 'Estate Agent',
+      content: '[Task Waived] Handled directly outside system',
+      isPrivate: false,
+      visibleToParticipantIds: [],
+      createdAt: '2026-09-25T10:00:00Z',
+    };
+
+    render(
+      <WorkItemExecutionRow
+        workItem={waivedWorkItem}
+        documents={[]}
+        notes={[waiveNote]}
+        isLoading={false}
+        onAction={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText('Waived').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Reason:')).toBeInTheDocument();
+    expect(
+      screen.getByText('Handled directly outside system'),
+    ).toBeInTheDocument();
+  });
 });
+
 

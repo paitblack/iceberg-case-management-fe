@@ -636,10 +636,11 @@ export async function executeWorkItemAction(
   stepId: string,
   workItemId: string,
   action: WorkItemActionType,
+  reason?: string,
 ): Promise<{ success: boolean; resourceVersion?: number }> {
   return apiPost<{ success: boolean; resourceVersion?: number }>(
     `/cases/${caseId}/work-items/${workItemId}/action`,
-    { stepId, action },
+    { stepId, action, ...(reason ? { reason } : {}) },
   );
 }
 

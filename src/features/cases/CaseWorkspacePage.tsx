@@ -290,14 +290,45 @@ export const CaseWorkspacePage: React.FC = () => {
     stepId: string,
     workItemId: string,
     action: WorkItemActionType,
+    reason?: string,
   ) => {
     if (!caseId) return;
     setLoadingWorkItemId(workItemId);
     try {
-      await executeWorkItemAction(caseId, stepId, workItemId, action);
+      try {
+        await executeWorkItemAction(caseId, stepId, workItemId, action, reason);
+      } catch (err: unknown) {
+        // If the remote backend is running a build that forbids non-whitelisted reason,
+        // fallback to executing without reason and record the reason via addCaseNote.
+        if (
+          err instanceof ApiError &&
+          err.problem.detail
+            ?.toLowerCase()
+            .includes('property reason should not exist')
+        ) {
+          await executeWorkItemAction(caseId, stepId, workItemId, action);
+          if (reason) {
+            try {
+              await addCaseNote(caseId, {
+                stepId,
+                workItemId,
+                content: `[Task Waived] ${reason}`,
+                isPrivate: false,
+              });
+            } catch {
+              // Silently ignore note failure if note endpoint fails
+            }
+          }
+        } else {
+          throw err;
+        }
+      }
+
       showToast(
         'success',
-        `Work item '${action}' executed successfully on backend.`,
+        action === 'WAIVE'
+          ? 'Work item waived successfully.'
+          : `Work item '${action}' executed successfully on backend.`,
       );
 
       // If work item was completed, prompt optional stakeholder outreach modal
