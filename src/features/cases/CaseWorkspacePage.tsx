@@ -290,14 +290,45 @@ export const CaseWorkspacePage: React.FC = () => {
     stepId: string,
     workItemId: string,
     action: WorkItemActionType,
+    reason?: string,
   ) => {
     if (!caseId) return;
     setLoadingWorkItemId(workItemId);
     try {
-      await executeWorkItemAction(caseId, stepId, workItemId, action);
+      try {
+        await executeWorkItemAction(caseId, stepId, workItemId, action, reason);
+      } catch (err: unknown) {
+        // If the remote backend is running a build that forbids non-whitelisted reason,
+        // fallback to executing without reason and record the reason via addCaseNote.
+        if (
+          err instanceof ApiError &&
+          err.problem.detail
+            ?.toLowerCase()
+            .includes('property reason should not exist')
+        ) {
+          await executeWorkItemAction(caseId, stepId, workItemId, action);
+          if (reason) {
+            try {
+              await addCaseNote(caseId, {
+                stepId,
+                workItemId,
+                content: `[Task Waived] ${reason}`,
+                isPrivate: false,
+              });
+            } catch {
+              // Silently ignore note failure if note endpoint fails
+            }
+          }
+        } else {
+          throw err;
+        }
+      }
+
       showToast(
         'success',
-        `Work item '${action}' executed successfully on backend.`,
+        action === 'WAIVE'
+          ? 'Work item waived successfully.'
+          : `Work item '${action}' executed successfully on backend.`,
       );
 
       // If work item was completed, prompt optional stakeholder outreach modal
@@ -369,7 +400,7 @@ export const CaseWorkspacePage: React.FC = () => {
       showToast(
         'success',
         evidenceTarget.workItem.status === 'Completed'
-          ? `Replacement evidence "${file.name}" attached successfully.`
+          ? `Evidence "${file.name}" attached successfully.`
           : `Evidence "${file.name}" uploaded successfully. Task is now ready to be completed.`,
       );
       setEvidenceTarget(null);
@@ -841,7 +872,7 @@ export const CaseWorkspacePage: React.FC = () => {
 
   const handlePromptDeleteStep = (stepId: string) => {
     const step = snapshot?.steps?.find((s) => s.id === stepId);
-    if (!step || !step.isAdHoc) return;
+    if (!step) return;
     if (step.status === 'InProgress' || step.status === 'Completed') {
       showToast('error', 'Cannot delete an active or completed step.');
       return;
@@ -856,7 +887,7 @@ export const CaseWorkspacePage: React.FC = () => {
   const handlePromptDeleteWorkItem = (stepId: string, workItemId: string) => {
     const step = snapshot?.steps?.find((s) => s.id === stepId);
     const workItem = step?.workItems?.find((wi) => wi.id === workItemId);
-    if (!workItem || !workItem.isAdHoc) return;
+    if (!workItem) return;
     if (workItem.status === 'Completed') {
       showToast('error', 'Completed tasks cannot be deleted.');
       return;
@@ -865,7 +896,7 @@ export const CaseWorkspacePage: React.FC = () => {
       type: 'work_item',
       stepId,
       workItemId,
-      name: workItem.name || workItem.title || 'Custom task',
+      name: workItem.name || workItem.title || 'Task',
     });
   };
 
@@ -875,14 +906,14 @@ export const CaseWorkspacePage: React.FC = () => {
     try {
       if (deleteTarget.type === 'step') {
         await deleteAdHocStep(caseId, deleteTarget.stepId);
-        showToast('success', `Custom step "${deleteTarget.name}" deleted.`);
+        showToast('success', `Step "${deleteTarget.name}" deleted.`);
       } else if (deleteTarget.type === 'work_item' && deleteTarget.workItemId) {
         await deleteAdHocWorkItem(
           caseId,
           deleteTarget.stepId,
           deleteTarget.workItemId,
         );
-        showToast('success', `Custom task "${deleteTarget.name}" deleted.`);
+        showToast('success', `Task "${deleteTarget.name}" deleted.`);
       }
       setDeleteTarget(null);
       await loadWorkspace();
@@ -893,7 +924,7 @@ export const CaseWorkspacePage: React.FC = () => {
           err.problem.detail || err.problem.title || err.message,
         );
       } else {
-        showToast('error', 'Failed to delete custom item.');
+        showToast('error', 'Failed to delete item.');
       }
     } finally {
       setIsDeletingItem(false);
@@ -1059,6 +1090,9 @@ export const CaseWorkspacePage: React.FC = () => {
           <SalesProgressionTracker
             snapshot={snapshot}
             onSelectStep={handleSelectStep}
+            onAddNote={handleAddNote}
+            participants={participantsList}
+            isAddingNote={isSubmittingNote}
           />
 
           {/* Blockers Alert Banner */}
@@ -1356,20 +1390,20 @@ export const CaseWorkspacePage: React.FC = () => {
         isSubmitting={isSubmittingWorkItem}
       />
 
-      {/* Confirm Delete Ad-hoc Step or Work Item Modal */}
+      {/* Confirm Delete Step or Work Item Modal */}
       <ConfirmDeleteModal
         isOpen={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
         title={
           deleteTarget?.type === 'step'
-            ? 'Delete Custom Step'
-            : 'Delete Custom Task'
+            ? 'Delete Step'
+            : 'Delete Task'
         }
         description={
           deleteTarget?.type === 'step'
-            ? `Are you sure you want to delete custom step "${deleteTarget.name}"? Any associated tasks will also be deleted.`
-            : `Are you sure you want to delete custom task "${deleteTarget?.name}"?`
+            ? `Are you sure you want to delete step "${deleteTarget.name}"? Any associated tasks will also be deleted.`
+            : `Are you sure you want to delete task "${deleteTarget?.name}"?`
         }
         confirmButtonText={
           deleteTarget?.type === 'step' ? 'Delete Step' : 'Delete Task'

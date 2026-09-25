@@ -385,13 +385,13 @@ export const TemplateSidebar: React.FC = () => {
               />
             </div>
 
-            {/* Preset Archetypes Grid */}
+            {/* Starter Templates Grid */}
             <div className="pt-2.5 border-t border-slate-100 space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Switch Archetype Preset
+                  Starter Templates
                 </label>
-                <span className="text-[9px] text-slate-400">1-click load</span>
+                <span className="text-[9px] text-slate-400">Quick start</span>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {presetList.map((preset) => (
@@ -562,7 +562,7 @@ export const TemplateSidebar: React.FC = () => {
               <div className="p-2.5 rounded-xl bg-gradient-to-br from-sky-50/40 to-slate-50/60 border border-sky-100/80 shadow-2xs">
                 <div className="flex items-center justify-between text-sky-600 mb-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Prerequisites
+                    Dependencies
                   </span>
                   <GitBranch className="w-3.5 h-3.5" />
                 </div>

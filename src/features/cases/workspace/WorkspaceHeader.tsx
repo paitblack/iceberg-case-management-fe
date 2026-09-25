@@ -50,12 +50,23 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
     (s) => s.isOptional && (s.status === 'Completed' || s.status === 'Skipped'),
   ).length;
 
-  const progressPercentage =
-    mandatorySteps.length > 0
+  const hasMandatory = mandatorySteps.length > 0;
+  const isCompletedCase = snapshot.status === 'Completed';
+  const progressPercentage = isCompletedCase
+    ? 100
+    : hasMandatory
       ? Math.round(
           (completedMandatorySteps.length / mandatorySteps.length) * 100,
         )
-      : snapshot.progressPercentage;
+      : steps.length > 0
+        ? Math.round(
+            (steps.filter(
+              (s) => s.status === 'Completed' || s.status === 'Skipped',
+            ).length /
+              steps.length) *
+              100,
+          )
+        : (snapshot.progressPercentage ?? 0);
 
   const canReopen =
     (allowedActions.includes('REOPEN') ||
@@ -199,7 +210,7 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
             <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <span>Progressor:</span>
             <strong className="text-slate-800 font-bold">
-              {snapshot.assignedProgressorName || 'Operations Progressor'}
+              {snapshot.assignedProgressorName || 'Sarah Jenkins'}
             </strong>
           </span>
           {snapshot.targetCompletionDate && (
@@ -237,11 +248,21 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
               Workflow Progression Status
             </span>
             <span className="text-slate-500 text-[11px] font-medium">
-              ({completedMandatorySteps.length} of {mandatorySteps.length}{' '}
-              mandatory milestones complete
-              {progressPercentage === 100 && ' — 100% Ready'})
+              {hasMandatory ? (
+                <>
+                  ({completedMandatorySteps.length} of {mandatorySteps.length}{' '}
+                  mandatory milestones complete
+                  {progressPercentage === 100 && ' — 100% Ready'})
+                </>
+              ) : (
+                <>
+                  ({steps.filter((s) => s.status === 'Completed' || s.status === 'Skipped').length} of {steps.length}{' '}
+                  milestones complete
+                  {progressPercentage === 100 && ' — 100% Ready'})
+                </>
+              )}
             </span>
-            {optionalStepsCount > 0 && (
+            {hasMandatory && optionalStepsCount > 0 && (
               <span className="text-[10px] text-slate-400 font-medium">
                 ({completedOptionalStepsCount}/{optionalStepsCount} optional done)
               </span>

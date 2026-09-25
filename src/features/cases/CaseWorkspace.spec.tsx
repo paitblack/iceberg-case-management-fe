@@ -694,7 +694,7 @@ describe('Case Workspace Components', () => {
       );
 
       const deleteBtn = screen.getByRole('button', {
-        name: /Delete custom step/i,
+        name: /Delete step/i,
       });
       expect(deleteBtn).toBeInTheDocument();
       expect(deleteBtn).not.toBeDisabled();
@@ -727,7 +727,7 @@ describe('Case Workspace Components', () => {
       expect(deleteBtn).toBeDisabled();
     });
 
-    it('does not render Delete button for standard template steps', () => {
+    it('does not render Delete button when canCustomize is false', () => {
       const standardStep: BffWorkspaceStep = {
         ...mockAdHocStep,
         isAdHoc: false,
@@ -736,7 +736,7 @@ describe('Case Workspace Components', () => {
       render(
         <StepExecutionCard
           step={standardStep}
-          canCustomize={true}
+          canCustomize={false}
           onDeleteStep={vi.fn()}
           onStepAction={vi.fn()}
           onWorkItemAction={vi.fn()}
@@ -746,7 +746,7 @@ describe('Case Workspace Components', () => {
       );
 
       expect(
-        screen.queryByRole('button', { name: /Delete custom step/i }),
+        screen.queryByRole('button', { name: /Delete step/i }),
       ).not.toBeInTheDocument();
     });
 
@@ -800,7 +800,7 @@ describe('Case Workspace Components', () => {
       expect(screen.getByText('Custom')).toBeInTheDocument();
 
       const deleteBtn = screen.getByRole('button', {
-        name: /Delete custom task/i,
+        name: /Delete task/i,
       });
       expect(deleteBtn).toBeInTheDocument();
       expect(deleteBtn).not.toBeDisabled();
