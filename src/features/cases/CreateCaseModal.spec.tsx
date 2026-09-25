@@ -200,4 +200,34 @@ describe('CreateCaseModal', () => {
       expect(successSpy).toHaveBeenCalledWith('new-case-123');
     });
   });
+
+  it('populates fields when a Quick Pick chip is clicked on a role', async () => {
+    vi.spyOn(apiClient, 'fetchPublishedTemplates').mockResolvedValue(
+      mockTemplates,
+    );
+
+    render(
+      <MemoryRouter>
+        <CreateCaseModal isOpen={true} onClose={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText(/12-stage standard conveyancing progression/i);
+
+    // Find quick pick chips for Buyer
+    const quickPickChip = await screen.findByRole('button', {
+      name: /Emily & John Smith/i,
+    });
+    expect(quickPickChip).toBeInTheDocument();
+
+    // Click the chip
+    fireEvent.click(quickPickChip);
+
+    // Verify the input is populated
+    const buyerInput = screen.getByPlaceholderText(
+      /e.g. Buyer \/ Purchaser contact name/i,
+    ) as HTMLInputElement;
+    expect(buyerInput.value).toBe('Emily & John Smith');
+  });
 });
+

@@ -15,6 +15,7 @@ import {
   User,
   CheckCircle2,
   ArrowRight,
+  Sparkles,
 } from 'lucide-react';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
@@ -99,6 +100,142 @@ const isInternalAgentRole = (roleId: string) => {
   );
 };
 
+// External contacts from directory (excluding internal agency progressors/staff)
+export const AVAILABLE_EXTERNAL_CONTACTS = REGISTERED_SYSTEM_CONTACTS.filter(
+  (c) =>
+    c.category !== 'STAFF' &&
+    !c.roleId.includes('agent') &&
+    !c.roleId.includes('progressor'),
+);
+
+export interface SmartContactsResult {
+  recommended: RegisteredContact[];
+  all: RegisteredContact[];
+}
+
+export const getSmartContactsForRole = (
+  roleName: string,
+  roleId: string,
+): SmartContactsResult => {
+  const normName = (roleName || '').toLowerCase();
+  const normId = (roleId || '').toLowerCase();
+
+  const isBuyerRole =
+    normName.includes('buyer') ||
+    normName.includes('purchaser') ||
+    normId.includes('buyer');
+  const isVendorRole =
+    normName.includes('vendor') ||
+    normName.includes('seller') ||
+    normId.includes('vendor') ||
+    normId.includes('seller');
+  const isSolicitorRole =
+    normName.includes('solicitor') ||
+    normName.includes('conveyanc') ||
+    normName.includes('legal') ||
+    normName.includes('lawyer') ||
+    normId.includes('solicitor') ||
+    normId.includes('conveyanc');
+  const isBrokerRole =
+    normName.includes('mortgage') ||
+    normName.includes('broker') ||
+    normName.includes('lender') ||
+    normName.includes('finance') ||
+    normId.includes('mortgage') ||
+    normId.includes('broker');
+  const isSurveyorRole =
+    normName.includes('survey') ||
+    normName.includes('valuer') ||
+    normName.includes('valuation') ||
+    normId.includes('survey');
+
+  const scored = AVAILABLE_EXTERNAL_CONTACTS.map((c) => {
+    let score = 0;
+    const cRoleId = (c.roleId || '').toLowerCase();
+    const cRoleLabel = (c.roleLabel || '').toLowerCase();
+    const cCategory = c.category;
+
+    if (cRoleId === normId) {
+      score += 100;
+    }
+
+    if (isSolicitorRole) {
+      if (cCategory === 'SOLICITOR') score += 50;
+      if (
+        isBuyerRole &&
+        (cRoleId.includes('buyer') || cRoleLabel.includes('buyer'))
+      ) {
+        score += 40;
+      }
+      if (
+        isVendorRole &&
+        (cRoleId.includes('vendor') ||
+          cRoleLabel.includes('vendor') ||
+          cRoleLabel.includes('seller'))
+      ) {
+        score += 40;
+      }
+    } else if (isBuyerRole) {
+      if (
+        cCategory === 'CLIENT' &&
+        (cRoleId.includes('buyer') || cRoleLabel.includes('buyer'))
+      ) {
+        score += 60;
+      }
+      if (
+        cCategory === 'SOLICITOR' &&
+        (cRoleId.includes('buyer') || cRoleLabel.includes('buyer'))
+      ) {
+        score += 20;
+      }
+    } else if (isVendorRole) {
+      if (
+        cCategory === 'CLIENT' &&
+        (cRoleId.includes('vendor') ||
+          cRoleLabel.includes('vendor') ||
+          cRoleLabel.includes('seller'))
+      ) {
+        score += 60;
+      }
+      if (
+        cCategory === 'SOLICITOR' &&
+        (cRoleId.includes('vendor') ||
+          cRoleLabel.includes('vendor') ||
+          cRoleLabel.includes('seller'))
+      ) {
+        score += 20;
+      }
+    } else if (isBrokerRole) {
+      if (
+        cCategory === 'ADVISOR' &&
+        (cRoleId.includes('mortgage') || cRoleLabel.includes('mortgage'))
+      ) {
+        score += 80;
+      }
+    } else if (isSurveyorRole) {
+      if (
+        cCategory === 'ADVISOR' &&
+        (cRoleId.includes('surveyor') || cRoleLabel.includes('surveyor'))
+      ) {
+        score += 80;
+      }
+    }
+
+    return { contact: c, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+
+  const matched = scored.filter((s) => s.score > 0).map((s) => s.contact);
+  const recommended =
+    matched.length > 0 ? matched : AVAILABLE_EXTERNAL_CONTACTS.slice(0, 3);
+
+  return {
+    recommended,
+    all: AVAILABLE_EXTERNAL_CONTACTS,
+  };
+};
+
 export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
   isOpen,
   onClose,
@@ -126,7 +263,7 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Load published templates on modal open
+  // Reset modal state on open
   useEffect(() => {
     if (isOpen) {
       setIsLoadingTemplates(true);
@@ -224,6 +361,14 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
         contactId: contact.id,
       },
     }));
+  };
+
+  const handleClearStakeholder = (roleId: string) => {
+    setStakeholders((prev) => {
+      const next = { ...prev };
+      delete next[roleId];
+      return next;
+    });
   };
 
   const handleUpdateStakeholder = (
@@ -628,8 +773,9 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
               </Badge>
             </div>
 
-            {/* Scrollable Stakeholder List (Shows comfortably, scrolls cleanly) */}
+            {/* Scrollable Stakeholder List */}
             <div className="max-h-[560px] overflow-y-auto pr-1.5 space-y-3">
+              {/* Required Stakeholders */}
               {requiredRoles.map((role) => {
                 const assigned = stakeholders[role.id] || {
                   name: '',
@@ -637,21 +783,17 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
                   phone: '',
                   companyName: '',
                 };
-                const matchingContacts = REGISTERED_SYSTEM_CONTACTS.filter(
-                  (c) => c.roleId === role.id,
+                const { recommended, all } = getSmartContactsForRole(
+                  role.name,
+                  role.id,
                 );
                 const isFilled = assigned.name.trim().length > 0;
-                const isAgent = isInternalAgentRole(role.id);
                 const roleStyle = getRoleBadgeStyle(role.id);
 
                 return (
                   <div
                     key={role.id}
-                    className={`p-4 rounded-2xl border transition-all space-y-3 shadow-2xs ${
-                      isAgent
-                        ? 'bg-slate-50/50 border-slate-200'
-                        : 'bg-white border-slate-200 hover:border-slate-300'
-                    }`}
+                    className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition-all space-y-3 shadow-2xs"
                   >
                     {/* Card Top Row: Role Identity, Tags, Directory Selector, Status */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-slate-100">
@@ -669,49 +811,101 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
                           <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
                             Required
                           </span>
-                          {isAgent && (
-                            <span className="text-[10px] font-semibold text-[#E1007A] bg-pink-50 border border-pink-100 px-2 py-0.5 rounded-full">
-                              Your Agency (Logged In)
-                            </span>
-                          )}
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                         {isFilled ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                            <Check className="w-3 h-3 stroke-[2.5]" /> Assigned
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                              <Check className="w-3 h-3 stroke-[2.5]" /> Assigned
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleClearStakeholder(role.id)}
+                              className="text-[10px] text-slate-400 hover:text-rose-600 transition-colors cursor-pointer px-1"
+                              title="Clear assigned contact"
+                            >
+                              Clear
+                            </button>
+                          </div>
                         ) : (
                           <span className="inline-flex items-center text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
                             Pending Assignment
                           </span>
                         )}
 
-                        {matchingContacts.length > 0 && (
-                          <select
-                            onChange={(e) => {
-                              const contact =
-                                REGISTERED_SYSTEM_CONTACTS.find(
-                                  (c) => c.id === e.target.value,
-                                ) || null;
-                              handleSelectDirectoryContact(role.id, contact);
-                            }}
-                            defaultValue=""
-                            className="text-xs font-medium bg-white hover:bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 focus:outline-none focus:border-[#E1007A] cursor-pointer shadow-2xs"
-                          >
-                            <option value="" disabled>
-                              Select from directory ({matchingContacts.length})...
-                            </option>
-                            {matchingContacts.map((c) => (
-                              <option key={c.id} value={c.id}>
+                        <select
+                          value={assigned.contactId || ''}
+                          onChange={(e) => {
+                            const contact =
+                              AVAILABLE_EXTERNAL_CONTACTS.find(
+                                (c) => c.id === e.target.value,
+                              ) || null;
+                            handleSelectDirectoryContact(role.id, contact);
+                          }}
+                          className="text-xs font-medium bg-white hover:bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 focus:outline-none focus:border-[#E1007A] cursor-pointer shadow-2xs max-w-[200px] truncate"
+                        >
+                          <option value="">Choose from directory...</option>
+                          {recommended.length > 0 && (
+                            <optgroup label="✨ Recommended Contacts">
+                              {recommended.map((c) => (
+                                <option key={`rec-${c.id}`} value={c.id}>
+                                  {c.name} — {c.companyName}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                          <optgroup label="📋 All Directory Contacts">
+                            {all.map((c) => (
+                              <option key={`all-${c.id}`} value={c.id}>
                                 {c.name} — {c.companyName}
                               </option>
                             ))}
-                          </select>
-                        )}
+                          </optgroup>
+                        </select>
                       </div>
                     </div>
+
+                    {/* Quick Pick Chips Bar */}
+                    {recommended.length > 0 && (
+                      <div className="flex items-center gap-1.5 flex-wrap pt-0.5 pb-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-0.5">
+                          <Sparkles className="w-3 h-3 text-amber-500" />
+                          Quick Pick:
+                        </span>
+                        {recommended.slice(0, 3).map((contact) => {
+                          const isSelected =
+                            assigned.contactId === contact.id ||
+                            assigned.name.toLowerCase() === contact.name.toLowerCase();
+                          return (
+                            <button
+                              key={contact.id}
+                              type="button"
+                              onClick={() =>
+                                handleSelectDirectoryContact(role.id, contact)
+                              }
+                              className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-0.5 rounded-lg border transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold shadow-2xs'
+                                  : 'bg-slate-50 hover:bg-white text-slate-700 hover:text-slate-900 border-slate-200 hover:border-slate-300'
+                              }`}
+                              title={`Auto-fill with ${contact.name} (${contact.companyName})`}
+                            >
+                              {isSelected ? (
+                                <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
+                              ) : (
+                                <User className="w-2.5 h-2.5 text-slate-400" />
+                              )}
+                              <span>{contact.name}</span>
+                              <span className="text-[9px] text-slate-400 font-normal">
+                                ({contact.companyName.split(' ')[0]})
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
 
                     {/* 2x2 Clean Input Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -833,10 +1027,10 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
                           phone: '',
                           companyName: '',
                         };
-                        const matchingContacts =
-                          REGISTERED_SYSTEM_CONTACTS.filter(
-                            (c) => c.roleId === role.id,
-                          );
+                        const { recommended, all } = getSmartContactsForRole(
+                          role.name,
+                          role.id,
+                        );
                         const isFilled = assigned.name.trim().length > 0;
                         const roleStyle = getRoleBadgeStyle(role.id);
 
@@ -852,48 +1046,115 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
                                 >
                                   {getRoleInitials(role.name)}
                                 </div>
-                                <span className="font-bold text-slate-900 text-xs">
-                                  {role.name}
-                                </span>
-                                <Badge variant="optional" size="xs">
-                                  Optional
-                                </Badge>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-bold text-slate-900 text-xs">
+                                    {role.name}
+                                  </span>
+                                  <Badge variant="optional" size="xs">
+                                    Optional
+                                  </Badge>
+                                </div>
                               </div>
 
-                              <div className="flex items-center gap-2">
-                                {isFilled && (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                                    <Check className="w-3 h-3 stroke-[2.5]" /> Assigned
+                              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                                {isFilled ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                      <Check className="w-3 h-3 stroke-[2.5]" /> Assigned
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleClearStakeholder(role.id)}
+                                      className="text-[10px] text-slate-400 hover:text-rose-600 transition-colors cursor-pointer px-1"
+                                      title="Clear assigned contact"
+                                    >
+                                      Clear
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="inline-flex items-center text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                                    Pending Assignment
                                   </span>
                                 )}
 
-                                {matchingContacts.length > 0 && (
-                                  <select
-                                    onChange={(e) => {
-                                      const contact =
-                                        REGISTERED_SYSTEM_CONTACTS.find(
-                                          (c) => c.id === e.target.value,
-                                        ) || null;
-                                      handleSelectDirectoryContact(
-                                        role.id,
-                                        contact,
-                                      );
-                                    }}
-                                    defaultValue=""
-                                    className="text-xs font-medium bg-white hover:bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 focus:outline-none focus:border-[#E1007A] cursor-pointer shadow-2xs"
-                                  >
-                                    <option value="" disabled>
-                                      Select from directory ({matchingContacts.length})...
-                                    </option>
-                                    {matchingContacts.map((c) => (
-                                      <option key={c.id} value={c.id}>
+                                <select
+                                  value={assigned.contactId || ''}
+                                  onChange={(e) => {
+                                    const contact =
+                                      AVAILABLE_EXTERNAL_CONTACTS.find(
+                                        (c) => c.id === e.target.value,
+                                      ) || null;
+                                    handleSelectDirectoryContact(
+                                      role.id,
+                                      contact,
+                                    );
+                                  }}
+                                  className="text-xs font-medium bg-white hover:bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 focus:outline-none focus:border-[#E1007A] cursor-pointer shadow-2xs max-w-[200px] truncate"
+                                >
+                                  <option value="">Choose from directory...</option>
+                                  {recommended.length > 0 && (
+                                    <optgroup label="✨ Recommended Contacts">
+                                      {recommended.map((c) => (
+                                        <option key={`rec-${c.id}`} value={c.id}>
+                                          {c.name} — {c.companyName}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  )}
+                                  <optgroup label="📋 All Directory Contacts">
+                                    {all.map((c) => (
+                                      <option key={`all-${c.id}`} value={c.id}>
                                         {c.name} — {c.companyName}
                                       </option>
                                     ))}
-                                  </select>
-                                )}
+                                  </optgroup>
+                                </select>
                               </div>
                             </div>
+
+                            {/* Quick Pick Chips Bar */}
+                            {recommended.length > 0 && (
+                              <div className="flex items-center gap-1.5 flex-wrap pt-0.5 pb-1">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-0.5">
+                                  <Sparkles className="w-3 h-3 text-amber-500" />
+                                  Quick Pick:
+                                </span>
+                                {recommended.slice(0, 3).map((contact) => {
+                                  const isSelected =
+                                    assigned.contactId === contact.id ||
+                                    assigned.name.toLowerCase() ===
+                                      contact.name.toLowerCase();
+                                  return (
+                                    <button
+                                      key={contact.id}
+                                      type="button"
+                                      onClick={() =>
+                                        handleSelectDirectoryContact(
+                                          role.id,
+                                          contact,
+                                        )
+                                      }
+                                      className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-0.5 rounded-lg border transition-all cursor-pointer ${
+                                        isSelected
+                                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold shadow-2xs'
+                                          : 'bg-slate-50 hover:bg-white text-slate-700 hover:text-slate-900 border-slate-200 hover:border-slate-300'
+                                      }`}
+                                      title={`Auto-fill with ${contact.name} (${contact.companyName})`}
+                                    >
+                                      {isSelected ? (
+                                        <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
+                                      ) : (
+                                        <User className="w-2.5 h-2.5 text-slate-400" />
+                                      )}
+                                      <span>{contact.name}</span>
+                                      <span className="text-[9px] text-slate-400 font-normal">
+                                        ({contact.companyName.split(' ')[0]})
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                               <div className="space-y-1">
