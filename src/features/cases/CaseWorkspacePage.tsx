@@ -1059,6 +1059,9 @@ export const CaseWorkspacePage: React.FC = () => {
           <SalesProgressionTracker
             snapshot={snapshot}
             onSelectStep={handleSelectStep}
+            onAddNote={handleAddNote}
+            participants={participantsList}
+            isAddingNote={isSubmittingNote}
           />
 
           {/* Blockers Alert Banner */}

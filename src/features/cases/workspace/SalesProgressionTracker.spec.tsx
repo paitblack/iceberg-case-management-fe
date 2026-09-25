@@ -356,6 +356,57 @@ describe('SalesProgressionTracker', () => {
     expect(node3El.textContent).toContain('2');
     expect(node2El.textContent).toContain('3');
   });
+
+  it('renders Step Notes in the popover and opens StepNotesModal when Add Note is clicked', async () => {
+    const onAddNote = vi.fn().mockResolvedValue(undefined);
+    render(
+      <SalesProgressionTracker
+        snapshot={mockSnapshot}
+        onAddNote={onAddNote}
+      />,
+    );
+
+    // Hover over step 1
+    const nodeEl = screen
+      .getAllByText('Offer Accepted')[0]
+      .closest('div[data-no-drag]') as HTMLElement;
+    fireEvent.mouseEnter(nodeEl);
+
+    // Verify Step Notes popover section appears
+    expect(screen.getByTestId('step-notes-popover-section')).toBeInTheDocument();
+    expect(screen.getByText('Step Notes')).toBeInTheDocument();
+
+    // Click "Add Note" button in popover
+    const addNoteBtn = screen.getAllByRole('button', { name: /Add Note/i })[0];
+    fireEvent.click(addNoteBtn);
+
+    // Verify Modal opens with Step Notes section
+    expect(
+      await screen.findByText(/Step Notes • Offer Accepted/i),
+    ).toBeInTheDocument();
+  });
+
+  it('renders Add Step Note in the Current Active Milestone callout bar and opens modal', async () => {
+    const onAddNote = vi.fn().mockResolvedValue(undefined);
+    render(
+      <SalesProgressionTracker
+        snapshot={mockSnapshot}
+        onAddNote={onAddNote}
+      />,
+    );
+
+    const addStepNoteBtn = screen.getByRole('button', {
+      name: /Add Step Note/i,
+    });
+    expect(addStepNoteBtn).toBeInTheDocument();
+
+    fireEvent.click(addStepNoteBtn);
+
+    expect(
+      await screen.findByText(/Step Notes • Buyer Solicitor Instructed/i),
+    ).toBeInTheDocument();
+  });
 });
+
 
 

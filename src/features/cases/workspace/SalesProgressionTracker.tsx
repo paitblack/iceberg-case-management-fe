@@ -11,17 +11,26 @@ import {
   ArrowRight,
   AlertTriangle,
   Flag,
+  MessageSquare,
+  Plus,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
+import { Modal } from '../../../components/ui/Modal';
+import { StepNotesSection } from './StepNotesSection';
 import type {
   BffWorkspaceSnapshot,
   BffWorkspaceStep,
+  BffParticipant,
+  AddCaseNotePayload,
 } from '../../../types/api';
 
 interface SalesProgressionTrackerProps {
   snapshot: BffWorkspaceSnapshot;
   onSelectStep?: (stepId: string) => void;
+  onAddNote?: (payload: AddCaseNotePayload) => Promise<void>;
+  participants?: BffParticipant[];
+  isAddingNote?: boolean;
 }
 
 function formatRoleLabel(roleIdOrText?: string | null): string {
@@ -96,6 +105,9 @@ interface MapEdge {
 export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = ({
   snapshot,
   onSelectStep,
+  onAddNote,
+  participants = [],
+  isAddingNote = false,
 }) => {
   const steps = useMemo(() => {
     return [...(snapshot.steps || [])].sort(
@@ -113,8 +125,45 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
   });
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [noteModalStep, setNoteModalStep] = useState<BffWorkspaceStep | null>(
+    null,
+  );
+  const [noteModalComposerOpen, setNoteModalComposerOpen] =
+    useState<boolean>(true);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const outerContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleNodeMouseEnter = (stepId: string) => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setHoveredNodeId(stepId);
+  };
+
+  const handleNodeMouseLeave = () => {
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHoveredNodeId(null);
+    }, 280);
+  };
+
+  const handlePopoverMouseEnter = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+  };
+
+  const handlePopoverMouseLeave = () => {
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHoveredNodeId(null);
+    }, 280);
+  };
+
+  const activeModalStep = noteModalStep
+    ? steps.find((s) => s.id === noteModalStep.id) || noteModalStep
+    : null;
 
   // Determine current active step index
   const currentStepIndex = useMemo(() => {
@@ -610,8 +659,8 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
                   key={node.step.id}
                   className="absolute -translate-x-1/2 flex flex-col items-center select-none"
                   style={{ left: `${node.x}px`, top: `${node.y - 22}px` }}
-                  onMouseEnter={() => setHoveredNodeId(node.step.id)}
-                  onMouseLeave={() => setHoveredNodeId(null)}
+                  onMouseEnter={() => handleNodeMouseEnter(node.step.id)}
+                  onMouseLeave={handleNodeMouseLeave}
                   data-no-drag
                 >
                   {/* Milestone Circle Button */}
@@ -719,6 +768,20 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
                 Target: {currentStep.targetDate}
               </span>
             )}
+            {onAddNote && currentStep && (
+              <Button
+                variant="outline"
+                size="xs"
+                onClick={() => {
+                  setNoteModalStep(currentStep);
+                  setNoteModalComposerOpen(true);
+                }}
+                className="font-bold text-xs"
+                leftIcon={<MessageSquare className="w-3.5 h-3.5 text-[#E1007A]" />}
+              >
+                Add Step Note
+              </Button>
+            )}
             {currentStep && (
               <Button
                 variant="primary"
@@ -773,12 +836,14 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
 
           return (
             <div
-              className="absolute w-[300px] p-4 bg-white/98 backdrop-blur-md border border-slate-200/95 rounded-2xl shadow-2xl ring-1 ring-slate-900/10 z-50 text-left space-y-3 pointer-events-none animate-in fade-in zoom-in-95 duration-100"
+              className="absolute w-[310px] p-4 bg-white/98 backdrop-blur-md border border-slate-200/95 rounded-2xl shadow-2xl ring-1 ring-slate-900/10 z-50 text-left space-y-3 pointer-events-auto animate-in fade-in zoom-in-95 duration-100"
               style={{
                 left: `${popoverLeft}px`,
                 top: `${popoverTop}px`,
                 transform: !showBelow ? 'translateY(-100%)' : undefined,
               }}
+              onMouseEnter={handlePopoverMouseEnter}
+              onMouseLeave={handlePopoverMouseLeave}
             >
               {/* Popover Header */}
               <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
@@ -982,14 +1047,57 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
                 </span>
               </div>
 
-              {/* Latest Operational Note */}
-              {hoveredNode.step.notes &&
-                hoveredNode.step.notes.length > 0 && (
-                  <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 text-[10px] text-slate-600 space-y-0.5">
-                    <span className="font-bold text-slate-800 block truncate">
-                      Latest Note:
+              {/* Step Operational Notes Section */}
+              <div
+                className="pt-2 border-t border-slate-100 space-y-1.5"
+                data-testid="step-notes-popover-section"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <MessageSquare className="w-3.5 h-3.5 text-[#E1007A]" />
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-700">
+                      Step Notes
                     </span>
-                    <p className="line-clamp-2 italic text-slate-500">
+                    {(hoveredNode.step.notes?.length ?? 0) > 0 && (
+                      <span className="px-1.5 py-0.2 rounded-full bg-pink-50 text-[9px] font-bold text-[#E1007A] border border-pink-200">
+                        {hoveredNode.step.notes?.length}
+                      </span>
+                    )}
+                  </div>
+                  {onAddNote && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setNoteModalStep(hoveredNode.step);
+                        setNoteModalComposerOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-[#E1007A] hover:text-pink-700 bg-pink-50/80 hover:bg-pink-100 px-2 py-0.5 rounded-md border border-pink-200 transition-colors cursor-pointer shadow-2xs"
+                    >
+                      <Plus className="w-3 h-3 stroke-[2.5]" />
+                      <span>Add Note</span>
+                    </button>
+                  )}
+                </div>
+
+                {hoveredNode.step.notes &&
+                hoveredNode.step.notes.length > 0 ? (
+                  <div className="p-2.5 rounded-xl bg-slate-50/90 border border-slate-200/80 text-[10px] space-y-1">
+                    <div className="flex items-center justify-between text-[9px] text-slate-500">
+                      <span className="font-semibold text-slate-700 truncate max-w-[150px]">
+                        {hoveredNode.step.notes[
+                          hoveredNode.step.notes.length - 1
+                        ].authorName || 'Agent'}
+                      </span>
+                      <span>
+                        {new Date(
+                          hoveredNode.step.notes[
+                            hoveredNode.step.notes.length - 1
+                          ].createdAt,
+                        ).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="line-clamp-2 italic text-slate-600 leading-relaxed">
                       &ldquo;
                       {
                         hoveredNode.step.notes[
@@ -998,12 +1106,76 @@ export const SalesProgressionTracker: React.FC<SalesProgressionTrackerProps> = (
                       }
                       &rdquo;
                     </p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setNoteModalStep(hoveredNode.step);
+                        setNoteModalComposerOpen(false);
+                      }}
+                      className="text-[9px] font-bold text-[#E1007A] hover:underline block pt-0.5 cursor-pointer"
+                    >
+                      View all {hoveredNode.step.notes.length} notes &rarr;
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50/70 border border-slate-100 text-[10px] text-slate-400">
+                    <span>No notes recorded yet.</span>
+                    {onAddNote && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setNoteModalStep(hoveredNode.step);
+                          setNoteModalComposerOpen(true);
+                        }}
+                        className="text-[10px] font-bold text-[#E1007A] hover:underline cursor-pointer"
+                      >
+                        Add
+                      </button>
+                    )}
                   </div>
                 )}
+              </div>
             </div>
           );
         })()}
       </div>
+
+      {/* Step Notes Modal (Accessible directly from Interactive Map) */}
+      {activeModalStep && (
+        <Modal
+          isOpen={true}
+          onClose={() => setNoteModalStep(null)}
+          title={
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-lg bg-pink-100 text-[#E1007A] flex items-center justify-center text-xs font-black">
+                {activeModalStep.displayOrder}
+              </span>
+              <span>Step Notes &bull; {activeModalStep.name}</span>
+            </div>
+          }
+          subtitle="Record progress updates, operational memos, or stakeholder communications for this step."
+          maxWidth="2xl"
+        >
+          <div className="py-2">
+            <StepNotesSection
+              stepId={activeModalStep.id}
+              stepName={activeModalStep.name}
+              notes={activeModalStep.notes || []}
+              participants={participants}
+              onAddNote={async (payload) => {
+                if (onAddNote) {
+                  await onAddNote(payload);
+                }
+              }}
+              isLoading={isAddingNote}
+              defaultOpen={true}
+              defaultComposerOpen={noteModalComposerOpen}
+            />
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

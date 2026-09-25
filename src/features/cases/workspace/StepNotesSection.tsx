@@ -25,6 +25,8 @@ export interface StepNotesSectionProps {
   participants?: BffParticipant[];
   onAddNote: (payload: AddCaseNotePayload) => Promise<void>;
   isLoading?: boolean;
+  defaultOpen?: boolean;
+  defaultComposerOpen?: boolean;
 }
 
 export const StepNotesSection: React.FC<StepNotesSectionProps> = ({
@@ -34,9 +36,15 @@ export const StepNotesSection: React.FC<StepNotesSectionProps> = ({
   participants = [],
   onAddNote,
   isLoading = false,
+  defaultOpen,
+  defaultComposerOpen,
 }) => {
-  const [isOpen, setIsOpen] = useState<boolean>(notes.length > 0);
-  const [isComposerOpen, setIsComposerOpen] = useState<boolean>(false);
+  const [isOpen, setIsOpen] = useState<boolean>(
+    defaultOpen !== undefined ? defaultOpen : notes.length > 0,
+  );
+  const [isComposerOpen, setIsComposerOpen] = useState<boolean>(
+    defaultComposerOpen !== undefined ? defaultComposerOpen : false,
+  );
   const [content, setContent] = useState<string>('');
   const [isPrivate, setIsPrivate] = useState<boolean>(false);
   const [visibleToParticipantIds, setVisibleToParticipantIds] = useState<
