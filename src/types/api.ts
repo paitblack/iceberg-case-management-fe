@@ -366,10 +366,10 @@ export interface BffPriorityOperationItem {
 }
 
 export interface BffDashboardMetrics {
-  avgCycleTimeDays: number;
-  milestonesDueToday: number;
-  pipelineValueAmount: number;
-  pipelineValueCurrency: string;
+  avgCycleTimeDays: number | null;
+  milestonesDueToday: number | null;
+  pipelineValueAmount: number | null;
+  pipelineValueCurrency: string | null;
 }
 
 export interface BffDashboardRiskOverview {
