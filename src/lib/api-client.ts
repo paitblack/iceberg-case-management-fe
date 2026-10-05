@@ -344,6 +344,15 @@ export async function createCase(
   return apiPost<CreateCaseResponse>('/cases', cleanPayload);
 }
 
+export async function updateCaseFields(
+  caseId: string,
+  fieldValues: Record<string, unknown>,
+): Promise<{ success: boolean }> {
+  return apiPost<{ success: boolean }>(`/cases/${caseId}/fields`, {
+    fieldValues,
+  });
+}
+
 export async function fetchCaseList(
   params?: BffCaseListQueryParams,
 ): Promise<BffCaseListResponse> {
@@ -374,6 +383,14 @@ interface RawBffWorkspaceResponse {
     allowedActions?: CaseStatusAction[];
     reference?: string;
     expectedCompletionDays?: number | null;
+    fieldValues?: Record<string, unknown>;
+    customFields?: Array<{
+      id: string;
+      name: string;
+      fieldType: string;
+      required: boolean;
+      options?: readonly string[];
+    }>;
   };
   progression?: {
     overallPercentage?: number;
@@ -554,6 +571,8 @@ export async function fetchCaseWorkspace(
         c.expectedCompletionDays !== undefined
           ? c.expectedCompletionDays
           : (p.expectedCompletionDays ?? null),
+      fieldValues: c.fieldValues || {},
+      customFields: c.customFields || [],
       agreedPrice: c.agreedPrice,
       assignedProgressorName:
         c.assignedProgressorName ||

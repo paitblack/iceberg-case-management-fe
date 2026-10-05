@@ -12,6 +12,7 @@ import {
   ShieldAlert,
   Plus,
   Mail,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { WorkspaceHeader } from './workspace/WorkspaceHeader';
 import { AiCaseSummaryCard } from './workspace/AiCaseSummaryCard';
@@ -35,6 +36,7 @@ import { AddAdHocWorkItemModal } from './workspace/AddAdHocWorkItemModal';
 import { ConfirmDeleteModal } from './workspace/ConfirmDeleteModal';
 import { UploadEvidenceModal } from './workspace/UploadEvidenceModal';
 import { WorkItemOutreachModal } from './workspace/WorkItemOutreachModal';
+import { CaseCustomFieldsCard } from './workspace/CaseCustomFieldsCard';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Spinner';
 import { usePermissions } from '../auth/usePermissions';
@@ -61,6 +63,7 @@ import {
   listCaseCommunications,
   sendCaseCommunication,
   generateCommunicationDraft,
+  updateCaseFields,
   ApiError,
 } from '../../lib/api-client';
 import type {
@@ -84,6 +87,7 @@ import type {
 
 type WorkspaceTab =
   | 'progression'
+  | 'fields'
   | 'documents'
   | 'participants'
   | 'announcements'
@@ -1118,6 +1122,21 @@ export const CaseWorkspacePage: React.FC = () => {
 
             <button
               type="button"
+              onClick={() => setActiveTab('fields')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                activeTab === 'fields'
+                  ? 'border-[#E1007A] text-[#E1007A]'
+                  : 'border-transparent text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              <span>
+                Case Criteria & Fields ({(snapshot.customFields || []).length})
+              </span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setActiveTab('documents')}
               className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
                 activeTab === 'documents'
@@ -1267,6 +1286,25 @@ export const CaseWorkspacePage: React.FC = () => {
                 ))
               )}
             </div>
+          )}
+
+          {activeTab === 'fields' && (
+            <CaseCustomFieldsCard
+              customFields={snapshot.customFields || []}
+              fieldValues={snapshot.fieldValues || {}}
+              isReadOnly={
+                snapshot.status === 'Completed' ||
+                snapshot.status === 'Cancelled'
+              }
+              onSave={async (values) => {
+                await updateCaseFields(caseId, values);
+                showToast(
+                  'success',
+                  'Case criteria saved. Progression conditions re-evaluated.',
+                );
+                await loadWorkspace();
+              }}
+            />
           )}
 
           {activeTab === 'documents' && (

@@ -640,6 +640,14 @@ export interface ProgressionSnapshot {
   blockers?: Array<{ stepName?: string; reason?: string } | string>;
 }
 
+export interface CustomFieldDefinitionItem {
+  id: string;
+  name: string;
+  fieldType: string;
+  required: boolean;
+  options?: readonly string[];
+}
+
 export interface BffWorkspaceSnapshot {
   caseId: string;
   reference: string;
@@ -651,6 +659,8 @@ export interface BffWorkspaceSnapshot {
   status: CaseLifecycleStatus;
   progressPercentage: number;
   expectedCompletionDays?: number | null;
+  fieldValues?: Record<string, unknown>;
+  customFields?: CustomFieldDefinitionItem[];
   agreedPrice?: number;
   assignedProgressorName: string;
   branchName: string;
