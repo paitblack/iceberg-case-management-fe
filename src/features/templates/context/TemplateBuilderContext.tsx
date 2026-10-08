@@ -729,6 +729,14 @@ export const TemplateBuilderProvider: React.FC<{
   }, []);
 
   const loadPreset = useCallback(async (presetKey: string) => {
+    if (presetKey === 'blank') {
+      setName('Blank Template');
+      setDescription('');
+      setCategory('Custom Workflow');
+      setRoles([]);
+      setSteps([]);
+      return;
+    }
     try {
       const schema: TemplatePresetSchema = await getTemplatePreset(presetKey);
       if (!isMountedRef.current) return;
@@ -777,7 +785,9 @@ export const TemplateBuilderProvider: React.FC<{
         setVersionNumber(1);
         setIsPublished(false);
 
-        let initialRoles: TemplateRole[] = STANDARD_TEMPLATE_ROLES;
+        const isBlank = !presetKey || presetKey === 'blank';
+
+        let initialRoles: TemplateRole[] = [];
         let initialSteps: BuilderStep[] = [
           {
             id: `step-${Date.now()}-1`,
@@ -791,8 +801,8 @@ export const TemplateBuilderProvider: React.FC<{
               {
                 id: `wi-${Date.now()}-1`,
                 name: 'Initial required check',
-                ownerRoleId: initialRoles[0]?.id || undefined,
-                requiredRole: initialRoles[0]?.id || undefined,
+                ownerRoleId: undefined,
+                requiredRole: undefined,
                 requirement: 'required',
               },
             ],
@@ -800,7 +810,7 @@ export const TemplateBuilderProvider: React.FC<{
         ];
         let initialCategory = 'Custom Workflow';
 
-        if (presetKey) {
+        if (!isBlank && presetKey) {
           try {
             const schema = await getTemplatePreset(presetKey);
             if (schema) {
@@ -814,11 +824,13 @@ export const TemplateBuilderProvider: React.FC<{
                   minOccurrences: r.minOccurrences,
                   maxOccurrences: r.maxOccurrences,
                 }));
+              } else {
+                initialRoles = STANDARD_TEMPLATE_ROLES;
               }
               initialSteps = mapSchemaToSteps(schema, initialRoles);
             }
           } catch {
-            // fallback to default
+            initialRoles = STANDARD_TEMPLATE_ROLES;
           }
         }
 
@@ -844,7 +856,7 @@ export const TemplateBuilderProvider: React.FC<{
               const safeRole =
                 wi.ownerRoleId && validRoleIds.has(wi.ownerRoleId)
                   ? wi.ownerRoleId
-                  : initialRoles[0]?.id || undefined;
+                  : undefined;
 
               return {
                 id: wi.id,

@@ -452,4 +452,85 @@ describe('TemplateBuilderContext & State Management', () => {
     expect(payloadStep2?.isOptional).toBe(true);
     expect(payload.edges.some((e) => e.toStepId === step2.id)).toBe(false);
   });
+
+  it('creates a blank template with empty roles and saves empty roles in initial draft', async () => {
+    vi.spyOn(apiClient, 'createCaseType').mockResolvedValue({
+      id: 'new-blank-template-id',
+      companyId: 1,
+      name: 'Custom Scratch Workflow',
+      description: 'A blank custom workflow',
+      publishedVersionCount: 0,
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+    });
+
+    const saveDraftSpy = vi.spyOn(apiClient, 'saveCaseTypeDraft').mockResolvedValue({
+      id: 'new-blank-template-id',
+      version: 1,
+    });
+
+    vi.spyOn(apiClient, 'getCaseType').mockImplementation(async (id) => ({
+      id,
+      companyId: 1,
+      name: 'Custom Scratch Workflow',
+      description: 'A blank custom workflow',
+      publishedVersionCount: 0,
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+    }));
+
+    vi.spyOn(apiClient, 'getCaseTypeDraft').mockImplementation(async (id) => ({
+      id: `draft-${id}`,
+      companyId: 1,
+      caseTypeId: id,
+      name: 'Custom Scratch Workflow',
+      description: 'A blank custom workflow',
+      version: 1,
+      steps: [],
+      workItems: [],
+      edges: [],
+      roles: [],
+      customFields: [],
+    }));
+
+    const { result } = renderHook(() => useTemplateBuilder(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoadingCaseTypes).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.createNewTemplate(
+        'Custom Scratch Workflow',
+        'A blank custom workflow',
+        'blank',
+      );
+    });
+
+    expect(result.current.roles).toEqual([]);
+    expect(saveDraftSpy).toHaveBeenCalledWith(
+      'new-blank-template-id',
+      expect.objectContaining({
+        roles: [],
+      }),
+    );
+  });
+
+  it('loads blank preset and resets roles and steps to empty', async () => {
+    const { result } = renderHook(() => useTemplateBuilder(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoadingCaseTypes).toBe(false);
+    });
+
+    expect(result.current.roles.length).toBeGreaterThan(0);
+
+    await act(async () => {
+      await result.current.loadPreset('blank');
+    });
+
+    expect(result.current.roles).toEqual([]);
+    expect(result.current.steps).toEqual([]);
+    expect(result.current.name).toBe('Blank Template');
+  });
 });
