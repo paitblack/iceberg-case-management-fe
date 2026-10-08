@@ -1102,18 +1102,18 @@ export const CaseWorkspacePage: React.FC = () => {
           {/* Workspace Tabs Navigation */}
           <div
             id="workspace-tabs-nav"
-            className="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-2xl border border-slate-200/90 shadow-2xs overflow-x-auto scroll-mt-6"
+            className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 p-1 bg-slate-100/90 rounded-2xl border border-slate-200/90 shadow-2xs scroll-mt-6"
           >
             <button
               type="button"
               onClick={() => setActiveTab('progression')}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'progression'
                   ? 'bg-white text-[#E1007A] shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
-              <Layers className="w-3.5 h-3.5" />
+              <Layers className="w-3.5 h-3.5 shrink-0" />
               <span>Workflow Progression</span>
               <span
                 className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
@@ -1126,17 +1126,16 @@ export const CaseWorkspacePage: React.FC = () => {
               </span>
             </button>
 
-
             <button
               type="button"
               onClick={() => setActiveTab('documents')}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'documents'
                   ? 'bg-white text-[#E1007A] shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
-              <FileText className="w-3.5 h-3.5" />
+              <FileText className="w-3.5 h-3.5 shrink-0" />
               <span>Documents & Evidence</span>
               <span
                 className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
@@ -1152,13 +1151,13 @@ export const CaseWorkspacePage: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveTab('announcements')}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'announcements'
                   ? 'bg-white text-[#E1007A] shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
-              <MessageSquare className="w-3.5 h-3.5" />
+              <MessageSquare className="w-3.5 h-3.5 shrink-0" />
               <span>Discussions & Announcements</span>
               <span
                 className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
@@ -1174,13 +1173,13 @@ export const CaseWorkspacePage: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveTab('communications')}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'communications'
                   ? 'bg-white text-[#E1007A] shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
-              <Mail className="w-3.5 h-3.5" />
+              <Mail className="w-3.5 h-3.5 shrink-0" />
               <span>Communications Hub</span>
               <span
                 className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
@@ -1196,13 +1195,13 @@ export const CaseWorkspacePage: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveTab('activities')}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'activities'
                   ? 'bg-white text-[#E1007A] shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
-              <History className="w-3.5 h-3.5" />
+              <History className="w-3.5 h-3.5 shrink-0" />
               <span>Activity & Audit Trail</span>
             </button>
           </div>
