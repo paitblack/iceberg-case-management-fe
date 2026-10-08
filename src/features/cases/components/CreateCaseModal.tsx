@@ -485,7 +485,7 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
       onClose={onClose}
       title="Start New Case Workflow"
       subtitle="Configure transaction particulars and assign required legal representatives."
-      maxWidth="7xl"
+      maxWidth="full"
       footer={
         <div className="flex flex-col sm:flex-row items-center justify-between w-full gap-3">
           <div className="flex items-center gap-2 text-xs text-slate-600">
@@ -533,7 +533,7 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
         </div>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-6 text-xs text-slate-700">
+      <form onSubmit={handleSubmit} className="space-y-4 text-xs text-slate-700">
         {errorMessage && (
           <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-2.5 shadow-xs">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -546,13 +546,13 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
           </div>
         )}
 
-        {/* 2-Column Responsive Workspace Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
-          {/* Left Column (5 cols): Case Setup, Property Particulars & Template */}
-          <div className="lg:col-span-5 space-y-5">
+        {/* 3-Column Responsive Workspace Grid (Zero Vertical Scrolling on standard displays) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 xl:gap-5 items-start">
+          {/* Column 1 (4 cols): Case Setup & Particulars */}
+          <div className="lg:col-span-4 space-y-3.5">
             {/* Card 1: Case Particulars */}
-            <div className="bg-slate-50/70 p-4 sm:p-5 rounded-2xl border border-slate-200/90 space-y-4 shadow-2xs">
-              <div className="border-b border-slate-200/70 pb-2.5">
+            <div className="bg-slate-50/70 p-4 rounded-2xl border border-slate-200/90 space-y-3.5 shadow-2xs">
+              <div className="border-b border-slate-200/70 pb-2">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
                   Case Particulars
                 </h4>
@@ -562,7 +562,7 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
               </div>
 
               {/* Assigned Progressor Badge */}
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-pink-50/60 border border-pink-200/80 text-xs">
+              <div className="flex items-center justify-between p-2 rounded-xl bg-pink-50/60 border border-pink-200/80 text-xs">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-lg bg-pink-100 flex items-center justify-center font-bold text-[10px] text-[#E1007A]">
                     SJ
@@ -571,7 +571,7 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                       Assigned Progressor
                     </span>
-                    <span className="font-bold text-slate-800">
+                    <span className="font-bold text-slate-800 text-xs">
                       {user?.name || 'Sarah Jenkins'}
                     </span>
                   </div>
@@ -581,7 +581,7 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
                 </span>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <label className="block text-xs font-semibold text-slate-700">
                   Case Title <span className="text-[#E1007A]">*</span>
                 </label>
@@ -598,13 +598,13 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
                 </p>
               </div>
 
-              <div className="space-y-3 pt-1">
-                <div className="space-y-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-0.5">
+                <div className="space-y-1">
                   <label className="block text-xs font-semibold text-slate-700">
                     Property Address (Optional)
                   </label>
                   <div className="relative">
-                    <Home className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+                    <Home className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
                     <Input
                       placeholder="e.g. 42 Woodstock Road, Oxford"
                       value={propertyAddress}
@@ -614,12 +614,12 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <label className="block text-xs font-semibold text-slate-700">
                     Agreed Price (Optional)
                   </label>
                   <div className="relative">
-                    <PoundSterling className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+                    <PoundSterling className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
                     <Input
                       placeholder="e.g. 475000"
                       value={agreedPrice}
@@ -631,87 +631,8 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
               </div>
             </div>
 
-            {/* Card 2: Workflow Progression Template */}
-            <div className="bg-slate-50/70 p-4 sm:p-5 rounded-2xl border border-slate-200/90 space-y-3 shadow-2xs">
-              <div className="flex items-center justify-between border-b border-slate-200/70 pb-2.5">
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Workflow Template <span className="text-[#E1007A]">*</span>
-                  </h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Governs progression milestones, tasks, and role requirements.
-                  </p>
-                </div>
-                {isLoadingTemplates && (
-                  <span className="text-[10px] text-slate-400 animate-pulse">
-                    Loading templates...
-                  </span>
-                )}
-              </div>
-
-              {templates.length === 0 && !isLoadingTemplates ? (
-                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs space-y-1">
-                  <p className="font-semibold">No Published Templates</p>
-                  <p className="text-[11px]">
-                    Publish a workflow template in the Template Studio first.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                  {templates.map((tpl) => {
-                    const isSelected = tpl.id === templateVersionId;
-                    return (
-                      <div
-                        key={tpl.id}
-                        onClick={() => setTemplateVersionId(tpl.id)}
-                        className={`p-3 rounded-xl border transition-all cursor-pointer space-y-1.5 ${
-                          isSelected
-                            ? 'border-[#E1007A] bg-white ring-1 ring-[#E1007A]/25 shadow-xs'
-                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={`w-5 h-5 rounded-md flex items-center justify-center ${
-                                isSelected
-                                  ? 'bg-[#E1007A] text-white'
-                                  : 'bg-slate-100 text-slate-500'
-                              }`}
-                            >
-                              <Layers className="w-3 h-3" />
-                            </div>
-                            <span className="font-bold text-slate-900 text-xs">
-                              {tpl.name}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            {tpl.stepCount !== undefined && (
-                              <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-medium">
-                                {tpl.stepCount} steps
-                              </span>
-                            )}
-                            <Badge
-                              variant={isSelected ? 'required' : 'default'}
-                              size="xs"
-                            >
-                              v{tpl.versionNumber}.0
-                            </Badge>
-                          </div>
-                        </div>
-
-                        <p className="text-[11px] text-slate-600 line-clamp-2 pl-7">
-                          {tpl.description}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Card 3: Readiness Summary Widget */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs space-y-2.5">
+            {/* Card 2: Readiness Summary Widget */}
+            <div className="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-slate-700">Setup Progress</span>
                 <span className="font-bold text-slate-900">
@@ -740,28 +661,102 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
             </div>
           </div>
 
-          {/* Right Column (7 cols): Stakeholders & Legal Network Directory */}
-          <div className="lg:col-span-7 space-y-3.5">
+          {/* Column 2 (4 cols): Workflow Progression Template */}
+          <div className="lg:col-span-4 bg-slate-50/70 p-4 rounded-2xl border border-slate-200/90 space-y-3 shadow-2xs flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-200/70 pb-2">
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Workflow Template <span className="text-[#E1007A]">*</span>
+                </h4>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Governs progression milestones, tasks, and role requirements.
+                </p>
+              </div>
+              {isLoadingTemplates && (
+                <span className="text-[10px] text-slate-400 animate-pulse">
+                  Loading...
+                </span>
+              )}
+            </div>
+
+            {templates.length === 0 && !isLoadingTemplates ? (
+              <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs space-y-1">
+                <p className="font-semibold">No Published Templates</p>
+                <p className="text-[11px]">
+                  Publish a workflow template in the Template Studio first.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                {templates.map((tpl) => {
+                  const isSelected = tpl.id === templateVersionId;
+                  return (
+                    <div
+                      key={tpl.id}
+                      onClick={() => setTemplateVersionId(tpl.id)}
+                      className={`p-3 rounded-xl border transition-all cursor-pointer space-y-1.5 ${
+                        isSelected
+                          ? 'border-[#E1007A] bg-white ring-1 ring-[#E1007A]/25 shadow-xs'
+                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`w-5 h-5 rounded-md flex items-center justify-center ${
+                              isSelected
+                                ? 'bg-[#E1007A] text-white'
+                                : 'bg-slate-100 text-slate-500'
+                            }`}
+                          >
+                            <Layers className="w-3 h-3" />
+                          </div>
+                          <span className="font-bold text-slate-900 text-xs">
+                            {tpl.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {tpl.stepCount !== undefined && (
+                            <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-medium">
+                              {tpl.stepCount} steps
+                            </span>
+                          )}
+                          <Badge
+                            variant={isSelected ? 'required' : 'default'}
+                            size="xs"
+                          >
+                            v{tpl.versionNumber}.0
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <p className="text-[11px] text-slate-600 line-clamp-2 pl-7">
+                        {tpl.description}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Column 3 (4 cols): Stakeholders & Legal Network Directory */}
+          <div className="lg:col-span-4 space-y-3">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-slate-50/70 p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700">
-                  <Users className="w-4 h-4" />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/70 p-3 rounded-2xl border border-slate-200/90 shadow-2xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 shrink-0">
+                  <Users className="w-3.5 h-3.5" />
                 </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900 flex items-center gap-2">
-                    Case Stakeholders & Legal Network
-                    <span className="text-[10px] font-normal text-slate-500">
-                      ({requiredRoles.length} required
-                      {optionalRoles.length > 0
-                        ? `, ${optionalRoles.length} optional`
-                        : ''}
-                      )
-                    </span>
+                <div className="min-w-0">
+                  <h4 className="text-xs font-bold text-slate-900 truncate">
+                    Stakeholders & Legal Network
                   </h4>
-                  <p className="text-[11px] text-slate-500">
-                    Assign contacts for mandatory conveyancing roles. Progressors
-                    manage workflow tasks on their behalf.
+                  <p className="text-[10px] text-slate-500 truncate">
+                    {requiredRoles.length} required
+                    {optionalRoles.length > 0
+                      ? `, ${optionalRoles.length} optional`
+                      : ''}
                   </p>
                 </div>
               </div>
@@ -771,13 +766,13 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
                 size="xs"
               >
                 {allRequiredAssigned
-                  ? 'All Required Ready'
-                  : `${assignedRequiredCount} / ${requiredRoles.length} Configured`}
+                  ? 'All Ready'
+                  : `${assignedRequiredCount}/${requiredRoles.length}`}
               </Badge>
             </div>
 
             {/* Scrollable Stakeholder List */}
-            <div className="max-h-[560px] overflow-y-auto pr-1.5 space-y-3">
+            <div className="max-h-[380px] overflow-y-auto pr-1 space-y-2.5">
               {/* Required Stakeholders */}
               {requiredRoles.map((role) => {
                 const assigned = stakeholders[role.id] || {

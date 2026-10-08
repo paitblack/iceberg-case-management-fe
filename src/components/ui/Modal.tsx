@@ -19,7 +19,9 @@ export interface ModalProps {
     | '4xl'
     | '5xl'
     | '6xl'
-    | '7xl';
+    | '7xl'
+    | 'full';
+  className?: string;
   theme?: 'light' | 'dark';
 }
 
@@ -31,6 +33,7 @@ export const Modal: React.FC<ModalProps> = ({
   children,
   footer,
   maxWidth = 'md',
+  className,
   theme = 'light',
 }) => {
   useEffect(() => {
@@ -60,6 +63,7 @@ export const Modal: React.FC<ModalProps> = ({
     '5xl': 'max-w-5xl',
     '6xl': 'max-w-6xl',
     '7xl': 'max-w-7xl',
+    full: 'max-w-[96vw] 2xl:max-w-[1520px]',
   };
 
   const isLight = theme === 'light';
@@ -74,9 +78,10 @@ export const Modal: React.FC<ModalProps> = ({
         className={cn(
           'relative w-full rounded-3xl shadow-2xl border z-10 animate-in fade-in zoom-in-95 duration-150 my-auto',
           isLight
-            ? 'bg-white p-6 sm:p-7 border-slate-200/90 text-slate-800'
+            ? 'bg-white p-5 sm:p-6 border-slate-200/90 text-slate-800'
             : 'bg-[#14161F] p-6 border-slate-700/60 text-slate-300',
           maxWidthStyles[maxWidth],
+          className,
         )}
       >
         <div
