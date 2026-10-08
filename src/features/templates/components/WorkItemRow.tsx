@@ -2,7 +2,6 @@ import React from 'react';
 import {
   GripVertical,
   Trash2,
-  Calendar,
   Shield,
   AlertCircle,
   FileCheck2,
@@ -127,24 +126,6 @@ export const WorkItemRow: React.FC<WorkItemRowProps> = ({
             <span className="text-[10px] font-semibold hidden md:inline">
               Evidence
             </span>
-          </button>
-
-          {/* Key Date Toggle Button */}
-          <button
-            type="button"
-            onClick={() => onUpdate({ isKeyDate: !workItem.isKeyDate })}
-            title={
-              workItem.isKeyDate
-                ? 'Key Milestone Date'
-                : 'Mark as Key Date Milestone'
-            }
-            className={`p-1.5 rounded-lg border text-xs transition-colors cursor-pointer ${
-              workItem.isKeyDate
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold shadow-2xs'
-                : 'bg-slate-50 text-slate-400 border-slate-200 hover:text-slate-600'
-            }`}
-          >
-            <Calendar className="w-3.5 h-3.5" />
           </button>
 
           {/* Delete Work Item */}
