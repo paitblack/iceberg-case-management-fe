@@ -272,21 +272,34 @@ export async function fetchPublishedTemplates(): Promise<
   try {
     const caseTypes = await listCaseTypes();
     if (caseTypes && caseTypes.length > 0) {
+      // Only include published case types (publishedVersionCount > 0)
+      const publishedCaseTypes = caseTypes.filter(
+        (ct) => (ct.publishedVersionCount ?? 0) > 0,
+      );
+      if (publishedCaseTypes.length === 0) {
+        return [];
+      }
       const items = await Promise.all(
-        caseTypes.map(async (ct) => {
+        publishedCaseTypes.map(async (ct) => {
           let roles: ParticipantRoleDefinition[] | undefined;
+          let stepCount = 0;
           try {
             const draft = await getCaseTypeDraft(ct.id);
-            if (draft && draft.roles && draft.roles.length > 0) {
-              roles = draft.roles.map((r) => ({
-                id: r.id,
-                name: r.name,
-                description: r.description,
-                isRequired: r.required ?? r.isRequired ?? false,
-                required: r.required ?? r.isRequired ?? false,
-                minOccurrences: r.minOccurrences,
-                maxOccurrences: r.maxOccurrences,
-              }));
+            if (draft) {
+              if (draft.roles && draft.roles.length > 0) {
+                roles = draft.roles.map((r) => ({
+                  id: r.id,
+                  name: r.name,
+                  description: r.description,
+                  isRequired: r.required ?? r.isRequired ?? false,
+                  required: r.required ?? r.isRequired ?? false,
+                  minOccurrences: r.minOccurrences,
+                  maxOccurrences: r.maxOccurrences,
+                }));
+              }
+              if (draft.steps) {
+                stepCount = draft.steps.length;
+              }
             }
           } catch {
             // Ignore draft error, fallback gracefully
@@ -295,11 +308,11 @@ export async function fetchPublishedTemplates(): Promise<
           return {
             id: ct.id,
             name: ct.name,
-            versionNumber: ct.publishedVersionCount || 1,
+            versionNumber: ct.publishedVersionCount,
             description:
               ct.description || 'Pre-configured domain workflow progression.',
             caseTypeId: ct.id,
-            stepCount: 6,
+            stepCount: stepCount || 6,
             roles,
           };
         }),

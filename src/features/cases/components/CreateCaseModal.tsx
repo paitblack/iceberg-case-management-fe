@@ -270,9 +270,12 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
       setErrorMessage(null);
       fetchPublishedTemplates()
         .then((res) => {
-          if (res && res.length > 0) {
-            setTemplates(res);
-            setTemplateVersionId(res[0].id);
+          const published = (res || []).filter(
+            (t) => (t.versionNumber ?? 0) > 0,
+          );
+          if (published.length > 0) {
+            setTemplates(published);
+            setTemplateVersionId(published[0].id);
           } else {
             setTemplates([]);
             setTemplateVersionId('');
