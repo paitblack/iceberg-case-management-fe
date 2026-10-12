@@ -27,10 +27,10 @@ const EMPTY_DASHBOARD: BffDashboardSnapshot = {
   activeBlockersCount: 0,
   priorityOperations: [],
   metrics: {
-    avgCycleTimeDays: 0,
-    milestonesDueToday: 0,
-    pipelineValueAmount: 0,
-    pipelineValueCurrency: 'GBP',
+    avgCycleTimeDays: null,
+    milestonesDueToday: null,
+    pipelineValueAmount: null,
+    pipelineValueCurrency: null,
   },
 };
 
@@ -60,8 +60,9 @@ export const DashboardPage: React.FC = () => {
     loadDashboard();
   }, [loadDashboard]);
 
-  const formatPipelineValue = (amount: number, currency: string) => {
-    const symbol = currency === 'GBP' ? '£' : '$';
+  const formatPipelineValue = (amount: number | null, currency: string | null) => {
+    if (amount === null || amount === undefined) return 'Unknown';
+    const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : currency ?? '';
     if (amount >= 1_000_000) {
       return `${symbol}${(amount / 1_000_000).toFixed(1)}M`;
     }
@@ -140,7 +141,7 @@ export const DashboardPage: React.FC = () => {
 
             <KpiCard
               title="Due Today"
-              value={data.metrics.milestonesDueToday}
+              value={data.metrics.milestonesDueToday ?? 'Unknown'}
               subtitle="Target Milestone SLA"
               icon={<Clock className="w-4 h-4" />}
               variant="amber"
@@ -149,7 +150,7 @@ export const DashboardPage: React.FC = () => {
 
             <KpiCard
               title="Avg Cycle Time"
-              value={`${data.metrics.avgCycleTimeDays} Days`}
+              value={data.metrics.avgCycleTimeDays !== null ? `${data.metrics.avgCycleTimeDays} Days` : 'Unknown'}
               subtitle="Instruction to Completion"
               icon={<Activity className="w-4 h-4" />}
               variant="blue"

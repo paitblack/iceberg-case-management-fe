@@ -229,5 +229,36 @@ describe('CreateCaseModal', () => {
     ) as HTMLInputElement;
     expect(buyerInput.value).toBe('Emily & John Smith');
   });
-});
 
+  it('renders No Published Templates warning when only unpublished draft templates exist', async () => {
+    vi.spyOn(apiClient, 'fetchPublishedTemplates').mockResolvedValue([
+      {
+        id: 'tpl-draft-only',
+        name: 'Unpublished Draft Canvas',
+        versionNumber: 0,
+        description: 'Unpublished workflow',
+        caseTypeId: 'ct-draft-01',
+        stepCount: 2,
+        roles: [],
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <CreateCaseModal isOpen={true} onClose={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText(/No Published Templates/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Publish a workflow template in the Template Studio first/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Unpublished Draft Canvas'),
+    ).not.toBeInTheDocument();
+  });
+});

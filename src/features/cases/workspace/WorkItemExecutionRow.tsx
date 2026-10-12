@@ -20,6 +20,7 @@ import { InlineTargetDateEditor } from './InlineTargetDateEditor';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { WaiveWorkItemModal } from './WaiveWorkItemModal';
 import { usePermissions } from '../../auth/usePermissions';
+import { formatConditionToNaturalLanguage } from './condition-formatter';
 import type {
   BffWorkspaceWorkItem,
   BffCaseDocument,
@@ -194,6 +195,19 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
             {workItem.requirement === 'optional' && (
               <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded-md">
                 Optional
+              </span>
+            )}
+
+            {workItem.requirement === 'conditional' && (
+              <span
+                className="text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200/80 px-1.5 py-0.2 rounded-md"
+                title={
+                  workItem.condition
+                    ? `Criteria: ${formatConditionToNaturalLanguage(workItem.condition)}`
+                    : 'Conditional Task'
+                }
+              >
+                Conditional
               </span>
             )}
 
@@ -386,9 +400,9 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
 
           {/* Conditional Task Rule Notice */}
           {workItem.requirement === 'conditional' && workItem.condition && (
-            <div className="text-[10px] text-amber-800 bg-amber-50/90 border border-amber-200/80 rounded-md px-2 py-0.5 w-fit font-medium flex items-center gap-1.5 my-0.5">
-              <span className="font-bold">Condition Rule:</span>
-              <span>{workItem.condition}</span>
+            <div className="text-[10px] text-amber-900 bg-amber-50/90 border border-amber-200/80 rounded-md px-2 py-0.5 w-fit font-medium flex items-center gap-1.5 my-0.5">
+              <span className="font-bold text-amber-950">Applies when:</span>
+              <span>{formatConditionToNaturalLanguage(workItem.condition)}</span>
             </div>
           )}
 
@@ -461,17 +475,36 @@ export const WorkItemExecutionRow: React.FC<WorkItemExecutionRowProps> = ({
                   <Slash className="w-3 h-3 text-slate-400" />
                   <span>Waived</span>
                 </span>
-                {waiveNote && (
-                  <span
-                    className="inline-flex items-center gap-1 text-[10px] text-amber-900 bg-amber-50 border border-amber-200/80 rounded px-1.5 py-0.5 font-normal not-italic"
-                    title={`Waived by ${waiveNote.authorName}: ${waiveNote.content.replace(/^\[Task Waived\]\s*/i, '')}`}
-                  >
-                    <span className="font-semibold text-amber-950">Reason:</span>
-                    <span className="max-w-[200px] truncate">
-                      {waiveNote.content.replace(/^\[Task Waived\]\s*/i, '')}
-                    </span>
-                  </span>
-                )}
+                {waiveNote &&
+                  (() => {
+                    const rawReason = waiveNote.content.replace(
+                      /^\[Task Waived\]\s*/i,
+                      '',
+                    );
+                    const formattedReason = rawReason.includes(
+                      'Condition evaluated to false:',
+                    )
+                      ? `Criteria not met (${formatConditionToNaturalLanguage(
+                          rawReason
+                            .split('Condition evaluated to false:')[1]
+                            ?.trim() || '',
+                        )})`
+                      : rawReason;
+
+                    return (
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] text-amber-900 bg-amber-50 border border-amber-200/80 rounded px-1.5 py-0.5 font-normal not-italic"
+                        title={`Waived by ${waiveNote.authorName}: ${formattedReason}`}
+                      >
+                        <span className="font-semibold text-amber-950">
+                          Reason:
+                        </span>
+                        <span className="max-w-[260px] truncate">
+                          {formattedReason}
+                        </span>
+                      </span>
+                    );
+                  })()}
               </span>
             )}
           </div>

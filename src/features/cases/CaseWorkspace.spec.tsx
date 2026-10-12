@@ -336,7 +336,7 @@ describe('Case Workspace Components', () => {
 
     // Shows Evidence Required badge and condition rule
     expect(screen.getByText('Evidence Required')).toBeInTheDocument();
-    expect(screen.getByText('Condition Rule:')).toBeInTheDocument();
+    expect(screen.getByText('Applies when:')).toBeInTheDocument();
     expect(
       screen.getByText('Only mandatory if purchasing with a mortgage loan'),
     ).toBeInTheDocument();

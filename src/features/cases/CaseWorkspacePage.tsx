@@ -1099,75 +1099,109 @@ export const CaseWorkspacePage: React.FC = () => {
           <BlockersBanner blockers={blockersList} />
 
           {/* Workspace Tabs Navigation (Stakeholders tab removed) */}
+          {/* Workspace Tabs Navigation */}
           <div
             id="workspace-tabs-nav"
-            className="flex items-center gap-2 border-b border-slate-200 pb-px scroll-mt-6"
+            className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 p-1 bg-slate-100/90 rounded-2xl border border-slate-200/90 shadow-2xs scroll-mt-6"
           >
             <button
               type="button"
               onClick={() => setActiveTab('progression')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'progression'
-                  ? 'border-[#E1007A] text-[#E1007A]'
-                  : 'border-transparent text-slate-500 hover:text-slate-900'
+                  ? 'bg-white text-[#E1007A] shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
-              <Layers className="w-4 h-4" />
-              <span>Workflow Progression ({stepsList.length})</span>
+              <Layers className="w-3.5 h-3.5 shrink-0" />
+              <span>Workflow Progression</span>
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
+                  activeTab === 'progression'
+                    ? 'bg-pink-100 text-[#E1007A]'
+                    : 'bg-slate-200/80 text-slate-600'
+                }`}
+              >
+                {stepsList.length}
+              </span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('documents')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'documents'
-                  ? 'border-[#E1007A] text-[#E1007A]'
-                  : 'border-transparent text-slate-500 hover:text-slate-900'
+                  ? 'bg-white text-[#E1007A] shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
-              <FileText className="w-4 h-4" />
-              <span>Documents & Evidence ({documentsList.length})</span>
+              <FileText className="w-3.5 h-3.5 shrink-0" />
+              <span>Documents & Evidence</span>
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
+                  activeTab === 'documents'
+                    ? 'bg-pink-100 text-[#E1007A]'
+                    : 'bg-slate-200/80 text-slate-600'
+                }`}
+              >
+                {documentsList.length}
+              </span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('announcements')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'announcements'
-                  ? 'border-[#E1007A] text-[#E1007A]'
-                  : 'border-transparent text-slate-500 hover:text-slate-900'
+                  ? 'bg-white text-[#E1007A] shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
-              <MessageSquare className="w-4 h-4" />
-              <span>
-                Discussions & Announcements (
-                {(snapshot.announcements || []).length})
+              <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+              <span>Discussions & Announcements</span>
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
+                  activeTab === 'announcements'
+                    ? 'bg-pink-100 text-[#E1007A]'
+                    : 'bg-slate-200/80 text-slate-600'
+                }`}
+              >
+                {(snapshot.announcements || []).length}
               </span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('communications')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'communications'
-                  ? 'border-[#E1007A] text-[#E1007A]'
-                  : 'border-transparent text-slate-500 hover:text-slate-900'
+                  ? 'bg-white text-[#E1007A] shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
-              <Mail className="w-4 h-4" />
-              <span>Communications Hub ({communicationsList.length})</span>
+              <Mail className="w-3.5 h-3.5 shrink-0" />
+              <span>Communications Hub</span>
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
+                  activeTab === 'communications'
+                    ? 'bg-pink-100 text-[#E1007A]'
+                    : 'bg-slate-200/80 text-slate-600'
+                }`}
+              >
+                {communicationsList.length}
+              </span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('activities')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'activities'
-                  ? 'border-[#E1007A] text-[#E1007A]'
-                  : 'border-transparent text-slate-500 hover:text-slate-900'
+                  ? 'bg-white text-[#E1007A] shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
-              <History className="w-4 h-4" />
+              <History className="w-3.5 h-3.5 shrink-0" />
               <span>Activity & Audit Trail</span>
             </button>
           </div>
@@ -1268,6 +1302,7 @@ export const CaseWorkspacePage: React.FC = () => {
               )}
             </div>
           )}
+
 
           {activeTab === 'documents' && (
             <DocumentsTab

@@ -105,7 +105,7 @@ export const TemplateSidebar: React.FC = () => {
       await createNewTemplate(
         newTemplateName.trim(),
         newTemplateDesc.trim() || undefined,
-        newTemplatePresetKey === 'blank' ? undefined : newTemplatePresetKey,
+        newTemplatePresetKey,
       );
       setIsNewTemplateModalOpen(false);
       setNewTemplateName('');
@@ -440,53 +440,62 @@ export const TemplateSidebar: React.FC = () => {
             </div>
 
             <div className="space-y-1.5">
-              {roles.map((role) => (
-                <div
-                  key={role.id}
-                  className="p-2.5 rounded-xl bg-white hover:bg-slate-50/70 border border-slate-200/80 hover:border-slate-300 transition-all duration-150 text-xs flex items-center justify-between gap-2.5 shadow-2xs group"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200/60 border border-slate-200/80 flex items-center justify-center text-slate-600 shrink-0 shadow-2xs">
-                      <UserCheck className="w-3.5 h-3.5 text-slate-500" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-bold text-slate-800 text-[11px] truncate">
-                          {role.name}
-                        </span>
-                        {role.isRequired ? (
-                          <span className="text-[9px] font-bold text-[#E1007A] bg-pink-50 px-1.5 py-0.2 rounded-md border border-pink-200/80 shrink-0">
-                            Required
-                          </span>
-                        ) : (
-                          <span className="text-[9px] text-slate-400 bg-slate-100 px-1.5 py-0.2 rounded-md border border-slate-200/60 shrink-0">
-                            Optional
-                          </span>
-                        )}
-                        {(role.maxOccurrences ?? 1) > 1 ? (
-                          <span className="text-[9px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.2 rounded-md border border-sky-200/80 shrink-0">
-                            Max {role.maxOccurrences}
-                          </span>
-                        ) : null}
+              {roles.length === 0 ? (
+                <div className="p-4 text-center rounded-xl bg-slate-50 border border-dashed border-slate-200">
+                  <p className="text-xs font-semibold text-slate-600">
+                    No Roles Defined
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Click &ldquo;Add Role&rdquo; above to add participant roles to this template.
+                  </p>
+                </div>
+              ) : (
+                roles.map((role) => (
+                  <div
+                    key={role.id}
+                    className="p-2.5 rounded-xl bg-white hover:bg-slate-50/70 border border-slate-200/80 hover:border-slate-300 transition-all duration-150 text-xs flex items-center justify-between gap-2.5 shadow-2xs group"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200/60 border border-slate-200/80 flex items-center justify-center text-slate-600 shrink-0 shadow-2xs">
+                        <UserCheck className="w-3.5 h-3.5 text-slate-500" />
                       </div>
-                      {role.description && (
-                        <p className="text-[10px] text-slate-400 truncate mt-0.5">
-                          {role.description}
-                        </p>
-                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-slate-800 text-[11px] truncate">
+                            {role.name}
+                          </span>
+                          {role.isRequired ? (
+                            <span className="text-[9px] font-bold text-[#E1007A] bg-pink-50 px-1.5 py-0.2 rounded-md border border-pink-200/80 shrink-0">
+                              Required
+                            </span>
+                          ) : (
+                            <span className="text-[9px] text-slate-400 bg-slate-100 px-1.5 py-0.2 rounded-md border border-slate-200/60 shrink-0">
+                              Optional
+                            </span>
+                          )}
+                          {(role.maxOccurrences ?? 1) > 1 ? (
+                            <span className="text-[9px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.2 rounded-md border border-sky-200/80 shrink-0">
+                              Max {role.maxOccurrences}
+                            </span>
+                          ) : null}
+                        </div>
+                        {role.description && (
+                          <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                            {role.description}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditRoleModal(role)}
-                      title="Edit role"
-                      className="text-slate-400 hover:text-slate-800 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-                    >
-                      <Pencil className="w-3 h-3" />
-                    </button>
-                    {roles.length > 1 && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditRoleModal(role)}
+                        title="Edit role"
+                        className="text-slate-400 hover:text-slate-800 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => removeRole(role.id)}
@@ -495,10 +504,10 @@ export const TemplateSidebar: React.FC = () => {
                       >
                         <X className="w-3 h-3" />
                       </button>
-                    )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         )}
