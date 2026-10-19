@@ -1,0 +1,353 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  Sparkles,
+  Bot,
+  Target,
+  ListChecks,
+  CheckCircle2,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Check,
+  FileText,
+  RefreshCw,
+} from 'lucide-react';
+import type { CaseLifecycleStatus } from '../../../types/api';
+import { generateCaseSummary } from '../../../lib/api-client';
+
+interface AiCaseSummaryCardProps {
+  status: CaseLifecycleStatus | 'Open' | 'OnHold' | 'Completed' | 'Cancelled';
+  aiSummary?: string | null;
+  isLoading?: boolean;
+  caseId?: string;
+  onRefresh?: () => Promise<void> | void;
+}
+
+interface ParsedSection {
+  title: string;
+  items: Array<{
+    type: 'bullet' | 'paragraph';
+    text: string;
+  }>;
+}
+
+function parseMarkdownSummary(markdown: string): ParsedSection[] {
+  const lines = markdown.split('\n');
+  const sections: ParsedSection[] = [];
+  let currentSection: ParsedSection | null = null;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    // Check for Markdown headings (e.g. ### Case Purpose)
+    const headingMatch = line.match(/^#{1,4}\s+(.+)$/);
+    if (headingMatch) {
+      if (currentSection) {
+        sections.push(currentSection);
+      }
+      currentSection = {
+        title: headingMatch[1].trim(),
+        items: [],
+      };
+      continue;
+    }
+
+    // If no heading encountered yet, create a default Overview section
+    if (!currentSection) {
+      currentSection = {
+        title: 'Overview',
+        items: [],
+      };
+    }
+
+    // Check for bullet items (e.g. - item or * item)
+    const bulletMatch = line.match(/^[-*]\s+(.+)$/);
+    if (bulletMatch) {
+      currentSection.items.push({
+        type: 'bullet',
+        text: bulletMatch[1].trim(),
+      });
+    } else {
+      currentSection.items.push({
+        type: 'paragraph',
+        text: line,
+      });
+    }
+  }
+
+  if (currentSection) {
+    sections.push(currentSection);
+  }
+
+  return sections;
+}
+
+function renderFormattedText(text: string): React.ReactNode {
+  // Support inline bold **text**
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, idx) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={idx} className="font-semibold text-slate-900">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return <span key={idx}>{part}</span>;
+  });
+}
+
+function getSectionIcon(title: string): React.ReactNode {
+  const normalized = title.toLowerCase();
+  if (normalized.includes('purpose')) {
+    return <Target className="w-4 h-4 text-indigo-600 shrink-0" />;
+  }
+  if (normalized.includes('process') || normalized.includes('event')) {
+    return <ListChecks className="w-4 h-4 text-blue-600 shrink-0" />;
+  }
+  if (normalized.includes('outcome') || normalized.includes('role')) {
+    return <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />;
+  }
+  return <FileText className="w-4 h-4 text-slate-600 shrink-0" />;
+}
+
+export const AiCaseSummaryCard: React.FC<AiCaseSummaryCardProps> = ({
+  status,
+  aiSummary,
+  isLoading = false,
+  caseId,
+  onRefresh,
+}) => {
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [localSummary, setLocalSummary] = useState<string | null>(null);
+  const hasAutoTriggered = useRef<boolean>(false);
+
+  const activeSummary = localSummary || aiSummary;
+  const isClosed = status === 'Completed' || status === 'Cancelled';
+
+  const handleGenerate = useCallback(async () => {
+    if (!caseId || isGenerating) return;
+    setIsGenerating(true);
+    try {
+      const res = await generateCaseSummary(caseId);
+      if (res.aiSummary) {
+        setLocalSummary(res.aiSummary);
+      }
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch {
+      // Gracefully handled by deterministic fallback on backend
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [caseId, isGenerating, onRefresh]);
+
+  useEffect(() => {
+    if (
+      isClosed &&
+      !activeSummary &&
+      caseId &&
+      !hasAutoTriggered.current &&
+      !isLoading
+    ) {
+      hasAutoTriggered.current = true;
+      void handleGenerate();
+    }
+  }, [isClosed, activeSummary, caseId, isLoading, handleGenerate]);
+
+  const handleCopy = async () => {
+    if (!activeSummary) return;
+    try {
+      await navigator.clipboard.writeText(activeSummary);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Ignore clipboard error
+    }
+  };
+
+  // Render only for Completed or Cancelled cases
+  if (!isClosed) {
+    return null;
+  }
+
+  const sections = activeSummary ? parseMarkdownSummary(activeSummary) : [];
+
+  return (
+    <section
+      aria-label="AI Case Resolution Summary"
+      className="rounded-2xl bg-gradient-to-br from-indigo-50/40 via-white to-slate-50/60 border border-indigo-100 shadow-xs p-4 sm:p-5 transition-all space-y-3.5"
+    >
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-indigo-100/70 border border-indigo-200/80 flex items-center justify-center text-indigo-600 shrink-0 shadow-2xs">
+            <Sparkles className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+                Case Resolution Summary
+              </h3>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-100/80 text-indigo-700 border border-indigo-200/70">
+                <Bot className="w-3 h-3 text-indigo-600" />
+                AI Generated
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Structured summary of case purpose, timeline milestones, and final resolution.
+            </p>
+          </div>
+        </div>
+
+        {/* Action Controls */}
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          {caseId && (
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={isGenerating}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+              title="Regenerate AI Case Summary"
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5 text-indigo-600 ${isGenerating ? 'animate-spin' : ''}`}
+              />
+              <span>{isGenerating ? 'Generating...' : 'Refresh Summary'}</span>
+            </button>
+          )}
+
+          {activeSummary && (
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+              title="Copy Summary to Clipboard"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="text-emerald-700">Copied</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Copy</span>
+                </>
+              )}
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+            aria-expanded={!isCollapsed}
+          >
+            <span>{isCollapsed ? 'Show Details' : 'Hide'}</span>
+            {isCollapsed ? (
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            ) : (
+              <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Body Content */}
+      {!isCollapsed && (
+        <div className="space-y-4 pt-1">
+          {isLoading || isGenerating || !activeSummary ? (
+            /* Pending / Asynchronous Generation State */
+            <div className="space-y-3">
+              <div className="p-4 rounded-xl bg-indigo-50/70 border border-indigo-100 flex items-start gap-3 text-xs">
+                <Clock className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5 animate-pulse" />
+                <div className="space-y-1">
+                  <p className="font-semibold text-indigo-900">
+                    {isGenerating
+                      ? 'Generating case resolution summary...'
+                      : 'AI summary is being generated for this case...'}
+                  </p>
+                  <p className="text-indigo-700 text-[11px] leading-relaxed">
+                    Analyzing key milestones, notes, and activity history to produce a natural language summary.
+                  </p>
+                  {!isGenerating && caseId && (
+                    <button
+                      type="button"
+                      onClick={handleGenerate}
+                      className="mt-1 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold text-indigo-700 bg-white border border-indigo-200 hover:bg-indigo-50 transition-colors cursor-pointer"
+                    >
+                      <Sparkles className="w-3 h-3 text-indigo-600" />
+                      Generate Now
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Skeleton place-holders */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {[1, 2, 3].map((idx) => (
+                  <div
+                    key={idx}
+                    className="p-4 h-[320px] rounded-xl bg-white/80 border border-slate-200/80 space-y-2.5 animate-pulse"
+                  >
+                    <div className="h-3.5 bg-slate-200 rounded w-2/3" />
+                    <div className="space-y-1.5">
+                      <div className="h-2.5 bg-slate-100 rounded w-full" />
+                      <div className="h-2.5 bg-slate-100 rounded w-5/6" />
+                      <div className="h-2.5 bg-slate-100 rounded w-4/6" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : sections.length > 0 ? (
+            /* Structured 3-Section Cards Grid with scrollable columns */
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 items-stretch">
+              {sections.map((section, sIdx) => (
+                <div
+                  key={sIdx}
+                  className="rounded-xl bg-white/95 border border-slate-200/90 p-4 shadow-2xs flex flex-col h-[320px]"
+                >
+                  {/* Fixed Section Header */}
+                  <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5 shrink-0">
+                    {getSectionIcon(section.title)}
+                    <h4 className="text-xs font-bold text-slate-800 tracking-wide truncate">
+                      {section.title}
+                    </h4>
+                  </div>
+
+                  {/* Scrollable Section Content */}
+                  <div className="flex-1 overflow-y-auto pr-1 pt-2 space-y-2.5 text-xs text-slate-600 leading-relaxed [scrollbar-width:thin]">
+                    {section.items.map((item, iIdx) =>
+                      item.type === 'bullet' ? (
+                        <div key={iIdx} className="flex items-start gap-2 text-xs text-slate-600 leading-relaxed">
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0" />
+                          <div className="flex-1 min-w-0">{renderFormattedText(item.text)}</div>
+                        </div>
+                      ) : (
+                        <p key={iIdx} className="text-xs text-slate-600 leading-relaxed">
+                          {renderFormattedText(item.text)}
+                        </p>
+                      ),
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* Fallback Graceful Render with scrollable container */
+            <div className="p-4 h-[320px] overflow-y-auto pr-1 rounded-xl bg-white border border-slate-200 text-xs text-slate-600 leading-relaxed [scrollbar-width:thin]">
+              {renderFormattedText(activeSummary || '')}
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+};

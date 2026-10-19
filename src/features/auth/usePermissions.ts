@@ -1,0 +1,237 @@
+import { useMemo } from 'react';
+import { useAuth } from './AuthContext';
+import { SUPER_USER_ROLE_KEYWORDS } from '../../types/auth';
+import type {
+  BffWorkspaceWorkItem,
+  BffCaseDocument,
+  CaseStatusAction,
+} from '../../types/api';
+
+/**
+ * Normalizes a role string for flexible case-insensitive matching against role IDs or names.
+ */
+export function normalizeRole(role: string): string {
+  if (!role) return '';
+  return role
+    .trim()
+    .toLowerCase()
+    .replace(/^role-/, '')
+    .replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * Checks if a given role or list of roles matches super-user/internal agent keywords.
+ */
+export function hasSuperUserRole(roles?: string[]): boolean {
+  if (!roles || roles.length === 0) return false;
+  return roles.some((role) => {
+    const normalized = role.trim().toLowerCase();
+    return SUPER_USER_ROLE_KEYWORDS.some((kw) => normalized.includes(kw));
+  });
+}
+
+/**
+ * Formats a role slug or key into human-readable display name.
+ */
+export function formatRoleDisplayName(
+  role?: string,
+  ownerRoleId?: string,
+): string {
+  const roleText = role || ownerRoleId;
+  if (!roleText) return 'Assigned Role';
+
+  const standardRoleMap: Record<string, string> = {
+    'role-estate-agent': 'Estate Agent / Progressor',
+    'role-vendor-solicitor': "Seller's Conveyancer / Solicitor",
+    'role-buyer-solicitor': "Buyer's Conveyancer / Solicitor",
+    'role-vendor': 'Seller / Vendor',
+    'role-buyer': 'Buyer / Purchaser',
+    'role-mortgage-broker': 'Mortgage Broker / Advisor',
+    'role-surveyor': 'RICS Surveyor / Valuer',
+  };
+
+  if (standardRoleMap[roleText]) {
+    return standardRoleMap[roleText];
+  }
+
+  if (!roleText.startsWith('role-')) {
+    return roleText;
+  }
+
+  const withoutPrefix = roleText.replace(/^role-/, '');
+  const parts = withoutPrefix
+    .split('-')
+    .filter((p) => !/^[a-z0-9]{6,}$/i.test(p));
+  if (parts.length > 0) {
+    return parts.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+  return roleText;
+}
+
+/**
+ * Checks if user possesses a target role (handling IDs, slugs, and display names).
+ */
+export function hasRole(
+  roles: string[] | undefined,
+  targetRole: string | undefined,
+): boolean {
+  if (!roles || roles.length === 0 || !targetRole) return false;
+  const targetNorm = normalizeRole(targetRole);
+  if (!targetNorm) return false;
+
+  return roles.some((r) => {
+    const userRoleNorm = normalizeRole(r);
+    return (
+      userRoleNorm === targetNorm ||
+      userRoleNorm.includes(targetNorm) ||
+      targetNorm.includes(userRoleNorm)
+    );
+  });
+}
+
+/**
+ * Checks if user roles include administrator privileges.
+ */
+export function hasAdminRole(roles?: string[]): boolean {
+  if (!roles || roles.length === 0) return false;
+  return roles.some((role) => {
+    const normalized = role.trim().toLowerCase();
+    return (
+      normalized === 'admin' ||
+      normalized === 'role-admin' ||
+      normalized === 'superuser' ||
+      normalized.includes('admin') ||
+      normalized.includes('superuser')
+    );
+  });
+}
+
+export function usePermissions() {
+  const { user, roles, permissions } = useAuth();
+
+  const isSuperUser = useMemo(() => hasSuperUserRole(roles), [roles]);
+  const isAdmin = useMemo(() => hasAdminRole(roles), [roles]);
+
+  const can = useMemo(() => {
+    return (permission: string): boolean => {
+      if (isSuperUser) return true;
+      return permissions.includes(permission);
+    };
+  }, [isSuperUser, permissions]);
+
+  const canExecuteWorkItem = useMemo(() => {
+    return (
+      workItem: BffWorkspaceWorkItem,
+    ): {
+      canExecute: boolean;
+      reason?: string;
+      targetRoleDisplayName: string;
+    } => {
+      const targetRoleDisplayName = formatRoleDisplayName(
+        workItem.role,
+        workItem.ownerRoleId,
+      );
+
+      // In the Single-Operator model, internal estate agents and sales progressors
+      // execute all tasks on behalf of external stakeholders. The role is an
+      // informational Responsibility Badge, not an execution barrier.
+      const isAssignee =
+        Boolean(user?.id && workItem.assignee?.id === user.id) ||
+        Boolean(user?.email && workItem.assignee?.email === user.email);
+
+      const hasPermission =
+        isSuperUser ||
+        isAssignee ||
+        can('work_item:execute') ||
+        Boolean(workItem.allowedActions?.includes('COMPLETE'));
+
+      return {
+        canExecute: hasPermission,
+        targetRoleDisplayName,
+      };
+    };
+  }, [isSuperUser, can, user]);
+
+  const canDownloadDocument = useMemo(() => {
+    return (doc: BffCaseDocument): boolean => {
+      if (doc.canDownload === false) return false;
+      return true;
+    };
+  }, []);
+
+  const canManageTemplates = useMemo(() => {
+    return (): boolean => isSuperUser;
+  }, [isSuperUser]);
+
+  const canCreatePrivateNote = useMemo(() => {
+    return (): boolean => true;
+  }, []);
+
+  const canReopenCase = useMemo(() => {
+    return (caseData?: {
+      hasReopenPermission?: boolean;
+      allowedActions?: CaseStatusAction[];
+    }): boolean => {
+      if (isSuperUser) return true;
+      if (caseData?.hasReopenPermission === true) return true;
+      if (caseData?.allowedActions?.includes('REOPEN')) return true;
+      return false;
+    };
+  }, [isSuperUser]);
+
+  const canCustomizeCase = useMemo(() => {
+    return (caseStatus?: string): boolean => {
+      if (caseStatus && caseStatus !== 'Open' && caseStatus !== 'active') {
+        return false;
+      }
+      return isSuperUser || can('case:customize');
+    };
+  }, [isSuperUser, can]);
+
+  const canDeleteDocument = useMemo(() => {
+    return (
+      doc?: BffCaseDocument,
+      isCompletedWorkItem?: boolean,
+    ): { canDelete: boolean; reason?: string } => {
+      void doc;
+      if (isCompletedWorkItem) {
+        if (isAdmin) {
+          return { canDelete: true };
+        }
+        return {
+          canDelete: false,
+          reason:
+            'Evidence for a completed milestone task. Contact an Administrator to delete.',
+        };
+      }
+
+      if (isSuperUser || can('document:delete')) {
+        return { canDelete: true };
+      }
+
+      return {
+        canDelete: false,
+        reason: 'You do not have permission to delete documents.',
+      };
+    };
+  }, [isAdmin, isSuperUser, can]);
+
+  return {
+    user,
+    roles,
+    permissions,
+    isSuperUser,
+    isAdmin,
+    hasSuperUserRole: (testRoles?: string[]) =>
+      hasSuperUserRole(testRoles || roles),
+    hasRole: (targetRole: string) => hasRole(roles, targetRole),
+    can,
+    canExecuteWorkItem,
+    canDownloadDocument,
+    canDeleteDocument,
+    canManageTemplates,
+    canCreatePrivateNote,
+    canReopenCase,
+    canCustomizeCase,
+  };
+}

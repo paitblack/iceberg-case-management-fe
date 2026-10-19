@@ -1,0 +1,412 @@
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { SalesProgressionTracker } from './SalesProgressionTracker';
+import type { BffWorkspaceSnapshot } from '../../../types/api';
+
+const mockSnapshot: BffWorkspaceSnapshot = {
+  caseId: 'case-100',
+  reference: 'CM-887EFD34',
+  title: '14 Elm Road Sale',
+  propertyAddress: '14 Elm Road, London',
+  caseTypeId: 'ct-sale',
+  caseTypeName: 'Residential Sale',
+  templateVersion: 1,
+  status: 'Open',
+  progressPercentage: 33,
+  assignedProgressorName: 'Marcus Cole',
+  branchName: 'Central Office Branch',
+  blockers: ['Grant of probate: Grant of probate delayed at top of chain.'],
+  steps: [
+    {
+      id: 'step-1',
+      stepDefinitionId: 'sd-1',
+      name: 'Offer Accepted',
+      status: 'Completed',
+      displayOrder: 1,
+      dependencyJoinType: 'ALL',
+      dependencies: [],
+      allowedActions: [],
+      workItems: [],
+    },
+    {
+      id: 'step-2',
+      stepDefinitionId: 'sd-2',
+      name: 'Memorandum of Sale Sent',
+      status: 'Completed',
+      displayOrder: 2,
+      dependencyJoinType: 'ALL',
+      dependencies: ['step-1'],
+      allowedActions: [],
+      workItems: [],
+    },
+    {
+      id: 'step-3',
+      stepDefinitionId: 'sd-3',
+      name: 'Buyer Solicitor Instructed',
+      status: 'InProgress',
+      displayOrder: 3,
+      dependencyJoinType: 'ALL',
+      dependencies: ['step-2'],
+      startedAt: '2026-08-01T10:00:00.000Z',
+      allowedActions: ['COMPLETE_STEP'],
+      workItems: [
+        {
+          id: 'wi-1',
+          name: 'Add buyer solicitor details',
+          status: 'Pending',
+          requirement: 'required',
+          role: 'role-estate-agent',
+          allowedActions: ['COMPLETE'],
+        },
+      ],
+    },
+    {
+      id: 'step-4',
+      stepDefinitionId: 'sd-4',
+      name: 'Searches Ordered',
+      status: 'Pending',
+      displayOrder: 4,
+      dependencyJoinType: 'ALL',
+      dependencies: ['step-3'],
+      allowedActions: [],
+      workItems: [],
+    },
+  ],
+  documents: [],
+  participants: [],
+  updatedAt: '2026-08-01T10:00:00.000Z',
+};
+
+describe('SalesProgressionTracker', () => {
+  it('renders all progression milestones in horizontal stepper', () => {
+    render(<SalesProgressionTracker snapshot={mockSnapshot} />);
+
+    expect(
+      screen.getAllByText('Buyer Solicitor Instructed').length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Searches Ordered')).toBeInTheDocument();
+  });
+
+  it('renders the Current Active Milestone callout bar with next action details', () => {
+    render(<SalesProgressionTracker snapshot={mockSnapshot} />);
+
+    expect(screen.getByText('Current Active Milestone')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Add buyer solicitor details/),
+    ).toBeInTheDocument();
+  });
+
+  it('triggers onSelectStep when clicking a milestone node', () => {
+    const onSelectSpy = vi.fn();
+    render(
+      <SalesProgressionTracker
+        snapshot={mockSnapshot}
+        onSelectStep={onSelectSpy}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Searches Ordered'));
+    expect(onSelectSpy).toHaveBeenCalledWith('step-4');
+  });
+
+  it('correctly prioritizes Available step over Pending step as active milestone', () => {
+    const availableSnapshot: BffWorkspaceSnapshot = {
+      ...mockSnapshot,
+      steps: [
+        {
+          id: 'step-1',
+          stepDefinitionId: 'sd-1',
+          name: 'Offer Accepted',
+          status: 'Completed',
+          displayOrder: 1,
+          dependencyJoinType: 'ALL',
+          dependencies: [],
+          allowedActions: [],
+          workItems: [],
+        },
+        {
+          id: 'step-2',
+          stepDefinitionId: 'sd-2',
+          name: 'Draft Contracts Prepared',
+          status: 'Available',
+          displayOrder: 2,
+          dependencyJoinType: 'ALL',
+          dependencies: ['step-1'],
+          allowedActions: ['COMPLETE_STEP'],
+          workItems: [
+            {
+              id: 'wi-draft-contracts',
+              name: 'Prepare contract pack',
+              status: 'Pending',
+              requirement: 'required',
+              role: 'role-vendor-solicitor',
+              allowedActions: ['COMPLETE'],
+            },
+          ],
+        },
+        {
+          id: 'step-3',
+          stepDefinitionId: 'sd-3',
+          name: 'Exchange of Contracts',
+          status: 'Pending',
+          displayOrder: 3,
+          dependencyJoinType: 'ALL',
+          dependencies: ['step-2'],
+          allowedActions: [],
+          workItems: [],
+        },
+      ],
+    };
+
+    render(<SalesProgressionTracker snapshot={availableSnapshot} />);
+
+    // Step 2 (Available) is active, Next Action shows Step 2's task, not Step 3
+    expect(
+      screen.getAllByText('Draft Contracts Prepared').length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Prepare contract pack/)).toBeInTheDocument();
+    expect(screen.getByText(/Manual task - Seller Solicitor/)).toBeInTheDocument();
+  });
+
+  it('renders orphan/standalone step with distinct amber styling and Standalone badge', () => {
+    const standaloneSnapshot: BffWorkspaceSnapshot = {
+      ...mockSnapshot,
+      steps: [
+        {
+          id: 'step-1',
+          stepDefinitionId: 'sd-1',
+          name: 'Offer Accepted',
+          status: 'Completed',
+          displayOrder: 1,
+          dependencyJoinType: 'ALL',
+          dependencies: [],
+          allowedActions: [],
+          workItems: [],
+        },
+        {
+          id: 'step-standalone',
+          stepDefinitionId: 'sd-sa',
+          name: 'Independent Compliance Check',
+          status: 'Available',
+          displayOrder: 2,
+          dependencyJoinType: 'ALL',
+          dependencies: [],
+          isStandalone: true,
+          allowedActions: ['COMPLETE_STEP'],
+          workItems: [],
+        },
+        {
+          id: 'step-3',
+          stepDefinitionId: 'sd-3',
+          name: 'Exchange of Contracts',
+          status: 'Pending',
+          displayOrder: 3,
+          dependencyJoinType: 'ALL',
+          dependencies: ['step-1'],
+          allowedActions: [],
+          workItems: [],
+        },
+      ],
+    };
+
+    const { container } = render(
+      <SalesProgressionTracker snapshot={standaloneSnapshot} />,
+    );
+
+    // Standalone badge is visible on the orphan milestone node
+    expect(screen.getByText('Standalone')).toBeInTheDocument();
+    expect(
+      screen.getAllByText('Independent Compliance Check').length,
+    ).toBeGreaterThanOrEqual(1);
+
+    // Connecting lines flanking the orphan step are disconnected (opacity-0)
+    const hiddenLines = container.querySelectorAll('.opacity-0');
+    expect(hiddenLines.length).toBeGreaterThan(0);
+  });
+
+  it('correctly reflects waived work items in the hover card with Waived indicator and completed progress', () => {
+    const snapshotWithWaived: BffWorkspaceSnapshot = {
+      ...mockSnapshot,
+      steps: [
+        {
+          id: 'step-1',
+          stepDefinitionId: 'sd-1',
+          name: 'Offer Accepted',
+          status: 'Completed',
+          displayOrder: 1,
+          dependencyJoinType: 'ALL',
+          dependencies: [],
+          allowedActions: [],
+          workItems: [],
+        },
+        {
+          id: 'step-2',
+          stepDefinitionId: 'sd-2',
+          name: 'Exchange of Contracts',
+          status: 'InProgress',
+          displayOrder: 2,
+          dependencyJoinType: 'ALL',
+          dependencies: ['step-1'],
+          allowedActions: ['COMPLETE_STEP'],
+          workItems: [
+            {
+              id: 'wi-waived',
+              name: 'Transfer 10% Deposit',
+              status: 'Waived',
+              requirement: 'required',
+              role: 'role-buyer-solicitor',
+              allowedActions: [],
+            },
+            {
+              id: 'wi-pending',
+              name: 'Sign Contracts & TR1',
+              status: 'Pending',
+              requirement: 'required',
+              role: 'role-buyer-solicitor',
+              allowedActions: ['COMPLETE'],
+            },
+          ],
+        },
+      ],
+    };
+
+    render(<SalesProgressionTracker snapshot={snapshotWithWaived} />);
+    const node = screen
+      .getAllByText('Exchange of Contracts')[0]
+      .closest('div[data-no-drag]');
+    expect(node).not.toBeNull();
+    if (node) {
+      fireEvent.mouseEnter(node);
+    }
+
+    expect(screen.getByText(/1\/2 \(50%\)/)).toBeInTheDocument();
+    expect(screen.getByText('(1 waived)')).toBeInTheDocument();
+    expect(screen.getByText('Transfer 10% Deposit')).toBeInTheDocument();
+    expect(screen.getByText('Waived')).toBeInTheDocument();
+  });
+
+  it('renders reordered milestones with correct horizontal positions and ascending displayOrder badge numbers', () => {
+    const reorderedSnapshot: BffWorkspaceSnapshot = {
+      ...mockSnapshot,
+      steps: [
+        {
+          id: 'step-1',
+          stepDefinitionId: 'sd-1',
+          name: 'Offer Accepted',
+          status: 'Completed',
+          displayOrder: 1,
+          dependencyJoinType: 'ALL',
+          dependencies: [],
+          allowedActions: [],
+          workItems: [],
+        },
+        {
+          id: 'step-3',
+          stepDefinitionId: 'sd-3',
+          name: 'Searches Ordered',
+          status: 'InProgress',
+          displayOrder: 2,
+          dependencyJoinType: 'ALL',
+          dependencies: ['step-1'],
+          allowedActions: ['COMPLETE_STEP'],
+          workItems: [],
+        },
+        {
+          id: 'step-2',
+          stepDefinitionId: 'sd-2',
+          name: 'Buyer Solicitor Instructed',
+          status: 'Pending',
+          displayOrder: 3,
+          dependencyJoinType: 'ALL',
+          dependencies: ['step-3'],
+          allowedActions: [],
+          workItems: [],
+        },
+      ],
+    };
+
+    render(
+      <SalesProgressionTracker snapshot={reorderedSnapshot} />,
+    );
+
+    // Find nodes by text
+    const node1El = screen
+      .getAllByText('Offer Accepted')[0]
+      .closest('div[data-no-drag]') as HTMLElement;
+    const node3El = screen
+      .getAllByText('Searches Ordered')[0]
+      .closest('div[data-no-drag]') as HTMLElement;
+    const node2El = screen
+      .getAllByText('Buyer Solicitor Instructed')[0]
+      .closest('div[data-no-drag]') as HTMLElement;
+
+    expect(node1El).not.toBeNull();
+    expect(node3El).not.toBeNull();
+    expect(node2El).not.toBeNull();
+
+    const left1 = parseFloat(node1El.style.left);
+    const left3 = parseFloat(node3El.style.left);
+    const left2 = parseFloat(node2El.style.left);
+
+    // Node 1 (X=70) < Node 3 (X=245) < Node 2 (X=420)
+    expect(left1).toBeLessThan(left3);
+    expect(left3).toBeLessThan(left2);
+
+    // Badge inside Searches Ordered is 2, and Buyer Solicitor Instructed is 3
+    expect(node3El.textContent).toContain('2');
+    expect(node2El.textContent).toContain('3');
+  });
+
+  it('renders Step Notes in the popover and opens StepNotesModal when Add Note is clicked', async () => {
+    const onAddNote = vi.fn().mockResolvedValue(undefined);
+    render(
+      <SalesProgressionTracker
+        snapshot={mockSnapshot}
+        onAddNote={onAddNote}
+      />,
+    );
+
+    // Hover over step 1
+    const nodeEl = screen
+      .getAllByText('Offer Accepted')[0]
+      .closest('div[data-no-drag]') as HTMLElement;
+    fireEvent.mouseEnter(nodeEl);
+
+    // Verify Step Notes popover section appears
+    expect(screen.getByTestId('step-notes-popover-section')).toBeInTheDocument();
+    expect(screen.getByText('Step Notes')).toBeInTheDocument();
+
+    // Click "Add Note" button in popover
+    const addNoteBtn = screen.getAllByRole('button', { name: /Add Note/i })[0];
+    fireEvent.click(addNoteBtn);
+
+    // Verify Modal opens with Step Notes section
+    expect(
+      await screen.findByText(/Step Notes • Offer Accepted/i),
+    ).toBeInTheDocument();
+  });
+
+  it('renders Add Step Note in the Current Active Milestone callout bar and opens modal', async () => {
+    const onAddNote = vi.fn().mockResolvedValue(undefined);
+    render(
+      <SalesProgressionTracker
+        snapshot={mockSnapshot}
+        onAddNote={onAddNote}
+      />,
+    );
+
+    const addStepNoteBtn = screen.getByRole('button', {
+      name: /Add Step Note/i,
+    });
+    expect(addStepNoteBtn).toBeInTheDocument();
+
+    fireEvent.click(addStepNoteBtn);
+
+    expect(
+      await screen.findByText(/Step Notes • Buyer Solicitor Instructed/i),
+    ).toBeInTheDocument();
+  });
+});
+
+
+

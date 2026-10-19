@@ -1,219 +1,394 @@
-import React, { useState } from 'react';
-import { FolderKanban, Search, Filter, Plus, MoreVertical } from 'lucide-react';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Plus,
+  ArrowDownCircle,
+  Inbox,
+  CheckCircle2,
+  AlertCircle,
+} from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-import { formatCurrency, formatDate } from '../../lib/utils';
-import type { CaseSummary } from '../../types/api';
+import { CaseListFilters } from './components/CaseListFilters';
+import { CaseCard } from './components/CaseCard';
+import { CaseTableRow } from './components/CaseTableRow';
+import { CaseListSkeleton } from './components/CaseListSkeleton';
+import { ChangeStatusModal } from './components/ChangeStatusModal';
+import { CreateCaseModal } from './components/CreateCaseModal';
+import {
+  fetchCaseList,
+  changeCaseStatus,
+  ApiError,
+} from '../../lib/api-client';
+import type {
+  BffCaseItem,
+  BffCaseListMeta,
+  BffCaseListAvailableFilters,
+  CaseStatusAction,
+} from '../../types/api';
 
-const initialCases: CaseSummary[] = [
-  {
-    id: 'case-101',
-    caseTypeId: 'ct-sales',
-    caseTypeName: 'Residential Sales Progression',
-    title: '42 Highfield Lane, St Albans',
-    reference: 'SALES-2026-089',
-    status: 'active',
-    progressPercentage: 65,
-    currentStage: 'Conveyancing & Searches',
-    assigneeName: 'Sarah Jenkins',
-    propertyAddress: '42 Highfield Lane, St Albans, AL1 4TW',
-    price: 475000,
-    updatedAt: '2026-08-20T14:30:00Z',
-  },
-  {
-    id: 'case-102',
-    caseTypeId: 'ct-sales',
-    caseTypeName: 'Residential Sales Progression',
-    title: '18 Meadow View, Harpenden',
-    reference: 'SALES-2026-092',
-    status: 'blocked',
-    progressPercentage: 40,
-    currentStage: 'Mortgage Offer Approval',
-    assigneeName: 'Alex Morgan',
-    propertyAddress: '18 Meadow View, Harpenden, AL5 2PQ',
-    price: 620000,
-    updatedAt: '2026-08-19T11:20:00Z',
-  },
-  {
-    id: 'case-103',
-    caseTypeId: 'ct-market',
-    caseTypeName: 'Market Appraisal Flow',
-    title: '7 Oakwood Crescent, Redbourn',
-    reference: 'APP-2026-014',
-    status: 'active',
-    progressPercentage: 90,
-    currentStage: 'Valuation Presentation',
-    assigneeName: 'Sarah Jenkins',
-    propertyAddress: '7 Oakwood Crescent, AL3 7NP',
-    price: 550000,
-    updatedAt: '2026-08-20T16:00:00Z',
-  },
-  {
-    id: 'case-104',
-    caseTypeId: 'ct-sales',
-    caseTypeName: 'Residential Sales Progression',
-    title: '102 Victoria Street, St Albans',
-    reference: 'SALES-2026-095',
-    status: 'completed',
-    progressPercentage: 100,
-    currentStage: 'Completion & Key Handover',
-    assigneeName: 'David Bell',
-    propertyAddress: '102 Victoria Street, AL1 3TG',
-    price: 395000,
-    updatedAt: '2026-08-18T10:15:00Z',
-  },
-];
+const DEFAULT_FILTERS: BffCaseListAvailableFilters = {
+  statuses: ['Open', 'OnHold', 'Completed', 'Cancelled'],
+  caseTypes: [],
+};
 
 export const CasesPage: React.FC = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const navigate = useNavigate();
 
-  const filteredCases = initialCases.filter((c) => {
-    const matchesSearch =
-      c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.propertyAddress?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      selectedStatus === 'all' || c.status === selectedStatus;
-    return matchesSearch && matchesStatus;
+  // State
+  const [items, setItems] = useState<BffCaseItem[]>([]);
+  const [meta, setMeta] = useState<BffCaseListMeta>({
+    totalCount: 0,
+    hasMore: false,
   });
+  const [availableFilters, setAvailableFilters] =
+    useState<BffCaseListAvailableFilters>(DEFAULT_FILTERS);
+
+  // Filter query states
+  const [search, setSearch] = useState<string>('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedCaseTypeId, setSelectedCaseTypeId] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+
+  // Loading & Action states
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [isMutatingStatus, setIsMutatingStatus] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Modal states
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState<boolean>(false);
+  const [selectedCaseForAction, setSelectedCaseForAction] =
+    useState<BffCaseItem | null>(null);
+  const [pendingAction, setPendingAction] = useState<CaseStatusAction | null>(
+    null,
+  );
+  const [toastMessage, setToastMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+
+  // Data fetching logic
+  const loadCases = useCallback(
+    async (cursor?: string) => {
+      setErrorMessage(null);
+      if (cursor) {
+        setIsLoadingMore(true);
+      } else {
+        setIsLoading(true);
+      }
+
+      try {
+        const queryParams = {
+          search: search.trim() || undefined,
+          status: selectedStatus !== 'all' ? selectedStatus : undefined,
+          caseTypeId:
+            selectedCaseTypeId !== 'all' ? selectedCaseTypeId : undefined,
+          limit: 10,
+          cursor,
+        };
+
+        const res = await fetchCaseList(queryParams);
+
+        if (cursor) {
+          setItems((prev) => [...prev, ...res.items]);
+        } else {
+          setItems(res.items);
+        }
+
+        setMeta(res.meta);
+        if (res.availableFilters) {
+          setAvailableFilters(res.availableFilters);
+        }
+      } catch (err: unknown) {
+        if (!cursor) {
+          setItems([]);
+          setMeta({ totalCount: 0, hasMore: false });
+        }
+        if (err instanceof ApiError) {
+          setErrorMessage(err.problem.detail || err.message);
+        } else if (err instanceof Error) {
+          setErrorMessage(err.message);
+        } else {
+          setErrorMessage('Failed to fetch cases from backend database.');
+        }
+      } finally {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      }
+    },
+    [search, selectedStatus, selectedCaseTypeId],
+  );
+
+  useEffect(() => {
+    loadCases();
+  }, [loadCases]);
+
+  useEffect(() => {
+    const handlePersonaChange = () => {
+      loadCases();
+    };
+    window.addEventListener('auth:persona-changed', handlePersonaChange);
+    return () => {
+      window.removeEventListener('auth:persona-changed', handlePersonaChange);
+    };
+  }, [loadCases]);
+
+  const handleLoadMore = () => {
+    if (meta.hasMore && meta.nextCursor) {
+      loadCases(meta.nextCursor);
+    }
+  };
+
+  const handleTriggerAction = (
+    caseItem: BffCaseItem,
+    action: CaseStatusAction,
+  ) => {
+    setSelectedCaseForAction(caseItem);
+    setPendingAction(action);
+    setIsStatusModalOpen(true);
+  };
+
+  const handleConfirmStatusChange = async (
+    caseId: string,
+    action: CaseStatusAction,
+    reason?: string,
+  ) => {
+    setIsMutatingStatus(true);
+    try {
+      await changeCaseStatus(caseId, { action, reason });
+
+      // Refresh list directly from backend
+      await loadCases();
+
+      setToastMessage({
+        type: 'success',
+        text: `Case status updated successfully to ${action}.`,
+      });
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof ApiError
+          ? err.problem.detail || err.message
+          : 'Failed to update case status on backend.';
+      setToastMessage({
+        type: 'error',
+        text: msg,
+      });
+      setTimeout(() => setToastMessage(null), 5000);
+    } finally {
+      setIsMutatingStatus(false);
+      setIsStatusModalOpen(false);
+      setSelectedCaseForAction(null);
+      setPendingAction(null);
+    }
+  };
+
+  const handleResetFilters = () => {
+    setSearch('');
+    setSelectedStatus('all');
+    setSelectedCaseTypeId('all');
+  };
+
+  const handleOpenCase = (caseId: string) => {
+    navigate(`/cases/${caseId}`);
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-6 pb-12">
+      {/* Toast Notification Banner */}
+      {toastMessage && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-xl text-xs font-semibold text-white animate-in slide-in-from-bottom-5 duration-200 ${
+            toastMessage.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'
+          }`}
+        >
+          {toastMessage.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-rose-200" />
+          )}
+          <span>{toastMessage.text}</span>
+        </div>
+      )}
+
+      {/* Error Alert Box */}
+      {errorMessage && (
+        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 shadow-2xs">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+          <div className="space-y-0.5 flex-1 min-w-0">
+            <p className="font-bold">Backend Error</p>
+            <p className="text-[11px] leading-relaxed break-words">
+              {errorMessage}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-3">
-            <FolderKanban className="w-7 h-7 text-indigo-400" />
-            Cases Directory
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Browse, filter and advance active sales progressions and interactive
-            cases.
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">
+              Case Management Directory
+            </h2>
+            <span className="text-xs font-bold text-[#E1007A] bg-pink-50 px-2.5 py-0.5 rounded-full border border-pink-200/70">
+              {meta.totalCount} active cases
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-1">
+            Real-time live portfolio tracking, quick operational status transitions, and progression telemetry.
           </p>
         </div>
+
         <Button
           variant="primary"
           size="md"
+          onClick={() => setIsCreateModalOpen(true)}
           leftIcon={<Plus className="w-4 h-4" />}
+          className="font-bold shadow-md shadow-pink-500/10 shrink-0"
         >
-          Start New Case
+          New Case
         </Button>
       </div>
 
-      {/* Filter & Search Bar */}
-      <Card className="flex flex-col sm:flex-row items-center gap-4 py-3">
-        <div className="flex-1 w-full">
-          <Input
-            placeholder="Filter by property address, client, or case reference..."
-            leftIcon={<Search className="w-4 h-4" />}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-lg border border-slate-800 text-xs">
-            {['all', 'active', 'blocked', 'completed'].map((status) => (
-              <button
-                key={status}
-                onClick={() => setSelectedStatus(status)}
-                className={`px-3 py-1 rounded-md capitalize font-medium transition-colors ${
-                  selectedStatus === status
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                {status}
-              </button>
-            ))}
+      {/* Filter Toolbar */}
+      <CaseListFilters
+        search={search}
+        onSearchChange={setSearch}
+        selectedStatus={selectedStatus}
+        onStatusChange={setSelectedStatus}
+        selectedCaseTypeId={selectedCaseTypeId}
+        onCaseTypeChange={setSelectedCaseTypeId}
+        availableStatuses={availableFilters.statuses}
+        availableCaseTypes={availableFilters.caseTypes}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        totalCount={meta.totalCount}
+      />
+
+      {/* Content Rendering: Loading vs Data vs Empty */}
+      {isLoading ? (
+        <CaseListSkeleton viewMode={viewMode} count={5} />
+      ) : items.length === 0 ? (
+        <div className="iceberg-card p-12 text-center space-y-4 border border-slate-200/90 shadow-2xs">
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+            <Inbox className="w-6 h-6" />
           </div>
+          <div className="max-w-md mx-auto space-y-1">
+            <h3 className="text-sm font-bold text-slate-800">
+              No Cases Found in Backend
+            </h3>
+            <p className="text-xs text-slate-500">
+              {search ||
+              selectedStatus !== 'all' ||
+              selectedCaseTypeId !== 'all'
+                ? 'No active cases match your current filter parameters. Try clearing your filters.'
+                : 'There are currently no cases in the database for your organization. Launch a new workflow case to get started.'}
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-3 pt-2">
+            {search ||
+            selectedStatus !== 'all' ||
+            selectedCaseTypeId !== 'all' ? (
+              <Button variant="outline" size="sm" onClick={handleResetFilters}>
+                Clear Filters
+              </Button>
+            ) : null}
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsCreateModalOpen(true)}
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
+            >
+              Start First Case
+            </Button>
+          </div>
+        </div>
+      ) : viewMode === 'grid' ? (
+        /* Grid Layout */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {items.map((item) => (
+            <CaseCard
+              key={item.id}
+              item={item}
+              onOpen={handleOpenCase}
+              onTriggerAction={handleTriggerAction}
+            />
+          ))}
+        </div>
+      ) : (
+        /* Table Layout */
+        <div className="iceberg-card border border-slate-200/90 shadow-2xs rounded-2xl">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/75 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <th className="py-3 px-4">Case Identity & Title</th>
+                  <th className="py-3 px-4">Workflow Type</th>
+                  <th className="py-3 px-4">Status & Risk</th>
+                  <th className="py-3 px-4">Progression Milestone</th>
+                  <th className="py-3 px-4">Next SLA Deadline</th>
+                  <th className="py-3 px-4">Progress</th>
+                  <th className="py-3 px-4 text-right">Quick Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {items.map((item) => (
+                  <CaseTableRow
+                    key={item.id}
+                    item={item}
+                    onOpen={handleOpenCase}
+                    onTriggerAction={handleTriggerAction}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Pagination / Load More Footer */}
+      {!isLoading && meta.hasMore && (
+        <div className="flex justify-center pt-4">
           <Button
             variant="outline"
-            size="sm"
-            leftIcon={<Filter className="w-3.5 h-3.5" />}
+            size="md"
+            isLoading={isLoadingMore}
+            onClick={handleLoadMore}
+            leftIcon={<ArrowDownCircle className="w-4 h-4" />}
+            className="font-bold text-slate-700 bg-white"
           >
-            Filter
+            Load Next 10 Cases
           </Button>
         </div>
-      </Card>
+      )}
 
-      {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-slate-800 glass-panel">
-        <table className="w-full text-left text-xs">
-          <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-800 font-semibold uppercase tracking-wider">
-            <tr>
-              <th className="py-3 px-4">Case Reference & Title</th>
-              <th className="py-3 px-4">Type</th>
-              <th className="py-3 px-4">Status</th>
-              <th className="py-3 px-4">Current Stage</th>
-              <th className="py-3 px-4">Progress</th>
-              <th className="py-3 px-4">Agreed Price</th>
-              <th className="py-3 px-4">Last Updated</th>
-              <th className="py-3 px-4 text-right">
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800/60 text-slate-200">
-            {filteredCases.map((c) => (
-              <tr
-                key={c.id}
-                className="hover:bg-slate-900/40 transition-colors cursor-pointer"
-              >
-                <td className="py-3.5 px-4">
-                  <div className="font-semibold text-white">{c.title}</div>
-                  <div className="text-[11px] font-mono text-indigo-400 mt-0.5">
-                    {c.reference}
-                  </div>
-                </td>
-                <td className="py-3.5 px-4 text-slate-300">{c.caseTypeName}</td>
-                <td className="py-3.5 px-4">
-                  <Badge
-                    variant={
-                      c.status === 'active'
-                        ? 'info'
-                        : c.status === 'blocked'
-                          ? 'danger'
-                          : 'success'
-                    }
-                  >
-                    {c.status.toUpperCase()}
-                  </Badge>
-                </td>
-                <td className="py-3.5 px-4 font-medium text-slate-200">
-                  {c.currentStage}
-                </td>
-                <td className="py-3.5 px-4">
-                  <div className="w-24 space-y-1">
-                    <div className="flex justify-between text-[10px] text-slate-400">
-                      <span>{c.progressPercentage}%</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-indigo-500 rounded-full"
-                        style={{ width: `${c.progressPercentage}%` }}
-                      />
-                    </div>
-                  </div>
-                </td>
-                <td className="py-3.5 px-4 font-semibold text-slate-100">
-                  {c.price ? formatCurrency(c.price) : '—'}
-                </td>
-                <td className="py-3.5 px-4 text-slate-400">
-                  {formatDate(c.updatedAt)}
-                </td>
-                <td className="py-3.5 px-4 text-right">
-                  <button className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* Change Status Modal Dialog */}
+      {selectedCaseForAction && pendingAction && (
+        <ChangeStatusModal
+          isOpen={isStatusModalOpen}
+          onClose={() => {
+            setIsStatusModalOpen(false);
+            setSelectedCaseForAction(null);
+            setPendingAction(null);
+          }}
+          caseItem={selectedCaseForAction}
+          action={pendingAction}
+          onConfirm={handleConfirmStatusChange}
+          isLoading={isMutatingStatus}
+        />
+      )}
+
+      {/* Create New Case Modal Dialog */}
+      <CreateCaseModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={(_newCaseId) => {
+          setIsCreateModalOpen(false);
+          loadCases();
+        }}
+      />
     </div>
   );
 };

@@ -1,231 +1,216 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   FolderKanban,
-  CheckCircle2,
   AlertTriangle,
   Clock,
-  ArrowUpRight,
+  Activity,
+  TrendingUp,
+  RotateCw,
+  ArrowRight,
+  ShieldCheck,
   Plus,
 } from 'lucide-react';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { formatCurrency } from '../../lib/utils';
-import type { CaseSummary } from '../../types/api';
+import { KpiCard } from './components/KpiCard';
+import { PriorityOperationsList } from './components/PriorityOperationsList';
+import { RiskOverviewWidget } from './components/RiskOverviewWidget';
+import { DashboardSkeleton } from './components/DashboardSkeleton';
+import { CreateCaseModal } from '../cases/components/CreateCaseModal';
+import { fetchDashboardSnapshot } from '../../lib/api-client';
+import type { BffDashboardSnapshot } from '../../types/api';
 
-const mockCases: CaseSummary[] = [
-  {
-    id: 'case-101',
-    caseTypeId: 'ct-sales',
-    caseTypeName: 'Residential Sales Progression',
-    title: '42 Highfield Lane, St Albans',
-    reference: 'SALES-2026-089',
-    status: 'active',
-    progressPercentage: 65,
-    currentStage: 'Conveyancing & Searches',
-    assigneeName: 'Sarah Jenkins',
-    propertyAddress: '42 Highfield Lane, St Albans, AL1 4TW',
-    price: 475000,
-    updatedAt: '2026-08-20T14:30:00Z',
+const EMPTY_DASHBOARD: BffDashboardSnapshot = {
+  contractVersion: '1.0.0',
+  generatedAt: new Date().toISOString(),
+  activeCasesCount: 0,
+  activeBlockersCount: 0,
+  priorityOperations: [],
+  metrics: {
+    avgCycleTimeDays: null,
+    milestonesDueToday: null,
+    pipelineValueAmount: null,
+    pipelineValueCurrency: null,
   },
-  {
-    id: 'case-102',
-    caseTypeId: 'ct-sales',
-    caseTypeName: 'Residential Sales Progression',
-    title: '18 Meadow View, Harpenden',
-    reference: 'SALES-2026-092',
-    status: 'blocked',
-    progressPercentage: 40,
-    currentStage: 'Mortgage Offer Approval',
-    assigneeName: 'Alex Morgan',
-    propertyAddress: '18 Meadow View, Harpenden, AL5 2PQ',
-    price: 620000,
-    updatedAt: '2026-08-19T11:20:00Z',
-  },
-  {
-    id: 'case-103',
-    caseTypeId: 'ct-market',
-    caseTypeName: 'Market Appraisal Flow',
-    title: '7 Oakwood Crescent, Redbourn',
-    reference: 'APP-2026-014',
-    status: 'active',
-    progressPercentage: 90,
-    currentStage: 'Valuation Presentation',
-    assigneeName: 'Sarah Jenkins',
-    propertyAddress: '7 Oakwood Crescent, AL3 7NP',
-    price: 550000,
-    updatedAt: '2026-08-20T16:00:00Z',
-  },
-];
+};
 
 export const DashboardPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [data, setData] = useState<BffDashboardSnapshot>(EMPTY_DASHBOARD);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
+
+  const loadDashboard = useCallback(async (refresh = false) => {
+    if (refresh) setIsRefreshing(true);
+    else setIsLoading(true);
+
+    try {
+      const res = await fetchDashboardSnapshot();
+      setData(res);
+    } catch {
+      setData(EMPTY_DASHBOARD);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  const formatPipelineValue = (amount: number | null, currency: string | null) => {
+    if (amount === null || amount === undefined) return 'Unknown';
+    const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : currency ?? '';
+    if (amount >= 1_000_000) {
+      return `${symbol}${(amount / 1_000_000).toFixed(1)}M`;
+    }
+    if (amount >= 1_000) {
+      return `${symbol}${(amount / 1_000).toFixed(0)}K`;
+    }
+    return `${symbol}${amount.toLocaleString()}`;
+  };
+
   return (
-    <div className="space-y-8">
-      {/* Welcome Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 pb-12">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
-            Case Progression Overview
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Real-time case visibility, active milestone blockers, and pipeline
-            throughput.
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">
+              Operations Portfolio Dashboard
+            </h2>
+            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Live Engine
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-1">
+            Real-time pipeline progression, critical milestone deadlines, and active blocker alerts.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="secondary" size="sm">
-            Export Report
+
+        <div className="flex items-center gap-2.5 self-end sm:self-center">
+          <Button
+            variant="secondary"
+            size="sm"
+            isLoading={isRefreshing}
+            leftIcon={<RotateCw className="w-3.5 h-3.5" />}
+            onClick={() => loadDashboard(true)}
+          >
+            Refresh
           </Button>
+
           <Button
             variant="primary"
             size="sm"
-            leftIcon={<Plus className="w-4 h-4" />}
+            leftIcon={<Plus className="w-3.5 h-3.5" />}
+            onClick={() => setIsCreateModalOpen(true)}
+            className="font-bold shadow-md shadow-pink-500/10"
           >
             New Case
           </Button>
         </div>
       </div>
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-            <FolderKanban className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 font-medium">Active Cases</p>
-            <h3 className="text-2xl font-bold text-white">24</h3>
-            <p className="text-[11px] text-emerald-400 mt-0.5 flex items-center gap-1">
-              <ArrowUpRight className="w-3 h-3" /> +12% from last month
-            </p>
-          </div>
-        </Card>
+      {isLoading ? (
+        <DashboardSkeleton />
+      ) : (
+        <>
+          {/* 5 KPI Metric Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <KpiCard
+              title="Active Cases"
+              value={data.activeCasesCount}
+              subtitle="Open & On-Hold Workflows"
+              icon={<FolderKanban className="w-4 h-4" />}
+              variant="pink"
+              trend="Live from Database"
+            />
 
-        <Card className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-            <AlertTriangle className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 font-medium">
-              Blockers / At Risk
-            </p>
-            <h3 className="text-2xl font-bold text-white">3</h3>
-            <p className="text-[11px] text-amber-400 mt-0.5">
-              Requires Agent attention
-            </p>
-          </div>
-        </Card>
+            <KpiCard
+              title="Active Blockers"
+              value={data.activeBlockersCount}
+              subtitle="Immediate Attention Required"
+              icon={<AlertTriangle className="w-4 h-4" />}
+              variant="rose"
+              trend={
+                data.activeBlockersCount > 0 ? 'Action Needed' : 'No Blockers'
+              }
+            />
 
-        <Card className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 font-medium">
-              Completed (This Month)
-            </p>
-            <h3 className="text-2xl font-bold text-white">18</h3>
-            <p className="text-[11px] text-emerald-400 mt-0.5">
-              Avg 42 days to exchange
-            </p>
-          </div>
-        </Card>
+            <KpiCard
+              title="Due Today"
+              value={data.metrics.milestonesDueToday ?? 'Unknown'}
+              subtitle="Target Milestone SLA"
+              icon={<Clock className="w-4 h-4" />}
+              variant="amber"
+              trend="SLA Target"
+            />
 
-        <Card className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
-            <Clock className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 font-medium">Pipeline Value</p>
-            <h3 className="text-2xl font-bold text-white">£12.4M</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Across 4 branch offices
-            </p>
-          </div>
-        </Card>
-      </div>
+            <KpiCard
+              title="Avg Cycle Time"
+              value={data.metrics.avgCycleTimeDays !== null ? `${data.metrics.avgCycleTimeDays} Days` : 'Unknown'}
+              subtitle="Instruction to Completion"
+              icon={<Activity className="w-4 h-4" />}
+              variant="blue"
+              trend="Target: 45 Days"
+            />
 
-      {/* Active Progression Cases */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-white">
-            Recent Sales Progressions
-          </h2>
-          <span className="text-xs text-indigo-400 hover:text-indigo-300 font-medium cursor-pointer">
-            View All Cases &rarr;
-          </span>
-        </div>
+            <KpiCard
+              title="Pipeline Value"
+              value={formatPipelineValue(
+                data.metrics.pipelineValueAmount,
+                data.metrics.pipelineValueCurrency,
+              )}
+              subtitle="Agreed Portfolio Value"
+              icon={<TrendingUp className="w-4 h-4" />}
+              variant="emerald"
+              trend={`${data.activeCasesCount} active cases`}
+            />
+          </div>
 
-        <div className="grid grid-cols-1 gap-3">
-          {mockCases.map((c) => (
-            <Card
-              key={c.id}
-              hoverable
-              className="flex flex-col md:flex-row md:items-center justify-between gap-4"
-            >
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-indigo-400 font-semibold">
-                    {c.reference}
-                  </span>
-                  <Badge
-                    variant={
-                      c.status === 'active'
-                        ? 'info'
-                        : c.status === 'blocked'
-                          ? 'danger'
-                          : 'success'
-                    }
-                  >
-                    {c.status.toUpperCase()}
-                  </Badge>
-                  <span className="text-xs text-slate-400">
-                    • {c.caseTypeName}
-                  </span>
-                </div>
-                <h4 className="text-base font-semibold text-white">
-                  {c.title}
-                </h4>
-                <p className="text-xs text-slate-400">{c.propertyAddress}</p>
+          {/* Portfolio Traffic Light SLA Risk Health Overview */}
+          <RiskOverviewWidget
+            riskOverview={data.riskOverview}
+            totalActiveCases={data.activeCasesCount}
+          />
+
+          {/* Main Priority Operations Worklist */}
+          <div className="space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm md:text-base font-extrabold text-slate-900 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-[#E1007A]" />
+                  Urgent Progression & Milestone Deadlines
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Critical milestones requiring progressor communication, evidence verification, or key date actions.
+                </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-6">
-                <div className="text-left md:text-right">
-                  <p className="text-[11px] text-slate-400">Agreed Price</p>
-                  <p className="text-sm font-semibold text-slate-100">
-                    {c.price ? formatCurrency(c.price) : '—'}
-                  </p>
-                </div>
+              <Button
+                variant="ghost"
+                size="xs"
+                rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+                onClick={() => navigate('/cases')}
+                className="font-bold text-xs text-[#E1007A] hover:text-[#C00068] hover:bg-pink-50"
+              >
+                View Full Directory
+              </Button>
+            </div>
 
-                <div className="w-36 space-y-1.5">
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-slate-400">Progress</span>
-                    <span className="text-indigo-400 font-medium">
-                      {c.progressPercentage}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-indigo-500 to-sky-400 rounded-full"
-                      style={{ width: `${c.progressPercentage}%` }}
-                    />
-                  </div>
-                  <p className="text-[10px] text-slate-400 truncate">
-                    {c.currentStage}
-                  </p>
-                </div>
+            <PriorityOperationsList items={data.priorityOperations} />
+          </div>
+        </>
+      )}
 
-                <div className="text-right">
-                  <p className="text-[11px] text-slate-400">Assigned Agent</p>
-                  <p className="text-xs font-medium text-slate-200">
-                    {c.assigneeName}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      </div>
+      {/* Start New Case Modal */}
+      <CreateCaseModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={(newCaseId) => navigate(`/cases/${newCaseId}`)}
+      />
     </div>
   );
 };

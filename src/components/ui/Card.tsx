@@ -14,8 +14,8 @@ export const Card: React.FC<CardProps> = ({
   return (
     <div
       className={cn(
-        'glass-panel rounded-xl p-5',
-        hoverable && 'glass-panel-hover cursor-pointer',
+        'iceberg-card p-5',
+        hoverable && 'iceberg-card-hover cursor-pointer',
         className,
       )}
       {...props}
